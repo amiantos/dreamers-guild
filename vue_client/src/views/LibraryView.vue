@@ -288,6 +288,11 @@ export default {
   align-items: center;
   padding: 1.5rem 2rem;
   margin-bottom: 0;
+  position: sticky;
+  top: 60px; /* Height of the navbar */
+  background: #0a0a0a;
+  z-index: 50;
+  border-bottom: 1px solid #333;
 }
 
 .header h2 {
