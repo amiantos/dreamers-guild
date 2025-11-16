@@ -280,7 +280,7 @@ export default {
 
     const closeImage = () => {
       selectedImage.value = null
-      router.replace('/library')
+      router.replace('/')
     }
 
     const setFilter = (filterType, value) => {
@@ -334,9 +334,9 @@ export default {
       // Always use canonical image URL
       // Use push for first image view, replace for navigation between images
       if (!selectedImage.value) {
-        router.push(`/library/image/${imageId}`)
+        router.push(`/image/${imageId}`)
       } else {
-        router.replace(`/library/image/${imageId}`)
+        router.replace(`/image/${imageId}`)
       }
     }
 

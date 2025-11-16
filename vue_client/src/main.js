@@ -12,7 +12,7 @@ const router = createRouter({
       component: LibraryView
     },
     {
-      path: '/library/image/:imageId',
+      path: '/image/:imageId',
       name: 'library-image',
       component: LibraryView,
       props: true
