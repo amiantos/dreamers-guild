@@ -25,7 +25,9 @@
     <RequestGeneratorModal
       v-if="showRequestModal"
       ref="requestModalRef"
-      @close="showRequestModal = false"
+      :initialSettings="modalInitialSettings"
+      :includeSeed="modalIncludeSeed"
+      @close="handleCloseRequestModal"
       @submit="handleNewRequest"
     />
 
@@ -51,9 +53,18 @@ export default {
     const showRequestModal = ref(false)
     const showSettingsModal = ref(false)
     const requestModalRef = ref(null)
+    const modalInitialSettings = ref(null)
+    const modalIncludeSeed = ref(false)
+
+    const handleCloseRequestModal = () => {
+      showRequestModal.value = false
+      // Clear the initial settings when modal closes
+      modalInitialSettings.value = null
+      modalIncludeSeed.value = false
+    }
 
     const handleNewRequest = () => {
-      showRequestModal.value = false
+      handleCloseRequestModal()
       // Optionally navigate to requests view
       window.location.href = '/'
     }
@@ -83,16 +94,10 @@ export default {
           }
         }
 
-        // Show the modal
+        // Set the initial settings and show the modal
+        modalInitialSettings.value = settings
+        modalIncludeSeed.value = includeSeed
         showRequestModal.value = true
-
-        // Wait for the modal to render
-        await nextTick()
-
-        // Load the settings
-        if (requestModalRef.value && requestModalRef.value.loadSettings) {
-          requestModalRef.value.loadSettings(settings, includeSeed)
-        }
       } catch (error) {
         console.error('Error loading settings from image:', error)
       }
@@ -105,6 +110,9 @@ export default {
       showRequestModal,
       showSettingsModal,
       requestModalRef,
+      modalInitialSettings,
+      modalIncludeSeed,
+      handleCloseRequestModal,
       handleNewRequest,
       loadSettingsFromImage
     }

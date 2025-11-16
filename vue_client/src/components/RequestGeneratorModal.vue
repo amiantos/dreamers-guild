@@ -321,6 +321,16 @@ export default {
     ModelPicker,
     StylePicker
   },
+  props: {
+    initialSettings: {
+      type: Object,
+      default: null
+    },
+    includeSeed: {
+      type: Boolean,
+      default: false
+    }
+  },
   emits: ['close', 'submit'],
   setup(props, { emit }) {
     const submitting = ref(false)
@@ -741,7 +751,14 @@ export default {
 
     onMounted(async () => {
       await fetchModels()
-      await loadLastUsedSettings()
+
+      // Load initial settings from props if provided, otherwise load last used settings
+      if (props.initialSettings) {
+        loadSettings(props.initialSettings, props.includeSeed)
+      } else {
+        await loadLastUsedSettings()
+      }
+
       // Only estimate if we have a model after loading
       if (form.model) {
         estimateKudos()
