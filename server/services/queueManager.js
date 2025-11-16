@@ -312,6 +312,10 @@ class QueueManager {
           // Mark as being downloaded to prevent duplicates
           this.activeDownloads.add(download.uuid);
 
+          // Delete pending download immediately to prevent duplicate processing
+          // (do this before the download in case of errors/crashes)
+          HordePendingDownload.delete(download.uuid);
+
           // Download the image
           console.log(`[Download] → Fetching image data for ${download.uuid.substring(0, 8)}...`);
           const imageData = await hordeApi.downloadImage(download.uri);
@@ -351,9 +355,6 @@ class QueueManager {
             thumbnailPath: `${imageUuid}_thumb.jpg`
           });
 
-          // Delete pending download
-          HordePendingDownload.delete(download.uuid);
-
           // Remove from active downloads
           this.activeDownloads.delete(download.uuid);
 
@@ -374,7 +375,8 @@ class QueueManager {
           }
         } catch (error) {
           console.error(`[Download] ✗ Error downloading image ${download.uuid.substring(0, 8)}...:`, error.message);
-          // Remove from active downloads so it can be retried
+          console.error(`[Download] Image download failed and will not be retried`);
+          // Remove from active downloads (note: pending download was already deleted to prevent duplicates)
           this.activeDownloads.delete(download.uuid);
         }
       }
