@@ -2,9 +2,31 @@
   <div class="library-view">
     <div class="header">
       <h2>{{ title }}</h2>
-      <div v-if="keywords" class="search-info">
-        Searching for: "{{ keywords }}"
-        <button @click="clearSearch" class="btn-clear">Clear</button>
+
+      <div class="header-controls">
+        <!-- Active Filters -->
+        <div v-if="filters.requestId || filters.keywords" class="filter-chips">
+          <div v-if="filters.requestId" class="filter-chip">
+            <span>Request</span>
+            <button @click="clearFilter('requestId')" class="chip-remove">×</button>
+          </div>
+          <div v-if="filters.keywords" class="filter-chip">
+            <span>{{ filters.keywords }}</span>
+            <button @click="clearFilter('keywords')" class="chip-remove">×</button>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-bar">
+          <input
+            type="text"
+            v-model="searchQuery"
+            @keyup.enter="applySearch"
+            placeholder="Search images..."
+            class="search-input"
+          />
+          <button @click="applySearch" class="btn-search">Search</button>
+        </div>
       </div>
     </div>
 
@@ -66,8 +88,6 @@ export default {
     ImageModal
   },
   props: {
-    id: String, // request ID
-    keywords: String,
     imageId: String // selected image ID from URL
   },
   setup(props) {
@@ -80,13 +100,34 @@ export default {
     const hasMore = ref(true)
     const offset = ref(0)
     const limit = 50
+    const searchQuery = ref('')
+    const filters = ref({
+      requestId: null,
+      keywords: null
+    })
 
     // Inject the loadSettingsFromImage function from App.vue
     const loadSettingsFromImage = inject('loadSettingsFromImage')
 
+    // Load filters from localStorage
+    const loadFilters = () => {
+      try {
+        const saved = localStorage.getItem('libraryFilters')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          filters.value = { ...filters.value, ...parsed }
+        }
+      } catch (error) {
+        console.error('Error loading filters:', error)
+      }
+    }
+
+    // Save filters to localStorage
+    const saveFilters = () => {
+      localStorage.setItem('libraryFilters', JSON.stringify(filters.value))
+    }
+
     const title = computed(() => {
-      if (props.id) return 'Request Images'
-      if (props.keywords) return 'Search Results'
       return 'All Images'
     })
 
@@ -102,11 +143,11 @@ export default {
         loading.value = true
         let response
 
-        if (props.id) {
-          response = await imagesApi.getByRequestId(props.id, limit)
+        if (filters.value.requestId) {
+          response = await imagesApi.getByRequestId(filters.value.requestId, limit)
           hasMore.value = false // Request images don't paginate
-        } else if (props.keywords) {
-          response = await imagesApi.search(props.keywords, limit)
+        } else if (filters.value.keywords) {
+          response = await imagesApi.search(filters.value.keywords, limit)
           hasMore.value = false // Search doesn't paginate yet
         } else {
           response = await imagesApi.getAll(limit, offset.value)
@@ -162,14 +203,39 @@ export default {
 
     const closeImage = () => {
       selectedImage.value = null
-      // Update URL to reflect the library context (replace to avoid adding to history)
-      if (props.id) {
-        router.replace(`/library/request/${props.id}`)
-      } else if (props.keywords) {
-        router.replace(`/library/search?q=${props.keywords}`)
-      } else {
-        router.replace('/library')
+      router.replace('/library')
+    }
+
+    const setFilter = (filterType, value) => {
+      filters.value[filterType] = value
+      saveFilters()
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
+    }
+
+    const clearFilter = (filterType) => {
+      filters.value[filterType] = null
+      saveFilters()
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
+    }
+
+    const applySearch = () => {
+      if (searchQuery.value.trim()) {
+        setFilter('keywords', searchQuery.value.trim())
       }
+    }
+
+    const clearAllFilters = () => {
+      filters.value.requestId = null
+      filters.value.keywords = null
+      searchQuery.value = ''
+      saveFilters()
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
     }
 
     const navigateImage = (direction) => {
@@ -204,14 +270,9 @@ export default {
         await imagesApi.delete(imageId)
         images.value = images.value.filter(img => img.uuid !== imageId)
         selectedImage.value = null
-        closeImage()
       } catch (error) {
         console.error('Error deleting image:', error)
       }
-    }
-
-    const clearSearch = () => {
-      router.push('/library')
     }
 
     const handleLoadSettings = (includeSeed) => {
@@ -247,15 +308,31 @@ export default {
       }
     })
 
+    // Listen for filter changes from localStorage (e.g., from other tabs or RequestCard)
+    const handleStorageChange = (e) => {
+      if (e.key === 'libraryFilters') {
+        loadFilters()
+        offset.value = 0
+        hasMore.value = true
+        fetchImages()
+      }
+    }
+
     onMounted(async () => {
+      loadFilters()
       await fetchImages()
       loadImageFromUrl()
       window.addEventListener('scroll', handleScroll)
+      window.addEventListener('storage', handleStorageChange)
     })
 
     onUnmounted(() => {
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('storage', handleStorageChange)
     })
+
+    // Expose setFilter so it can be called from router navigation
+    window.setLibraryFilter = setFilter
 
     return {
       images,
@@ -264,14 +341,18 @@ export default {
       currentImageIndex,
       gridContainer,
       title,
+      filters,
+      searchQuery,
       getThumbnailUrl,
       formatDate,
       viewImage,
       closeImage,
       navigateImage,
       deleteImage,
-      clearSearch,
-      handleLoadSettings
+      handleLoadSettings,
+      applySearch,
+      clearFilter,
+      clearAllFilters
     }
   }
 }
@@ -293,36 +374,98 @@ export default {
   background: #0a0a0a;
   z-index: 50;
   border-bottom: 1px solid #333;
+  gap: 2rem;
 }
 
 .header h2 {
   font-size: 2rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.search-info {
+.header-controls {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 16px;
+  font-size: 0.875rem;
+  color: #fff;
+}
+
+.chip-remove {
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.25rem;
+  transition: color 0.2s;
+}
+
+.chip-remove:hover {
+  color: #ff4a4a;
+}
+
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.search-input {
   padding: 0.5rem 1rem;
   background: #1a1a1a;
-  border-radius: 8px;
-  color: #999;
-}
-
-.btn-clear {
-  padding: 0.3rem 0.8rem;
-  background: transparent;
   border: 1px solid #333;
   border-radius: 6px;
-  color: #999;
-  cursor: pointer;
-  font-size: 0.85rem;
+  color: #fff;
+  font-size: 0.9rem;
+  width: 250px;
+  transition: border-color 0.2s;
 }
 
-.btn-clear:hover {
-  background: #2a2a2a;
-  color: #fff;
+.search-input:focus {
+  outline: none;
+  border-color: #007AFF;
+}
+
+.search-input::placeholder {
+  color: #666;
+}
+
+.btn-search {
+  padding: 0.5rem 1rem;
+  background: #007AFF;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.btn-search:hover {
+  background: #0051D5;
 }
 
 .loading,

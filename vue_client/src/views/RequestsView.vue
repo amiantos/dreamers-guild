@@ -78,7 +78,15 @@ export default {
     }
 
     const viewRequestImages = (requestId) => {
-      router.push(`/library/request/${requestId}`)
+      // Set the request filter in localStorage
+      const filters = {
+        requestId: requestId,
+        keywords: null
+      }
+      localStorage.setItem('libraryFilters', JSON.stringify(filters))
+
+      // Navigate to library (LibraryView will pick up the filter)
+      router.push('/library')
     }
 
     const showDeleteModal = (requestId) => {
