@@ -229,23 +229,50 @@ class QueueManager {
         return;
       }
 
-      // Create pending downloads for each image
-      console.log(`[Complete] Creating ${statusData.generations.length} pending downloads for ${requestUuid.substring(0, 8)}...`);
+      // Create pending downloads for each image (skip censored images)
+      console.log(`[Complete] Processing ${statusData.generations.length} images for ${requestUuid.substring(0, 8)}...`);
+      let downloadCount = 0;
+      let censoredCount = 0;
+
       for (const generation of statusData.generations) {
+        // Skip censored images
+        if (generation.censored === true) {
+          censoredCount++;
+          console.log(`[Complete]   - Skipping censored image`);
+          continue;
+        }
+
         const download = HordePendingDownload.create({
           requestId: requestUuid,
           uri: generation.img,
           fullResponse: JSON.stringify(generation)
         });
+        downloadCount++;
         console.log(`[Complete]   - Created download ${download.uuid.substring(0, 8)}... for image: ${generation.img}`);
+      }
+
+      if (censoredCount > 0) {
+        console.log(`[Complete] Skipped ${censoredCount} censored image(s)`);
+      }
+      console.log(`[Complete] Created ${downloadCount} pending download(s) for ${requestUuid.substring(0, 8)}...`);
+
+      if (downloadCount === 0) {
+        HordeRequest.update(requestUuid, {
+          status: 'completed',
+          message: censoredCount > 0 ? `All ${censoredCount} images were censored` : 'No images to download'
+        });
+        console.log(`[Complete] ✓ Request ${requestUuid.substring(0, 8)}... completed with no images to download`);
+        return;
       }
 
       HordeRequest.update(requestUuid, {
         status: 'downloading',
-        message: `Downloading ${statusData.generations.length} images...`
+        message: censoredCount > 0
+          ? `Downloading ${downloadCount} images (${censoredCount} censored)...`
+          : `Downloading ${downloadCount} images...`
       });
 
-      console.log(`[Complete] ✓ Request ${requestUuid.substring(0, 8)}... completed, ${statusData.generations.length} images ready for download`);
+      console.log(`[Complete] ✓ Request ${requestUuid.substring(0, 8)}... completed, ${downloadCount} images ready for download`);
     } catch (error) {
       console.error(`[Complete] ✗ Error handling completed request ${requestUuid.substring(0, 8)}...:`, error.message);
       HordeRequest.update(requestUuid, {
