@@ -1,55 +1,5 @@
 <template>
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
-    <div class="header">
-      <div class="header-left">
-        <h2>Aislingeach</h2>
-        <button @click="openSettings" class="btn-settings-icon" title="Settings">
-          ⚙
-        </button>
-      </div>
-
-      <div class="header-controls">
-        <div class="right-controls">
-          <!-- Active Filters -->
-          <div v-if="filters.requestId || filters.keywords" class="filter-chips">
-            <div v-if="filters.requestId" class="filter-chip">
-              <span>Request: {{ filters.requestId.substring(0, 8) }}</span>
-              <button @click="clearFilter('requestId')" class="chip-remove">×</button>
-            </div>
-            <div v-if="filters.keywords" class="filter-chip">
-              <span>{{ filters.keywords }}</span>
-              <button @click="clearFilter('keywords')" class="chip-remove">×</button>
-            </div>
-          </div>
-
-          <!-- Search Bar -->
-          <div class="search-bar">
-            <input
-              type="text"
-              v-model="searchQuery"
-              @keyup.enter="applySearch"
-              placeholder="Search images..."
-              class="search-input"
-            />
-            <button @click="applySearch" class="btn-search">Search</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Requests Panel Toggle Tab -->
-    <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
-      <div class="tab-content">
-        <span class="tab-arrow">{{ isPanelOpen ? '▲' : '▼' }}</span>
-        <div v-if="queueStatus" class="queue-status">
-          <span class="status-dot" :class="{ active: queueStatus.isProcessing }"></span>
-          <span>{{ queueStatus.active }}/{{ queueStatus.maxActive }} active</span>
-          <span class="divider">•</span>
-          <span>{{ queueStatus.pendingRequests }} pending</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Requests Panel -->
     <div class="requests-panel" :class="{ open: isPanelOpen }">
       <div class="panel-header">
@@ -79,6 +29,58 @@
       @close="deleteModalVisible = false"
       @delete="confirmDelete"
     />
+
+    <div class="header">
+      <div class="header-content">
+        <div class="header-left">
+          <h2>Aislingeach</h2>
+          <button @click="openSettings" class="btn-settings-icon" title="Settings">
+            ⚙
+          </button>
+        </div>
+
+        <div class="header-controls">
+          <div class="right-controls">
+            <!-- Active Filters -->
+            <div v-if="filters.requestId || filters.keywords" class="filter-chips">
+              <div v-if="filters.requestId" class="filter-chip">
+                <span>Request: {{ filters.requestId.substring(0, 8) }}</span>
+                <button @click="clearFilter('requestId')" class="chip-remove">×</button>
+              </div>
+              <div v-if="filters.keywords" class="filter-chip">
+                <span>{{ filters.keywords }}</span>
+                <button @click="clearFilter('keywords')" class="chip-remove">×</button>
+              </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-bar">
+              <input
+                type="text"
+                v-model="searchQuery"
+                @keyup.enter="applySearch"
+                placeholder="Search images..."
+                class="search-input"
+              />
+              <button @click="applySearch" class="btn-search">Search</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Requests Panel Toggle Tab (inside header) -->
+      <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
+        <div class="tab-content">
+          <span class="tab-arrow">{{ isPanelOpen ? '▲' : '▼' }}</span>
+          <div v-if="queueStatus" class="queue-status">
+            <span class="status-dot" :class="{ active: queueStatus.isProcessing }"></span>
+            <span>{{ queueStatus.active }}/{{ queueStatus.maxActive }} active</span>
+            <span class="divider">•</span>
+            <span>{{ queueStatus.pendingRequests }} pending</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div v-if="loading && images.length === 0" class="loading">
       Loading images...
@@ -612,28 +614,19 @@ export default {
 }
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.5rem 2rem;
-  margin-bottom: 0;
   position: sticky;
   top: 0;
   background: #0a0a0a;
   z-index: 50;
   border-bottom: 1px solid #333;
-  gap: 2rem;
 }
 
-.header::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #333;
-  z-index: 51;
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  gap: 2rem;
 }
 
 .header-left {
@@ -871,15 +864,12 @@ export default {
 
 /* Requests Panel Tab */
 .panel-tab {
-  position: sticky;
-  top: 84px;
-  left: 0;
-  right: 0;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 100%);
   z-index: 49;
-  display: flex;
-  justify-content: center;
   cursor: pointer;
-  pointer-events: none;
 }
 
 .panel-tab .tab-content {
@@ -895,7 +885,6 @@ export default {
   gap: 1rem;
   padding: 0.75rem 1.5rem;
   transition: background 0.2s;
-  pointer-events: all;
 }
 
 .panel-tab:hover .tab-content {
@@ -940,18 +929,16 @@ export default {
 .requests-panel {
   background: #0d0d0d;
   border-bottom: 1px solid #222;
-  border-left: 1px solid #222;
-  border-right: 1px solid #222;
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease-out;
-  z-index: 48;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
+  box-shadow: none;
 }
 
 .requests-panel.open {
   max-height: 50vh;
   overflow-y: auto;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
 }
 
 .panel-header {
