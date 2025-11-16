@@ -4,7 +4,12 @@
       <div class="modal-wrapper" v-show="!showModelPicker && !showStylePicker">
         <div class="modal-header">
           <h2>New Image Request</h2>
-          <button class="btn-close" @click="$emit('close')">×</button>
+          <div class="header-actions">
+            <button class="btn-reset" @click="loadRandomPreset" title="Load random preset">
+              Reset
+            </button>
+            <button class="btn-close" @click="$emit('close')">×</button>
+          </div>
         </div>
 
         <div class="modal-body">
@@ -285,6 +290,8 @@
 <script>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { requestsApi, imagesApi, settingsApi } from '../api/client.js'
+import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
+import { getRandomPreset } from '../config/presets.js'
 import axios from 'axios'
 import ModelPicker from './ModelPicker.vue'
 import StylePicker from './StylePicker.vue'
@@ -385,6 +392,56 @@ export default {
     const onStyleSelect = (style) => {
       selectedStyleName.value = style.name
       selectedStyleData.value = style.name === 'None' ? null : style
+    }
+
+    // Load settings from an arbitrary settings object
+    const loadSettings = (settings) => {
+      // Split prompt on ### to separate positive and negative prompts
+      if (settings.prompt) {
+        const splitPrompt = settings.prompt.split('###')
+        if (splitPrompt.length > 0) {
+          form.prompt = splitPrompt[0].trim()
+        }
+        if (splitPrompt.length > 1 && splitPrompt[0] !== splitPrompt[splitPrompt.length - 1]) {
+          form.negativePrompt = splitPrompt[splitPrompt.length - 1].trim()
+        } else {
+          form.negativePrompt = ''
+        }
+      }
+
+      // Load model
+      if (settings.models && settings.models.length > 0) {
+        form.model = settings.models[0]
+      }
+
+      // Load params
+      if (settings.params) {
+        const params = settings.params
+        if (params.sampler_name) form.sampler = params.sampler_name
+        if (params.cfg_scale !== undefined) form.cfgScale = params.cfg_scale
+        if (params.height !== undefined) form.height = params.height
+        if (params.width !== undefined) form.width = params.width
+        if (params.karras !== undefined) form.karras = params.karras
+        if (params.hires_fix !== undefined) form.hiresFix = params.hires_fix
+        if (params.clip_skip !== undefined) form.clipSkip = params.clip_skip
+        if (params.steps !== undefined) form.steps = params.steps
+        if (params.n !== undefined) form.n = params.n
+        if (params.tiling !== undefined) form.tiling = params.tiling
+        if (params.loras) form.loras = [...params.loras]
+        if (params.post_processing) form.postProcessing = [...params.post_processing]
+      }
+
+      // Clear any selected style
+      selectedStyleName.value = 'None'
+      selectedStyleData.value = null
+
+      // Re-estimate kudos
+      estimateKudos()
+    }
+
+    const loadRandomPreset = () => {
+      const preset = getRandomPreset()
+      loadSettings(preset)
     }
 
     const applyStyle = () => {
@@ -517,39 +574,65 @@ export default {
     const buildRequestParams = () => {
       const { prompt: finalPrompt, negativePrompt: finalNegativePrompt } = buildPromptWithStyle()
 
-      const params = {
-        prompt: finalPrompt,
-        models: [form.model],
-        params: {
-          n: form.n,
-          steps: form.steps,
-          width: form.width,
-          height: form.height,
-          cfg_scale: form.cfgScale,
-          sampler_name: form.sampler,
-          karras: form.karras,
-          hires_fix: form.hiresFix,
-          tiling: form.tiling,
-          clip_skip: form.clipSkip
-        },
-        nsfw: form.nsfw,
-        trusted_workers: form.trustedWorkers,
-        slow_workers: form.slowWorkers
+      // Start with baseRequest as foundation
+      const params = JSON.parse(JSON.stringify(baseRequest))
+
+      // Apply prompt
+      params.prompt = finalPrompt
+
+      // Set model
+      params.models = [form.model]
+
+      // Apply user preferences (worker settings)
+      params.nsfw = form.nsfw
+      params.trusted_workers = form.trustedWorkers
+      params.slow_workers = form.slowWorkers
+
+      // If a style is selected, apply style parameters on top of baseRequest
+      if (selectedStyleName.value !== 'None' && selectedStyleData.value) {
+        const style = selectedStyleData.value
+
+        // Copy style parameters to request
+        styleCopyParams.forEach(param => {
+          if (style[param] !== undefined) {
+            params.params[param] = style[param]
+          }
+        })
+
+        // Style model overrides form model
+        if (style.model) {
+          params.models = [style.model]
+        }
+      } else {
+        // No style selected, use user's custom settings
+        params.params.n = form.n
+        params.params.steps = form.steps
+        params.params.width = form.width
+        params.params.height = form.height
+        params.params.cfg_scale = form.cfgScale
+        params.params.sampler_name = form.sampler
+        params.params.karras = form.karras
+        params.params.hires_fix = form.hiresFix
+        params.params.tiling = form.tiling
+        params.params.clip_skip = form.clipSkip
+
+        // Add post-processing if any
+        if (form.postProcessing.length > 0) {
+          params.params.post_processing = form.postProcessing
+        }
+
+        // Add loras if any
+        if (form.loras && form.loras.length > 0) {
+          params.params.loras = form.loras
+        }
       }
+
+      // User's image quantity always overrides (even with style)
+      params.params.n = form.n
 
       // Add negative prompt if it exists
       if (finalNegativePrompt) {
         params.params.negative_prompt = finalNegativePrompt
-      }
-
-      // Add post-processing if any
-      if (form.postProcessing.length > 0) {
-        params.params.post_processing = form.postProcessing
-      }
-
-      // Add loras if any (from style or manual)
-      if (form.loras && form.loras.length > 0) {
-        params.params.loras = form.loras
       }
 
       return params
@@ -644,7 +727,9 @@ export default {
       applyStyle,
       toggleAspectLock,
       onDimensionChange,
-      estimateKudos
+      estimateKudos,
+      loadSettings,
+      loadRandomPreset
     }
   }
 }
@@ -699,6 +784,30 @@ export default {
 .modal-header h2 {
   margin: 0;
   font-size: 1.5rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-reset {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #999;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reset:hover {
+  background: #2a2a2a;
+  color: #fff;
+  border-color: #007AFF;
 }
 
 .btn-close {
