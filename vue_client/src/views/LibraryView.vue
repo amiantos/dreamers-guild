@@ -188,7 +188,12 @@ export default {
 
     const updateUrl = (imageId) => {
       // Always use canonical image URL
-      router.replace(`/library/image/${imageId}`)
+      // Use push for first image view, replace for navigation between images
+      if (!selectedImage.value) {
+        router.push(`/library/image/${imageId}`)
+      } else {
+        router.replace(`/library/image/${imageId}`)
+      }
     }
 
     const deleteImage = async (imageId) => {
