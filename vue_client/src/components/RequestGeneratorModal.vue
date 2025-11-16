@@ -394,7 +394,40 @@ export default {
 
       const style = selectedStyleData.value
 
-      // Apply all style parameters to form (but not prompt, negativePrompt, or n)
+      // Apply style's prompt template to the actual form prompts
+      if (style.prompt) {
+        const userPrompt = form.prompt || ''
+        const userNegativePrompt = form.negativePrompt || ''
+
+        // Replace {p} with user's positive prompt
+        let generationText = style.prompt.replace(/{p}/g, userPrompt)
+
+        // Handle negative prompt placeholder
+        if (userNegativePrompt === '') {
+          // If negative prompt is empty, remove {np} placeholders
+          generationText = generationText.replace(/{np},/g, '')
+          generationText = generationText.replace(/{np}/g, '')
+        } else if (generationText.includes('###')) {
+          // If template already has ###, replace {np} with negative prompt
+          generationText = generationText.replace(/{np}/g, userNegativePrompt)
+        } else {
+          // Otherwise, replace {np} with ### separator + negative prompt
+          generationText = generationText.replace(/{np}/g, ` ### ${userNegativePrompt}`)
+        }
+
+        // Split on ### to separate positive and negative prompts
+        const splitPrompt = generationText.split('###')
+        if (splitPrompt.length > 0) {
+          form.prompt = splitPrompt[0].trim()
+        }
+        if (splitPrompt.length > 1 && splitPrompt[0] !== splitPrompt[splitPrompt.length - 1]) {
+          form.negativePrompt = splitPrompt[splitPrompt.length - 1].trim()
+        } else {
+          form.negativePrompt = ''
+        }
+      }
+
+      // Apply all style parameters to form
       if (style.model) form.model = style.model
       if (style.steps !== undefined) form.steps = style.steps
       if (style.width !== undefined) form.width = style.width
@@ -441,9 +474,16 @@ export default {
     const buildPromptWithStyle = () => {
       // If no style is selected or no style data, return prompts as-is
       if (selectedStyleName.value === 'None' || !selectedStyleData.value || !selectedStyleData.value.prompt) {
+        // Combine prompt and negative prompt with ### separator if both exist
+        if (form.prompt && form.negativePrompt) {
+          return {
+            prompt: `${form.prompt} ### ${form.negativePrompt}`,
+            negativePrompt: null
+          }
+        }
         return {
           prompt: form.prompt,
-          negativePrompt: form.negativePrompt
+          negativePrompt: form.negativePrompt || null
         }
       }
 
@@ -452,23 +492,25 @@ export default {
       const userNegativePrompt = form.negativePrompt || ''
 
       // Replace {p} with user's positive prompt
-      let finalPrompt = stylePromptTemplate.replace(/{p}/g, userPrompt)
+      let generationText = stylePromptTemplate.replace(/{p}/g, userPrompt)
 
-      // Handle negative prompt placeholder
-      if (stylePromptTemplate.includes('{np}')) {
-        // Replace {np} with user's negative prompt
-        finalPrompt = finalPrompt.replace(/{np}/g, userNegativePrompt)
-        // Don't send separate negative prompt since it's in the main prompt
-        return {
-          prompt: finalPrompt,
-          negativePrompt: null
-        }
+      // Handle negative prompt placeholder (same logic as iOS)
+      if (userNegativePrompt === '') {
+        // If negative prompt is empty, remove {np} placeholders
+        generationText = generationText.replace(/{np},/g, '')
+        generationText = generationText.replace(/{np}/g, '')
+      } else if (generationText.includes('###')) {
+        // If template already has ###, replace {np} with negative prompt
+        generationText = generationText.replace(/{np}/g, userNegativePrompt)
       } else {
-        // If template doesn't have {np}, append negative prompt with separator
-        return {
-          prompt: finalPrompt,
-          negativePrompt: userNegativePrompt || null
-        }
+        // Otherwise, replace {np} with ### separator + negative prompt
+        generationText = generationText.replace(/{np}/g, ` ### ${userNegativePrompt}`)
+      }
+
+      // Return the combined prompt (API will handle splitting on ###)
+      return {
+        prompt: generationText,
+        negativePrompt: null
       }
     }
 
