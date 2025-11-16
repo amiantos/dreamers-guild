@@ -59,7 +59,7 @@ router.delete('/:id', (req, res) => {
 
     if (imageAction === 'prune') {
       // Delete all non-favorited images (for now, all images since favoriting doesn't exist)
-      const images = GeneratedImage.getByRequestId(requestId);
+      const images = GeneratedImage.findByRequestId(requestId);
       images.forEach(img => {
         if (!img.is_favorite) {
           GeneratedImage.delete(img.uuid);
@@ -67,7 +67,7 @@ router.delete('/:id', (req, res) => {
       });
     } else if (imageAction === 'keep') {
       // Keep all images by removing the request_id reference
-      const images = GeneratedImage.getByRequestId(requestId);
+      const images = GeneratedImage.findByRequestId(requestId);
       images.forEach(img => {
         GeneratedImage.update(img.uuid, { requestId: null });
       });

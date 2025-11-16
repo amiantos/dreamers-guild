@@ -139,6 +139,7 @@ export const GeneratedImage = {
     const fields = [];
     const values = [];
 
+    if (data.requestId !== undefined) { fields.push('request_id = ?'); values.push(data.requestId); }
     if (data.isFavorite !== undefined) { fields.push('is_favorite = ?'); values.push(data.isFavorite ? 1 : 0); }
     if (data.isHidden !== undefined) { fields.push('is_hidden = ?'); values.push(data.isHidden ? 1 : 0); }
     if (data.isTrashed !== undefined) { fields.push('is_trashed = ?'); values.push(data.isTrashed ? 1 : 0); }
