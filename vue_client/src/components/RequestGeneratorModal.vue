@@ -384,15 +384,33 @@ export default {
       }
     }
 
-    // Load last used settings
+    // Load last used settings (from localStorage for speed, fallback to server)
     const loadLastUsedSettings = async () => {
       try {
+        // Try localStorage first for instant loading
+        const cachedSettings = localStorage.getItem('lastUsedSettings')
+        if (cachedSettings) {
+          try {
+            const lastSettings = JSON.parse(cachedSettings)
+            if (lastSettings && typeof lastSettings === 'object') {
+              Object.assign(form, lastSettings)
+              return // Success, no need to fetch from server
+            }
+          } catch (parseError) {
+            console.error('Error parsing cached settings:', parseError)
+            // Fall through to server fetch
+          }
+        }
+
+        // Fallback to server if no cache or cache failed
         const response = await settingsApi.get()
         if (response.data && response.data.last_used_settings) {
           try {
             const lastSettings = JSON.parse(response.data.last_used_settings)
             if (lastSettings && typeof lastSettings === 'object') {
               Object.assign(form, lastSettings)
+              // Cache the settings locally for next time
+              localStorage.setItem('lastUsedSettings', JSON.stringify(lastSettings))
             }
           } catch (parseError) {
             console.error('Error parsing last_used_settings:', parseError)
@@ -403,13 +421,20 @@ export default {
       }
     }
 
-    // Save last used settings
+    // Save last used settings (to both localStorage and server)
     const saveLastUsedSettings = async () => {
       try {
         const settingsToSave = { ...form }
         // Don't save loras in last used settings as they're style-specific
         delete settingsToSave.loras
-        await settingsApi.update({ lastUsedSettings: settingsToSave })
+
+        // Save to localStorage immediately for instant access
+        localStorage.setItem('lastUsedSettings', JSON.stringify(settingsToSave))
+
+        // Also save to server (async, don't wait)
+        settingsApi.update({ lastUsedSettings: settingsToSave }).catch(error => {
+          console.error('Error saving settings to server:', error)
+        })
       } catch (error) {
         console.error('Error saving last used settings:', error)
       }
