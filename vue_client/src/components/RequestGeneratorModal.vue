@@ -9,7 +9,7 @@
 
         <div class="modal-body">
           <form @submit.prevent="submitRequest">
-            <!-- Prompt Section -->
+            <!-- Prompt Section (Always Visible) -->
             <div class="form-group">
               <label for="prompt">Prompt *</label>
               <textarea
@@ -31,15 +31,19 @@
               ></textarea>
             </div>
 
-            <!-- Model and Style Selection -->
+            <!-- Number of Images (Always Visible) -->
             <div class="form-group">
-              <label>Model</label>
-              <div class="selector-button" @click="showModelPicker = true">
-                <span class="selector-value">{{ form.model || 'Loading...' }}</span>
-                <span class="selector-arrow">›</span>
-              </div>
+              <label for="n">Number of Images</label>
+              <input
+                type="number"
+                id="n"
+                v-model.number="form.n"
+                min="1"
+                max="10"
+              />
             </div>
 
+            <!-- Style Selection (Always Visible) -->
             <div class="form-group">
               <label>Style</label>
               <div class="selector-button" @click="showStylePicker = true">
@@ -48,19 +52,57 @@
               </div>
             </div>
 
-            <!-- Basic Parameters -->
-            <div class="form-row">
+            <!-- Style Action Buttons (When Style is Selected) -->
+            <div v-if="selectedStyleData && selectedStyleData.name !== 'None'" class="style-actions">
+              <button
+                v-if="!styleApplied"
+                type="button"
+                @click="applyStyle"
+                class="btn btn-apply-style"
+              >
+                Apply Style
+              </button>
+              <button
+                v-if="styleApplied"
+                type="button"
+                @click="removeStyle"
+                class="btn btn-remove-style"
+              >
+                Remove Style
+              </button>
+            </div>
+
+            <!-- Worker Preferences (Always Visible) -->
+            <div class="toggles-section">
+              <h4>Worker Preferences</h4>
+              <div class="toggle-grid">
+                <label class="toggle">
+                  <input type="checkbox" v-model="form.slowWorkers" />
+                  <span>Allow Slow Workers</span>
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="form.trustedWorkers" />
+                  <span>Trusted Workers Only</span>
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" v-model="form.nsfw" />
+                  <span>Allow NSFW</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Full Parameters (Only Visible When NO Style is Applied) -->
+            <div v-if="!styleApplied" class="full-parameters">
+              <!-- Model Selection -->
               <div class="form-group">
-                <label for="n">Number of Images</label>
-                <input
-                  type="number"
-                  id="n"
-                  v-model.number="form.n"
-                  min="1"
-                  max="10"
-                />
+                <label>Model</label>
+                <div class="selector-button" @click="showModelPicker = true">
+                  <span class="selector-value">{{ form.model || 'Loading...' }}</span>
+                  <span class="selector-arrow">›</span>
+                </div>
               </div>
 
+              <!-- Steps -->
               <div class="form-group">
                 <label for="steps">Steps</label>
                 <input
@@ -71,141 +113,137 @@
                   max="100"
                 />
               </div>
-            </div>
 
-            <!-- Dimensions with Aspect Ratio Lock -->
-            <div class="form-row">
-              <div class="form-group">
-                <label for="width">Width</label>
-                <input
-                  type="number"
-                  id="width"
-                  v-model.number="form.width"
-                  @input="onDimensionChange('width')"
-                  min="256"
-                  max="2048"
-                  step="64"
-                />
-              </div>
-
-              <div class="form-group">
-                <label>
-                  <button
-                    type="button"
-                    class="btn-aspect-lock"
-                    @click="toggleAspectLock"
-                    :title="aspectLocked ? 'Unlock aspect ratio' : 'Lock aspect ratio'"
-                  >
-                    {{ aspectLocked ? '🔒' : '🔓' }}
-                  </button>
-                </label>
-              </div>
-
-              <div class="form-group">
-                <label for="height">Height</label>
-                <input
-                  type="number"
-                  id="height"
-                  v-model.number="form.height"
-                  @input="onDimensionChange('height')"
-                  min="256"
-                  max="2048"
-                  step="64"
-                />
-              </div>
-            </div>
-
-            <!-- CFG Scale and Clip Skip -->
-            <div class="form-row">
-              <div class="form-group">
-                <label for="cfg_scale">CFG Scale</label>
-                <div class="slider-group">
+              <!-- Dimensions with Aspect Ratio Lock -->
+              <div class="form-row three-col">
+                <div class="form-group">
+                  <label for="width">Width</label>
                   <input
-                    type="range"
-                    id="cfg_scale"
-                    v-model.number="form.cfgScale"
-                    min="1"
-                    max="30"
-                    step="0.5"
+                    type="number"
+                    id="width"
+                    v-model.number="form.width"
+                    @input="onDimensionChange('width')"
+                    min="256"
+                    max="2048"
+                    step="64"
                   />
-                  <span class="range-value">{{ form.cfgScale }}</span>
+                </div>
+
+                <div class="form-group">
+                  <label>
+                    <button
+                      type="button"
+                      class="btn-aspect-lock"
+                      @click="toggleAspectLock"
+                      :title="aspectLocked ? 'Unlock aspect ratio' : 'Lock aspect ratio'"
+                    >
+                      {{ aspectLocked ? '🔒' : '🔓' }}
+                    </button>
+                  </label>
+                </div>
+
+                <div class="form-group">
+                  <label for="height">Height</label>
+                  <input
+                    type="number"
+                    id="height"
+                    v-model.number="form.height"
+                    @input="onDimensionChange('height')"
+                    min="256"
+                    max="2048"
+                    step="64"
+                  />
                 </div>
               </div>
 
+              <!-- CFG Scale and Clip Skip -->
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="cfg_scale">CFG Scale</label>
+                  <div class="slider-group">
+                    <input
+                      type="range"
+                      id="cfg_scale"
+                      v-model.number="form.cfgScale"
+                      min="1"
+                      max="30"
+                      step="0.5"
+                    />
+                    <span class="range-value">{{ form.cfgScale }}</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="clip_skip">Clip Skip</label>
+                  <input
+                    type="number"
+                    id="clip_skip"
+                    v-model.number="form.clipSkip"
+                    min="1"
+                    max="12"
+                  />
+                </div>
+              </div>
+
+              <!-- Sampler -->
               <div class="form-group">
-                <label for="clip_skip">Clip Skip</label>
-                <input
-                  type="number"
-                  id="clip_skip"
-                  v-model.number="form.clipSkip"
-                  min="1"
-                  max="12"
-                />
+                <label for="sampler">Sampler</label>
+                <select id="sampler" v-model="form.sampler">
+                  <option value="k_euler">Euler</option>
+                  <option value="k_euler_a">Euler a</option>
+                  <option value="k_dpm_2">DPM 2</option>
+                  <option value="k_dpm_2_a">DPM 2 a</option>
+                  <option value="k_heun">Heun</option>
+                  <option value="k_dpm_fast">DPM fast</option>
+                  <option value="k_dpm_adaptive">DPM adaptive</option>
+                  <option value="k_lms">LMS</option>
+                  <option value="ddim">DDIM</option>
+                  <option value="k_dpmpp_2m">DPM++ 2M</option>
+                  <option value="k_dpmpp_2s_a">DPM++ 2S a</option>
+                  <option value="k_dpmpp_sde">DPM++ SDE</option>
+                </select>
               </div>
-            </div>
 
-            <!-- Sampler -->
-            <div class="form-group">
-              <label for="sampler">Sampler</label>
-              <select id="sampler" v-model="form.sampler">
-                <option value="k_euler">Euler</option>
-                <option value="k_euler_a">Euler a</option>
-                <option value="k_dpm_2">DPM 2</option>
-                <option value="k_dpm_2_a">DPM 2 a</option>
-                <option value="k_heun">Heun</option>
-                <option value="k_dpm_fast">DPM fast</option>
-                <option value="k_dpm_adaptive">DPM adaptive</option>
-                <option value="k_lms">LMS</option>
-                <option value="ddim">DDIM</option>
-                <option value="k_dpmpp_2m">DPM++ 2M</option>
-                <option value="k_dpmpp_2s_a">DPM++ 2S a</option>
-                <option value="k_dpmpp_sde">DPM++ SDE</option>
-              </select>
-            </div>
-
-            <!-- Advanced Toggles -->
-            <div class="toggles-section">
-              <h4>Advanced Options</h4>
-              <div class="toggle-grid">
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.karras" />
-                  <span>Karras</span>
-                </label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.hiresFix" />
-                  <span>Hires Fix</span>
-                </label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.tiling" />
-                  <span>Tiling</span>
-                </label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.nsfw" />
-                  <span>Allow NSFW</span>
-                </label>
+              <!-- Advanced Toggles -->
+              <div class="toggles-section">
+                <h4>Advanced Options</h4>
+                <div class="toggle-grid">
+                  <label class="toggle">
+                    <input type="checkbox" v-model="form.karras" />
+                    <span>Karras</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" v-model="form.hiresFix" />
+                    <span>Hires Fix</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" v-model="form.tiling" />
+                    <span>Tiling</span>
+                  </label>
+                </div>
               </div>
-            </div>
 
-            <!-- Post-Processing -->
-            <div class="form-group">
-              <label>Post-Processing</label>
-              <div class="checkbox-group">
-                <label class="checkbox-item">
-                  <input type="checkbox" value="GFPGAN" v-model="form.postProcessing" />
-                  <span>GFPGAN (Face Fix)</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" value="CodeFormers" v-model="form.postProcessing" />
-                  <span>CodeFormers (Face Fix)</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" value="RealESRGAN_x2plus" v-model="form.postProcessing" />
-                  <span>RealESRGAN x2</span>
-                </label>
-                <label class="checkbox-item">
-                  <input type="checkbox" value="RealESRGAN_x4plus" v-model="form.postProcessing" />
-                  <span>RealESRGAN x4</span>
-                </label>
+              <!-- Post-Processing -->
+              <div class="form-group">
+                <label>Post-Processing</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-item">
+                    <input type="checkbox" value="GFPGAN" v-model="form.postProcessing" />
+                    <span>GFPGAN (Face Fix)</span>
+                  </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" value="CodeFormers" v-model="form.postProcessing" />
+                    <span>CodeFormers (Face Fix)</span>
+                  </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" value="RealESRGAN_x2plus" v-model="form.postProcessing" />
+                    <span>RealESRGAN x2</span>
+                  </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" value="RealESRGAN_x4plus" v-model="form.postProcessing" />
+                    <span>RealESRGAN x4</span>
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -274,6 +312,7 @@ export default {
     const aspectRatio = ref(1)
     const selectedStyleName = ref('None')
     const selectedStyleData = ref(null)
+    const styleApplied = ref(false)
 
     const form = reactive({
       prompt: '',
@@ -290,8 +329,14 @@ export default {
       hiresFix: false,
       tiling: false,
       nsfw: false,
-      postProcessing: []
+      trustedWorkers: false,
+      slowWorkers: true,
+      postProcessing: [],
+      loras: []
     })
+
+    // Store original settings before applying style
+    const originalSettings = ref(null)
 
     // Fetch available models from AI Horde
     const fetchModels = async () => {
@@ -302,7 +347,7 @@ export default {
           .sort((a, b) => b.count - a.count)
 
         // Set default to most popular model
-        if (models.length > 0) {
+        if (models.length > 0 && !form.model) {
           form.model = models[0].name
         }
       } catch (error) {
@@ -332,7 +377,10 @@ export default {
     // Save last used settings
     const saveLastUsedSettings = async () => {
       try {
-        await settingsApi.update({ lastUsedSettings: { ...form } })
+        const settingsToSave = { ...form }
+        // Don't save loras in last used settings as they're style-specific
+        delete settingsToSave.loras
+        await settingsApi.update({ lastUsedSettings: settingsToSave })
       } catch (error) {
         console.error('Error saving last used settings:', error)
       }
@@ -347,23 +395,81 @@ export default {
       selectedStyleName.value = style.name
       selectedStyleData.value = style
 
-      // Apply style settings
+      // If "None" is selected, remove any applied style
       if (style.name === 'None') {
-        // Reset to defaults
-        selectedStyleData.value = null
-      } else {
-        // Apply style parameters
-        if (style.model) {
-          form.model = style.model
-        }
-        if (style.params) {
-          if (style.params.width) form.width = style.params.width
-          if (style.params.height) form.height = style.params.height
-          if (style.params.steps) form.steps = style.params.steps
-          if (style.params.cfg_scale) form.cfgScale = style.params.cfg_scale
-          if (style.params.sampler_name) form.sampler = style.params.sampler_name
-        }
+        removeStyle()
       }
+    }
+
+    const applyStyle = () => {
+      if (!selectedStyleData.value || selectedStyleData.value.name === 'None') {
+        return
+      }
+
+      // Store current settings before applying style
+      originalSettings.value = {
+        model: form.model,
+        steps: form.steps,
+        width: form.width,
+        height: form.height,
+        cfgScale: form.cfgScale,
+        sampler: form.sampler,
+        karras: form.karras,
+        hiresFix: form.hiresFix,
+        tiling: form.tiling,
+        clipSkip: form.clipSkip,
+        postProcessing: [...form.postProcessing],
+        loras: [...form.loras]
+      }
+
+      const style = selectedStyleData.value
+
+      // Apply all style parameters to form
+      if (style.model) form.model = style.model
+      if (style.steps !== undefined) form.steps = style.steps
+      if (style.width !== undefined) form.width = style.width
+      if (style.height !== undefined) form.height = style.height
+      if (style.cfg_scale !== undefined) form.cfgScale = style.cfg_scale
+      if (style.sampler_name) form.sampler = style.sampler_name
+      if (style.karras !== undefined) form.karras = style.karras
+      if (style.hires_fix !== undefined) form.hiresFix = style.hires_fix
+      if (style.tiling !== undefined) form.tiling = style.tiling
+      if (style.clip_skip !== undefined) form.clipSkip = style.clip_skip
+      if (style.loras && Array.isArray(style.loras)) {
+        form.loras = [...style.loras]
+      } else {
+        form.loras = []
+      }
+
+      // Clear post-processing when style is applied
+      form.postProcessing = []
+
+      styleApplied.value = true
+      estimateKudos()
+    }
+
+    const removeStyle = () => {
+      // Restore original settings if available
+      if (originalSettings.value) {
+        form.model = originalSettings.value.model
+        form.steps = originalSettings.value.steps
+        form.width = originalSettings.value.width
+        form.height = originalSettings.value.height
+        form.cfgScale = originalSettings.value.cfgScale
+        form.sampler = originalSettings.value.sampler
+        form.karras = originalSettings.value.karras
+        form.hiresFix = originalSettings.value.hiresFix
+        form.tiling = originalSettings.value.tiling
+        form.clipSkip = originalSettings.value.clipSkip
+        form.postProcessing = [...originalSettings.value.postProcessing]
+        form.loras = [...originalSettings.value.loras]
+        originalSettings.value = null
+      }
+
+      styleApplied.value = false
+      selectedStyleData.value = null
+      selectedStyleName.value = 'None'
+      estimateKudos()
     }
 
     const toggleAspectLock = () => {
@@ -383,44 +489,42 @@ export default {
       }
     }
 
-    const estimateKudos = async () => {
-      // Don't estimate without a model - will fail
-      if (!form.model) {
-        kudosEstimate.value = null
-        return
+    const buildPromptWithStyle = () => {
+      // If no style is applied or no style data, return prompts as-is
+      if (!styleApplied.value || !selectedStyleData.value || !selectedStyleData.value.prompt) {
+        return {
+          prompt: form.prompt,
+          negativePrompt: form.negativePrompt
+        }
       }
 
-      // Use a placeholder prompt if user hasn't entered one yet
-      const hasPrompt = form.prompt && form.prompt.trim().length > 0
+      const stylePromptTemplate = selectedStyleData.value.prompt
+      const userPrompt = form.prompt || ''
+      const userNegativePrompt = form.negativePrompt || ''
 
-      try {
-        estimating.value = true
-        const params = buildRequestParams()
+      // Replace {p} with user's positive prompt
+      let finalPrompt = stylePromptTemplate.replace(/{p}/g, userPrompt)
 
-        // If no prompt, use a placeholder for estimation only
-        if (!hasPrompt) {
-          params.prompt = 'placeholder prompt for estimation'
-          if (params.params.negative_prompt) {
-            delete params.params.negative_prompt
-          }
+      // Handle negative prompt placeholder
+      if (stylePromptTemplate.includes('{np}')) {
+        // Replace {np} with user's negative prompt
+        finalPrompt = finalPrompt.replace(/{np}/g, userNegativePrompt)
+        // Don't send separate negative prompt since it's in the main prompt
+        return {
+          prompt: finalPrompt,
+          negativePrompt: null
         }
-
-        const response = await imagesApi.estimate(params)
-        kudosEstimate.value = response.data.kudos
-      } catch (error) {
-        console.error('Error estimating kudos:', error)
-        kudosEstimate.value = null
-      } finally {
-        estimating.value = false
+      } else {
+        // If template doesn't have {np}, append negative prompt with separator
+        return {
+          prompt: finalPrompt,
+          negativePrompt: userNegativePrompt || null
+        }
       }
     }
 
     const buildRequestParams = () => {
-      // Build the prompt with style prefix if applicable
-      let finalPrompt = form.prompt
-      if (selectedStyleData.value && selectedStyleData.value.prompt) {
-        finalPrompt = selectedStyleData.value.prompt + ', ' + form.prompt
-      }
+      const { prompt: finalPrompt, negativePrompt: finalNegativePrompt } = buildPromptWithStyle()
 
       const params = {
         prompt: finalPrompt,
@@ -432,21 +536,63 @@ export default {
           height: form.height,
           cfg_scale: form.cfgScale,
           sampler_name: form.sampler,
-          post_processing: form.postProcessing,
           karras: form.karras,
           hires_fix: form.hiresFix,
           tiling: form.tiling,
           clip_skip: form.clipSkip
         },
-        nsfw: form.nsfw
+        nsfw: form.nsfw,
+        trusted_workers: form.trustedWorkers,
+        slow_workers: form.slowWorkers
       }
 
-      // Add negative prompt if provided
-      if (form.negativePrompt) {
-        params.params.negative_prompt = form.negativePrompt
+      // Add negative prompt if it exists
+      if (finalNegativePrompt) {
+        params.params.negative_prompt = finalNegativePrompt
+      }
+
+      // Add post-processing if any (only when style not applied)
+      if (!styleApplied.value && form.postProcessing.length > 0) {
+        params.params.post_processing = form.postProcessing
+      }
+
+      // Add loras if any (from style or manual)
+      if (form.loras && form.loras.length > 0) {
+        params.params.loras = form.loras
       }
 
       return params
+    }
+
+    const estimateKudos = async () => {
+      // Don't estimate without a model - will fail
+      if (!form.model) {
+        kudosEstimate.value = null
+        return
+      }
+
+      try {
+        estimating.value = true
+        const params = buildRequestParams()
+
+        // Use placeholder prompt if user hasn't entered one yet
+        if (!params.prompt || params.prompt.trim().length === 0) {
+          params.prompt = 'placeholder prompt for estimation'
+        }
+
+        // Remove negative prompt for estimation if it's empty
+        if (params.params.negative_prompt && !params.params.negative_prompt.trim()) {
+          delete params.params.negative_prompt
+        }
+
+        const response = await imagesApi.estimate(params)
+        kudosEstimate.value = response.data.kudos
+      } catch (error) {
+        console.error('Error estimating kudos:', error)
+        kudosEstimate.value = null
+      } finally {
+        estimating.value = false
+      }
     }
 
     const submitRequest = async () => {
@@ -460,8 +606,10 @@ export default {
           params
         })
 
-        // Save settings for next time
-        await saveLastUsedSettings()
+        // Save settings for next time (but not if style is applied)
+        if (!styleApplied.value) {
+          await saveLastUsedSettings()
+        }
 
         emit('submit')
       } catch (error) {
@@ -474,7 +622,7 @@ export default {
 
     // Auto-estimate kudos when key parameters change
     watch(
-      () => [form.model, form.n, form.steps, form.width, form.height],
+      () => [form.model, form.n, form.steps, form.width, form.height, styleApplied.value],
       () => {
         if (form.model) {
           estimateKudos()
@@ -500,9 +648,13 @@ export default {
       showStylePicker,
       aspectLocked,
       selectedStyleName,
+      selectedStyleData,
+      styleApplied,
       submitRequest,
       onModelSelect,
       onStyleSelect,
+      applyStyle,
+      removeStyle,
       toggleAspectLock,
       onDimensionChange,
       estimateKudos
@@ -624,6 +776,7 @@ export default {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .form-row.three-col {
@@ -682,6 +835,40 @@ export default {
   color: #999;
   font-size: 1.5rem;
   font-weight: 300;
+}
+
+.style-actions {
+  margin-bottom: 1.5rem;
+}
+
+.btn-apply-style,
+.btn-remove-style {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-apply-style {
+  background: #007AFF;
+  color: white;
+}
+
+.btn-apply-style:hover {
+  background: #0051D5;
+}
+
+.btn-remove-style {
+  background: #ff3b30;
+  color: white;
+}
+
+.btn-remove-style:hover {
+  background: #cc2e24;
 }
 
 .btn-aspect-lock {
@@ -745,6 +932,12 @@ export default {
 .toggle span {
   color: #fff;
   font-size: 0.9rem;
+}
+
+.full-parameters {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #333;
 }
 
 .checkbox-group {

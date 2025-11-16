@@ -7,6 +7,15 @@
       <h3>Select Style</h3>
     </div>
 
+    <div class="search-container">
+      <input
+        type="text"
+        v-model="searchQuery"
+        placeholder="Search styles..."
+        class="search-input"
+      />
+    </div>
+
     <div class="style-list">
       <div v-if="loadingStyles" class="loading">Loading styles...</div>
 
@@ -15,22 +24,34 @@
       </div>
 
       <div v-else>
-        <div v-for="category in sortedCategories" :key="category" class="style-section">
-          <h4 class="section-title">{{ category }}</h4>
-          <div
-            v-for="style in stylesByCategory[category]"
-            :key="style.name"
-            class="style-item"
-            :class="{ selected: selectedStyle === style.name }"
-            @click="selectStyle(style)"
-          >
-            <div class="style-header">
-              <span class="style-name">{{ style.name }}</span>
-            </div>
-            <div class="style-info" v-if="style.prompt || style.model">
-              <span v-if="style.prompt" class="style-prompt">{{ truncate(style.prompt, 80) }}</span>
-              <span v-if="style.model" class="style-model">Model: {{ style.model }}</span>
-            </div>
+        <!-- None option -->
+        <div
+          class="style-item"
+          :class="{ selected: !selectedStyle || selectedStyle === 'None' }"
+          @click="selectStyle({ name: 'None' })"
+        >
+          <div class="style-header">
+            <span class="style-name">None</span>
+          </div>
+          <div class="style-info">
+            <span class="style-prompt">No style applied</span>
+          </div>
+        </div>
+
+        <!-- All other styles -->
+        <div
+          v-for="style in filteredStyles"
+          :key="style.name"
+          class="style-item"
+          :class="{ selected: selectedStyle === style.name }"
+          @click="selectStyle(style)"
+        >
+          <div class="style-header">
+            <span class="style-name">{{ style.name }}</span>
+          </div>
+          <div class="style-info" v-if="style.prompt || style.model">
+            <span v-if="style.prompt" class="style-prompt">{{ truncate(style.prompt, 80) }}</span>
+            <span v-if="style.model" class="style-model">Model: {{ style.model }}</span>
           </div>
         </div>
       </div>
@@ -56,16 +77,18 @@ export default {
     const loadingStyles = ref(true)
     const error = ref(null)
     const selectedStyle = ref(props.currentStyle)
-    const stylesByCategory = ref({})
-    const categories = ref([])
+    const searchQuery = ref('')
 
-    const sortedCategories = computed(() => {
-      // Put "Default" first, then alphabetically
-      return categories.value.slice().sort((a, b) => {
-        if (a === 'Default') return -1
-        if (b === 'Default') return 1
-        return a.localeCompare(b)
-      })
+    const filteredStyles = computed(() => {
+      if (!searchQuery.value) {
+        return styles.value
+      }
+      const query = searchQuery.value.toLowerCase()
+      return styles.value.filter(style =>
+        style.name.toLowerCase().includes(query) ||
+        (style.prompt && style.prompt.toLowerCase().includes(query)) ||
+        (style.model && style.model.toLowerCase().includes(query))
+      )
     })
 
     const fetchStyles = async () => {
@@ -73,8 +96,7 @@ export default {
         loadingStyles.value = true
         error.value = null
         const response = await stylesApi.getAll()
-        stylesByCategory.value = response.data.stylesByCategory
-        categories.value = response.data.categories
+        styles.value = response.data.allStyles || []
       } catch (err) {
         console.error('Error fetching styles:', err)
         error.value = 'Failed to load styles. Please try again.'
@@ -104,8 +126,8 @@ export default {
       loadingStyles,
       error,
       selectedStyle,
-      stylesByCategory,
-      sortedCategories,
+      searchQuery,
+      filteredStyles,
       selectStyle,
       truncate
     }
@@ -142,6 +164,7 @@ export default {
   padding: 1.5rem;
   border-bottom: 1px solid #333;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .btn-back {
@@ -171,6 +194,27 @@ export default {
   flex: 1;
 }
 
+.search-container {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #007AFF;
+}
+
 .style-list {
   flex: 1;
   overflow-y: auto;
@@ -186,19 +230,6 @@ export default {
 
 .error {
   color: #ff3b30;
-}
-
-.style-section {
-  margin-bottom: 1.5rem;
-}
-
-.section-title {
-  margin: 0 0 0.75rem 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #999;
-  letter-spacing: 0.05em;
 }
 
 .style-item {

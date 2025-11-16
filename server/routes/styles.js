@@ -8,8 +8,8 @@ let stylesCache = null;
 let stylesCacheTime = 0;
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
-// Base URL for AI Horde Styles GitHub repo
-const STYLES_BASE_URL = 'https://raw.githubusercontent.com/Haidra-Org/AI-Horde-Styles/main';
+// URL for AI Horde Styles JSON file
+const STYLES_URL = 'https://raw.githubusercontent.com/Haidra-Org/AI-Horde-Styles/refs/heads/main/styles.json';
 
 /**
  * Fetch and cache styles from GitHub
@@ -26,57 +26,26 @@ async function fetchStyles() {
   try {
     console.log('[Styles] Fetching styles from GitHub...');
 
-    // Fetch the categories mapping
-    const categoriesResponse = await axios.get(`${STYLES_BASE_URL}/categories.json`);
-    const categories = categoriesResponse.data;
+    // Fetch the styles.json file
+    const response = await axios.get(STYLES_URL);
+    const stylesData = response.data;
 
-    // Fetch all style files
-    const styleFiles = [];
-    const stylesByCategory = {};
+    // Convert object to array with names
+    const allStyles = Object.entries(stylesData).map(([name, data]) => ({
+      name,
+      ...data
+    }));
 
-    // Create "None" default style
-    const noneStyle = {
-      name: 'None',
-      prompt: '',
-      model: null,
-      params: {}
-    };
-
-    stylesByCategory['Default'] = [noneStyle];
-
-    // Fetch each style file
-    for (const [styleName, categoryName] of Object.entries(categories)) {
-      try {
-        const styleResponse = await axios.get(`${STYLES_BASE_URL}/styles/${styleName}.json`);
-        const styleData = {
-          name: styleName,
-          ...styleResponse.data
-        };
-
-        styleFiles.push(styleData);
-
-        if (!stylesByCategory[categoryName]) {
-          stylesByCategory[categoryName] = [];
-        }
-        stylesByCategory[categoryName].push(styleData);
-      } catch (error) {
-        console.error(`[Styles] Error fetching style ${styleName}:`, error.message);
-      }
-    }
-
-    // Sort styles within each category by name
-    for (const category in stylesByCategory) {
-      stylesByCategory[category].sort((a, b) => a.name.localeCompare(b.name));
-    }
+    // Sort alphabetically
+    allStyles.sort((a, b) => a.name.localeCompare(b.name));
 
     stylesCache = {
-      categories: Object.keys(stylesByCategory).sort(),
-      stylesByCategory,
-      allStyles: styleFiles
+      allStyles,
+      stylesMap: stylesData
     };
     stylesCacheTime = now;
 
-    console.log(`[Styles] Cached ${styleFiles.length} styles in ${Object.keys(stylesByCategory).length} categories`);
+    console.log(`[Styles] Cached ${allStyles.length} styles`);
 
     return stylesCache;
   } catch (error) {
@@ -96,20 +65,20 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get styles by category
-router.get('/category/:category', async (req, res) => {
+// Get a specific style by name
+router.get('/:name', async (req, res) => {
   try {
     const styles = await fetchStyles();
-    const category = req.params.category;
+    const styleName = req.params.name;
 
-    if (!styles.stylesByCategory[category]) {
-      return res.status(404).json({ error: 'Category not found' });
+    if (!styles.stylesMap[styleName]) {
+      return res.status(404).json({ error: 'Style not found' });
     }
 
-    res.json(styles.stylesByCategory[category]);
+    res.json({ name: styleName, ...styles.stylesMap[styleName] });
   } catch (error) {
-    console.error('Error fetching styles by category:', error);
-    res.status(500).json({ error: 'Failed to fetch styles' });
+    console.error('Error fetching style:', error);
+    res.status(500).json({ error: 'Failed to fetch style' });
   }
 });
 
