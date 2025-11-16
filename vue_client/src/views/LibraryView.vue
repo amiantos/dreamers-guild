@@ -618,7 +618,6 @@ export default {
   top: 0;
   background: #0a0a0a;
   z-index: 50;
-  border-bottom: 1px solid #333;
   transition: top 0.3s ease-out;
 }
 
@@ -935,7 +934,6 @@ export default {
   position: sticky;
   top: 0;
   background: #0d0d0d;
-  border-bottom: 1px solid #222;
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
@@ -947,6 +945,7 @@ export default {
   max-height: 50vh;
   overflow-y: auto;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid #222;
 }
 
 .panel-header {
