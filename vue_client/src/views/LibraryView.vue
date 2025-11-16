@@ -7,7 +7,7 @@
         <!-- Active Filters -->
         <div v-if="filters.requestId || filters.keywords" class="filter-chips">
           <div v-if="filters.requestId" class="filter-chip">
-            <span>Request</span>
+            <span>Request: {{ filters.requestId.substring(0, 8) }}</span>
             <button @click="clearFilter('requestId')" class="chip-remove">×</button>
           </div>
           <div v-if="filters.keywords" class="filter-chip">
@@ -395,6 +395,7 @@ export default {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .filter-chip {
@@ -428,7 +429,6 @@ export default {
 .search-bar {
   display: flex;
   gap: 0.5rem;
-  margin-left: auto;
 }
 
 .search-input {
