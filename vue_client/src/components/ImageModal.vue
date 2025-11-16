@@ -207,13 +207,15 @@ export default {
   align-items: center;
   justify-content: center;
   background: #000;
-  overflow: auto;
+  overflow: hidden;
   min-height: 0;
 }
 
 .image-container img {
   max-width: 100%;
   max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
 }
 
