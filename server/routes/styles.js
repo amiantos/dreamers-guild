@@ -8,8 +8,9 @@ let stylesCache = null;
 let stylesCacheTime = 0;
 const CACHE_DURATION = 1000 * 60 * 60; // 1 hour
 
-// URL for AI Horde Styles JSON file
+// URLs for AI Horde Styles data
 const STYLES_URL = 'https://raw.githubusercontent.com/Haidra-Org/AI-Horde-Styles/refs/heads/main/styles.json';
+const PREVIEWS_URL = 'https://raw.githubusercontent.com/amiantos/AI-Horde-Styles-Previews/refs/heads/main/previews.json';
 
 /**
  * Fetch and cache styles from GitHub
@@ -26,14 +27,23 @@ async function fetchStyles() {
   try {
     console.log('[Styles] Fetching styles from GitHub...');
 
-    // Fetch the styles.json file
-    const response = await axios.get(STYLES_URL);
-    const stylesData = response.data;
+    // Fetch both styles and previews in parallel
+    const [stylesResponse, previewsResponse] = await Promise.all([
+      axios.get(STYLES_URL),
+      axios.get(PREVIEWS_URL).catch(err => {
+        console.warn('[Styles] Failed to fetch previews:', err.message);
+        return { data: {} };
+      })
+    ]);
 
-    // Convert object to array with names
+    const stylesData = stylesResponse.data;
+    const previewsData = previewsResponse.data;
+
+    // Convert object to array with names and preview data
     const allStyles = Object.entries(stylesData).map(([name, data]) => ({
       name,
-      ...data
+      ...data,
+      preview: previewsData[name] || null
     }));
 
     // Sort alphabetically
@@ -41,11 +51,12 @@ async function fetchStyles() {
 
     stylesCache = {
       allStyles,
-      stylesMap: stylesData
+      stylesMap: stylesData,
+      previewsMap: previewsData
     };
     stylesCacheTime = now;
 
-    console.log(`[Styles] Cached ${allStyles.length} styles`);
+    console.log(`[Styles] Cached ${allStyles.length} styles with previews`);
 
     return stylesCache;
   } catch (error) {
