@@ -455,6 +455,8 @@ export default {
         if (includeSeed && params.seed !== undefined && params.seed !== null && params.seed !== '') {
           form.seed = String(params.seed)
           form.useRandomSeed = false
+          // Set number of images to 1 when loading with seed
+          form.n = 1
         } else {
           form.seed = ''
           form.useRandomSeed = true
