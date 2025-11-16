@@ -871,8 +871,8 @@ export default {
 .panel-tab {
   position: absolute;
   top: 0;
-  left: 50%;
-  transform: translate(-50%, -100%);
+  left: 50vw;
+  transform: translateX(-50%);
   cursor: pointer;
   z-index: 49;
 }
