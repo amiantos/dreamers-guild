@@ -167,7 +167,14 @@ class QueueManager {
 
     console.log(`[Status] Checking status of ${this.activeRequests.size} active requests`);
 
+    let isFirst = true;
     for (const [requestUuid, hordeId] of this.activeRequests.entries()) {
+      // Add 1 second delay between checks (but not before the first one)
+      if (!isFirst) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      isFirst = false;
+
       // Skip requests that are still being submitted
       if (hordeId === 'submitting') {
         console.log(`[Status] Skipping ${requestUuid.substring(0, 8)}... (still submitting)`);
