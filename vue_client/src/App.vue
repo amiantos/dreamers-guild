@@ -24,6 +24,7 @@
 
     <RequestGeneratorModal
       v-if="showRequestModal"
+      ref="requestModalRef"
       @close="showRequestModal = false"
       @submit="handleNewRequest"
     />
@@ -36,7 +37,7 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, provide, nextTick } from 'vue'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import SettingsModal from './components/SettingsModal.vue'
 
@@ -49,6 +50,7 @@ export default {
   setup() {
     const showRequestModal = ref(false)
     const showSettingsModal = ref(false)
+    const requestModalRef = ref(null)
 
     const handleNewRequest = () => {
       showRequestModal.value = false
@@ -56,10 +58,55 @@ export default {
       window.location.href = '/'
     }
 
+    const loadSettingsFromImage = async (image, includeSeed = false) => {
+      if (!image.full_request) {
+        console.error('No settings available for this image')
+        return
+      }
+
+      try {
+        const settings = JSON.parse(image.full_request)
+
+        // If including seed, get it from the full_response
+        if (includeSeed && image.full_response) {
+          try {
+            const response = JSON.parse(image.full_response)
+            if (response.seed) {
+              // Add seed to params
+              if (!settings.params) {
+                settings.params = {}
+              }
+              settings.params.seed = response.seed
+            }
+          } catch (responseError) {
+            console.error('Error parsing full_response:', responseError)
+          }
+        }
+
+        // Show the modal
+        showRequestModal.value = true
+
+        // Wait for the modal to render
+        await nextTick()
+
+        // Load the settings
+        if (requestModalRef.value && requestModalRef.value.loadSettings) {
+          requestModalRef.value.loadSettings(settings, includeSeed)
+        }
+      } catch (error) {
+        console.error('Error loading settings from image:', error)
+      }
+    }
+
+    // Provide the function to child components
+    provide('loadSettingsFromImage', loadSettingsFromImage)
+
     return {
       showRequestModal,
       showSettingsModal,
-      handleNewRequest
+      requestModalRef,
+      handleNewRequest,
+      loadSettingsFromImage
     }
   }
 }

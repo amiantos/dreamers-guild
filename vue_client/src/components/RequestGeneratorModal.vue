@@ -181,6 +181,25 @@
                 </select>
               </div>
 
+              <!-- Seed -->
+              <div class="form-group">
+                <label for="seed">Seed</label>
+                <div class="seed-control">
+                  <label class="seed-toggle">
+                    <input type="checkbox" v-model="form.useRandomSeed" />
+                    <span>Random</span>
+                  </label>
+                  <input
+                    v-if="!form.useRandomSeed"
+                    type="text"
+                    id="seed"
+                    v-model="form.seed"
+                    placeholder="Enter seed number"
+                    class="seed-input"
+                  />
+                </div>
+              </div>
+
               <!-- Advanced Toggles -->
               <div class="toggles-section">
                 <h4>Advanced Options</h4>
@@ -325,6 +344,8 @@ export default {
       cfgScale: 7,
       clipSkip: 1,
       sampler: 'k_euler_a',
+      seed: '',
+      useRandomSeed: true,
       karras: true,
       hiresFix: false,
       tiling: false,
@@ -395,7 +416,7 @@ export default {
     }
 
     // Load settings from an arbitrary settings object
-    const loadSettings = (settings) => {
+    const loadSettings = (settings, includeSeed = false) => {
       // Split prompt on ### to separate positive and negative prompts
       if (settings.prompt) {
         const splitPrompt = settings.prompt.split('###')
@@ -429,6 +450,15 @@ export default {
         if (params.tiling !== undefined) form.tiling = params.tiling
         if (params.loras) form.loras = [...params.loras]
         if (params.post_processing) form.postProcessing = [...params.post_processing]
+
+        // Load seed if requested and available
+        if (includeSeed && params.seed !== undefined && params.seed !== null && params.seed !== '') {
+          form.seed = String(params.seed)
+          form.useRandomSeed = false
+        } else {
+          form.seed = ''
+          form.useRandomSeed = true
+        }
       }
 
       // Clear any selected style
@@ -615,6 +645,11 @@ export default {
         params.params.hires_fix = form.hiresFix
         params.params.tiling = form.tiling
         params.params.clip_skip = form.clipSkip
+
+        // Add seed if not using random
+        if (!form.useRandomSeed && form.seed) {
+          params.params.seed = form.seed
+        }
 
         // Add post-processing if any
         if (form.postProcessing.length > 0) {
@@ -1070,6 +1105,42 @@ export default {
 .checkbox-item span {
   color: #fff;
   font-size: 0.9rem;
+}
+
+.seed-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.seed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.seed-toggle:hover {
+  background: #252525;
+}
+
+.seed-toggle input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
+}
+
+.seed-toggle span {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.seed-input {
+  flex: 1;
 }
 
 .kudos-estimate {

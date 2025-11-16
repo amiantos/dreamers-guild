@@ -49,12 +49,13 @@
       @close="closeImage"
       @delete="deleteImage"
       @navigate="navigateImage"
+      @load-settings="handleLoadSettings"
     />
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { imagesApi } from '../api/client.js'
 import ImageModal from '../components/ImageModal.vue'
@@ -79,6 +80,9 @@ export default {
     const hasMore = ref(true)
     const offset = ref(0)
     const limit = 50
+
+    // Inject the loadSettingsFromImage function from App.vue
+    const loadSettingsFromImage = inject('loadSettingsFromImage')
 
     const title = computed(() => {
       if (props.id) return 'Request Images'
@@ -210,6 +214,12 @@ export default {
       router.push('/library')
     }
 
+    const handleLoadSettings = (includeSeed) => {
+      if (selectedImage.value && loadSettingsFromImage) {
+        loadSettingsFromImage(selectedImage.value, includeSeed)
+      }
+    }
+
     // Load image from URL if imageId prop is present
     const loadImageFromUrl = async () => {
       if (props.imageId && images.value.length > 0) {
@@ -260,7 +270,8 @@ export default {
       closeImage,
       navigateImage,
       deleteImage,
-      clearSearch
+      clearSearch,
+      handleLoadSettings
     }
   }
 }

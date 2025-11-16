@@ -42,6 +42,22 @@
         </div>
 
         <div class="actions">
+          <button
+            v-if="hasSettings"
+            @click="$emit('load-settings', false)"
+            class="btn btn-load-settings"
+            title="Load generation settings from this image"
+          >
+            Load Settings
+          </button>
+          <button
+            v-if="hasSettings"
+            @click="$emit('load-settings', true)"
+            class="btn btn-load-settings-seed"
+            title="Load generation settings including seed from this image"
+          >
+            Load Settings + Seed
+          </button>
           <a :href="imageUrl" :download="`aislingeach-${image.uuid}.png`" class="btn btn-download">
             Download
           </a>
@@ -74,7 +90,7 @@ export default {
       default: -1
     }
   },
-  emits: ['close', 'delete', 'navigate'],
+  emits: ['close', 'delete', 'navigate', 'load-settings'],
   setup(props, { emit }) {
     const imageUrl = computed(() => {
       return imagesApi.getImageUrl(props.image.uuid)
@@ -82,6 +98,10 @@ export default {
 
     const showNavigation = computed(() => {
       return props.images.length > 1
+    })
+
+    const hasSettings = computed(() => {
+      return props.image.full_request && props.image.full_request.trim() !== ''
     })
 
     const formatDate = (timestamp) => {
@@ -114,6 +134,7 @@ export default {
     return {
       imageUrl,
       showNavigation,
+      hasSettings,
       formatDate
     }
   }
@@ -248,6 +269,7 @@ export default {
 .actions {
   display: flex;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -260,6 +282,24 @@ export default {
   transition: all 0.2s;
   text-decoration: none;
   display: inline-block;
+}
+
+.btn-load-settings {
+  background: #34C759;
+  color: white;
+}
+
+.btn-load-settings:hover {
+  background: #248A3D;
+}
+
+.btn-load-settings-seed {
+  background: #30D158;
+  color: white;
+}
+
+.btn-load-settings-seed:hover {
+  background: #1F8B3C;
 }
 
 .btn-download {
