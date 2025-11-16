@@ -1,25 +1,40 @@
 <template>
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
     <!-- Requests Panel -->
-    <div class="requests-panel" :class="{ open: isPanelOpen }">
-      <div class="panel-header">
-        <h3>Requests</h3>
-      </div>
-
-      <div class="panel-content">
-        <div v-if="requests.length === 0" class="panel-empty-state">
-          <p>No requests yet</p>
-          <p class="hint">Click the + button to generate your first AI image</p>
+    <div class="requests-panel-wrapper">
+      <div class="requests-panel" :class="{ open: isPanelOpen }">
+        <div class="panel-header">
+          <h3>Requests</h3>
         </div>
 
-        <div v-else class="requests-grid">
-          <RequestCard
-            v-for="request in requests"
-            :key="request.uuid"
-            :request="request"
-            @view-images="viewRequestImages"
-            @delete="showDeleteModal"
-          />
+        <div class="panel-content">
+          <div v-if="requests.length === 0" class="panel-empty-state">
+            <p>No requests yet</p>
+            <p class="hint">Click the + button to generate your first AI image</p>
+          </div>
+
+          <div v-else class="requests-grid">
+            <RequestCard
+              v-for="request in requests"
+              :key="request.uuid"
+              :request="request"
+              @view-images="viewRequestImages"
+              @delete="showDeleteModal"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Requests Panel Toggle Tab (extends from panel) -->
+      <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
+        <div class="tab-content">
+          <span class="tab-arrow">{{ isPanelOpen ? '▲' : '▼' }}</span>
+          <div v-if="queueStatus" class="queue-status">
+            <span class="status-dot" :class="{ active: queueStatus.isProcessing }"></span>
+            <span>{{ queueStatus.active }}/{{ queueStatus.maxActive }} active</span>
+            <span class="divider">•</span>
+            <span>{{ queueStatus.pendingRequests }} pending</span>
+          </div>
         </div>
       </div>
     </div>
@@ -64,19 +79,6 @@
               />
               <button @click="applySearch" class="btn-search">Search</button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Requests Panel Toggle Tab (inside header) -->
-      <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
-        <div class="tab-content">
-          <span class="tab-arrow">{{ isPanelOpen ? '▲' : '▼' }}</span>
-          <div v-if="queueStatus" class="queue-status">
-            <span class="status-dot" :class="{ active: queueStatus.isProcessing }"></span>
-            <span>{{ queueStatus.active }}/{{ queueStatus.maxActive }} active</span>
-            <span class="divider">•</span>
-            <span>{{ queueStatus.pendingRequests }} pending</span>
           </div>
         </div>
       </div>
@@ -615,10 +617,14 @@ export default {
 
 .header {
   position: sticky;
-  top: 0;
+  top: 42px;
   background: #0a0a0a;
   z-index: 50;
   border-bottom: 1px solid #333;
+}
+
+.library-view.panel-open .header {
+  top: calc(50vh + 42px);
 }
 
 .header-content {
@@ -862,13 +868,19 @@ export default {
   transform: scale(0.95);
 }
 
+/* Requests Panel Wrapper */
+.requests-panel-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 51;
+}
+
 /* Requests Panel Tab */
 .panel-tab {
   position: absolute;
   bottom: 0;
   left: 50%;
   transform: translate(-50%, 100%);
-  z-index: 49;
   cursor: pointer;
 }
 
