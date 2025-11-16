@@ -158,8 +158,11 @@ export default {
 
     const closeImage = () => {
       selectedImage.value = null
-      // Remove image ID from URL
-      if (props.id) {
+      // If we have context (request/search), go back to that view
+      // Otherwise, if there's no history or we came directly to an image, go to library
+      if (window.history.state?.back) {
+        router.back()
+      } else if (props.id) {
         router.push(`/library/request/${props.id}`)
       } else if (props.keywords) {
         router.push(`/library/search?q=${props.keywords}`)
@@ -184,13 +187,8 @@ export default {
     }
 
     const updateUrl = (imageId) => {
-      if (props.id) {
-        router.replace(`/library/request/${props.id}/image/${imageId}`)
-      } else if (props.keywords) {
-        router.replace(`/library/search/image/${imageId}?q=${props.keywords}`)
-      } else {
-        router.replace(`/library/image/${imageId}`)
-      }
+      // Always use canonical image URL
+      router.replace(`/library/image/${imageId}`)
     }
 
     const deleteImage = async (imageId) => {

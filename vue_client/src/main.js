@@ -18,20 +18,8 @@ const router = createRouter({
       component: LibraryView
     },
     {
-      path: '/library/image/:imageId',
-      name: 'library-image',
-      component: LibraryView,
-      props: true
-    },
-    {
       path: '/library/request/:id',
       name: 'library-request',
-      component: LibraryView,
-      props: true
-    },
-    {
-      path: '/library/request/:id/image/:imageId',
-      name: 'library-request-image',
       component: LibraryView,
       props: true
     },
@@ -42,10 +30,10 @@ const router = createRouter({
       props: route => ({ keywords: route.query.q })
     },
     {
-      path: '/library/search/image/:imageId',
-      name: 'library-search-image',
+      path: '/library/image/:imageId',
+      name: 'library-image',
       component: LibraryView,
-      props: route => ({ keywords: route.query.q, imageId: route.params.imageId })
+      props: true
     }
   ]
 })
