@@ -224,3 +224,54 @@ export const KeywordAlbum = {
     return stmt.run(id);
   }
 };
+
+// UserSettings model
+export const UserSettings = {
+  get() {
+    // For now, we'll just use a single settings record (id = 1)
+    const stmt = db.prepare('SELECT * FROM user_settings WHERE id = 1');
+    let settings = stmt.get();
+
+    // Create default settings if none exist
+    if (!settings) {
+      const insertStmt = db.prepare(`
+        INSERT INTO user_settings (id, api_key, default_params, favorite_models, favorite_styles, last_used_settings, date_modified)
+        VALUES (1, ?, ?, ?, ?, ?, ?)
+      `);
+
+      insertStmt.run(
+        null,
+        JSON.stringify({}),
+        JSON.stringify([]),
+        JSON.stringify([]),
+        JSON.stringify({}),
+        Date.now()
+      );
+
+      settings = stmt.get();
+    }
+
+    return settings;
+  },
+
+  update(data) {
+    const fields = [];
+    const values = [];
+
+    if (data.apiKey !== undefined) { fields.push('api_key = ?'); values.push(data.apiKey); }
+    if (data.defaultParams !== undefined) { fields.push('default_params = ?'); values.push(JSON.stringify(data.defaultParams)); }
+    if (data.favoriteModels !== undefined) { fields.push('favorite_models = ?'); values.push(JSON.stringify(data.favoriteModels)); }
+    if (data.favoriteStyles !== undefined) { fields.push('favorite_styles = ?'); values.push(JSON.stringify(data.favoriteStyles)); }
+    if (data.lastUsedSettings !== undefined) { fields.push('last_used_settings = ?'); values.push(JSON.stringify(data.lastUsedSettings)); }
+
+    if (fields.length === 0) return this.get();
+
+    fields.push('date_modified = ?');
+    values.push(Date.now());
+
+    const stmt = db.prepare(`UPDATE user_settings SET ${fields.join(', ')} WHERE id = 1`);
+    stmt.run(...values);
+
+    return this.get();
+  }
+};

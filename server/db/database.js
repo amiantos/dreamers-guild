@@ -79,6 +79,19 @@ function initDatabase() {
     )
   `);
 
+  // UserSettings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      api_key TEXT,
+      default_params TEXT,
+      favorite_models TEXT,
+      favorite_styles TEXT,
+      last_used_settings TEXT,
+      date_modified INTEGER
+    )
+  `);
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_images_date_created

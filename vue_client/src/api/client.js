@@ -63,6 +63,38 @@ export const imagesApi = {
 
   delete(id) {
     return apiClient.delete(`/images/${id}`)
+  },
+
+  estimate(params) {
+    return apiClient.post('/requests/estimate', { params })
+  }
+}
+
+export const settingsApi = {
+  get() {
+    return apiClient.get('/settings')
+  },
+
+  update(data) {
+    return apiClient.patch('/settings', data)
+  },
+
+  getHordeUser() {
+    return apiClient.get('/settings/horde-user')
+  }
+}
+
+export const stylesApi = {
+  getAll() {
+    return apiClient.get('/styles')
+  },
+
+  getByCategory(category) {
+    return apiClient.get(`/styles/category/${category}`)
+  },
+
+  refresh() {
+    return apiClient.post('/styles/refresh')
   }
 }
 

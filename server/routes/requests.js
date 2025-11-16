@@ -1,6 +1,7 @@
 import express from 'express';
 import { HordeRequest, GeneratedImage, HordePendingDownload } from '../db/models.js';
 import queueManager from '../services/queueManager.js';
+import hordeApi from '../services/hordeApi.js';
 
 const router = express.Router();
 
@@ -90,6 +91,33 @@ router.get('/queue/status', (req, res) => {
   } catch (error) {
     console.error('Error fetching queue status:', error);
     res.status(500).json({ error: 'Failed to fetch queue status' });
+  }
+});
+
+// Estimate kudos cost for a request (dry run)
+router.post('/estimate', async (req, res) => {
+  try {
+    const { params } = req.body;
+
+    if (!params) {
+      return res.status(400).json({ error: 'Missing required field: params' });
+    }
+
+    // Add dry_run flag to params
+    const dryRunParams = {
+      ...params,
+      dry_run: true
+    };
+
+    // Submit dry run request to AI Horde
+    const response = await hordeApi.postImageAsyncGenerate(dryRunParams);
+
+    res.json({
+      kudos: response.kudos || 0
+    });
+  } catch (error) {
+    console.error('Error estimating kudos cost:', error);
+    res.status(500).json({ error: 'Failed to estimate kudos cost' });
   }
 });
 

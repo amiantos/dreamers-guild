@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 // Import routes
 import requestsRouter from './routes/requests.js';
 import imagesRouter from './routes/images.js';
+import settingsRouter from './routes/settings.js';
+import stylesRouter from './routes/styles.js';
 
 // Import services
 import queueManager from './services/queueManager.js';
@@ -27,6 +29,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // API Routes
 app.use('/api/requests', requestsRouter);
 app.use('/api/images', imagesRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/styles', stylesRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

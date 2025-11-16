@@ -1,19 +1,41 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { UserSettings } from '../db/models.js';
 
 dotenv.config();
 
 const HORDE_API_BASE = 'https://stablehorde.net/api/v2';
-const API_KEY = process.env.HORDE_API_KEY || '0000000000';
 
 // AI Horde API Client
 class HordeAPI {
   constructor() {
-    this.client = axios.create({
-      baseURL: HORDE_API_BASE,
+    this.baseURL = HORDE_API_BASE;
+  }
+
+  /**
+   * Get the API key from user settings or fallback to environment variable
+   */
+  getApiKey() {
+    try {
+      const settings = UserSettings.get();
+      if (settings && settings.api_key) {
+        return settings.api_key;
+      }
+    } catch (error) {
+      console.error('Error getting API key from settings:', error);
+    }
+    return process.env.HORDE_API_KEY || '0000000000';
+  }
+
+  /**
+   * Get an axios client with the current API key
+   */
+  getClient() {
+    return axios.create({
+      baseURL: this.baseURL,
       headers: {
         'Content-Type': 'application/json',
-        'apikey': API_KEY
+        'apikey': this.getApiKey()
       }
     });
   }
@@ -25,7 +47,8 @@ class HordeAPI {
    */
   async postImageAsyncGenerate(params) {
     try {
-      const response = await this.client.post('/generate/async', params);
+      const client = this.getClient();
+      const response = await client.post('/generate/async', params);
       return response.data;
     } catch (error) {
       console.error('Error submitting generation request:', error.response?.data || error.message);
@@ -40,7 +63,8 @@ class HordeAPI {
    */
   async getImageAsyncCheck(requestId) {
     try {
-      const response = await this.client.get(`/generate/check/${requestId}`);
+      const client = this.getClient();
+      const response = await client.get(`/generate/check/${requestId}`);
       return response.data;
     } catch (error) {
       if (error.response?.status === 404) {
@@ -58,7 +82,8 @@ class HordeAPI {
    */
   async getImageAsyncStatus(requestId) {
     try {
-      const response = await this.client.get(`/generate/status/${requestId}`);
+      const client = this.getClient();
+      const response = await client.get(`/generate/status/${requestId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting generation status:', error.response?.data || error.message);
@@ -87,7 +112,8 @@ class HordeAPI {
    */
   async getUserInfo() {
     try {
-      const response = await this.client.get('/find_user');
+      const client = this.getClient();
+      const response = await client.get('/find_user');
       return response.data;
     } catch (error) {
       console.error('Error getting user info:', error.response?.data || error.message);
