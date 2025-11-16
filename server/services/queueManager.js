@@ -14,7 +14,10 @@ class QueueManager {
   constructor() {
     this.maxActiveRequests = 5;
     this.activeRequests = new Map(); // requestId -> hordeRequestId
+    this.activeDownloads = new Set(); // downloadId -> prevent duplicate processing
     this.isProcessing = false;
+    this.isSubmitting = false; // Prevent concurrent submissions
+    this.isDownloading = false; // Prevent concurrent downloads
     this.statusCheckInterval = null;
     this.downloadCheckInterval = null;
   }
@@ -79,44 +82,63 @@ class QueueManager {
    * Submit pending requests to AI Horde
    */
   async submitPendingRequests() {
-    const availableSlots = this.maxActiveRequests - this.activeRequests.size;
-    if (availableSlots <= 0) return;
+    // Prevent concurrent submissions
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
 
-    const pendingRequests = HordeRequest.findPending()
-      .filter(req => req.status === 'pending' && !this.activeRequests.has(req.uuid))
-      .slice(0, availableSlots);
+    try {
+      const availableSlots = this.maxActiveRequests - this.activeRequests.size;
+      if (availableSlots <= 0) return;
 
-    for (const request of pendingRequests) {
-      try {
-        const params = JSON.parse(request.full_request);
+      const pendingRequests = HordeRequest.findPending()
+        .filter(req => req.status === 'pending' && !this.activeRequests.has(req.uuid))
+        .slice(0, availableSlots);
 
-        // Submit to AI Horde
-        const response = await hordeApi.postImageAsyncGenerate(params);
+      for (const request of pendingRequests) {
+        try {
+          // Mark as submitting immediately to prevent duplicate submissions
+          this.activeRequests.set(request.uuid, 'submitting');
 
-        // Update request with Horde ID
-        this.activeRequests.set(request.uuid, response.id);
+          HordeRequest.update(request.uuid, {
+            status: 'submitting',
+            message: 'Submitting to AI Horde...'
+          });
 
-        HordeRequest.update(request.uuid, {
-          status: 'processing',
-          message: `Submitted to AI Horde (ID: ${response.id})`
-        });
+          const params = JSON.parse(request.full_request);
 
-        console.log(`Submitted request ${request.uuid} to Horde (${response.id})`);
-      } catch (error) {
-        console.error(`Error submitting request ${request.uuid}:`, error.message);
+          // Submit to AI Horde
+          const response = await hordeApi.postImageAsyncGenerate(params);
 
-        let errorMessage = 'Failed to submit request';
-        if (error.response?.status === 401) {
-          errorMessage = 'Invalid API key';
-        } else if (error.response?.status === 403) {
-          errorMessage = 'Access forbidden';
+          // Update with actual Horde ID
+          this.activeRequests.set(request.uuid, response.id);
+
+          HordeRequest.update(request.uuid, {
+            status: 'processing',
+            message: `Submitted to AI Horde (ID: ${response.id})`
+          });
+
+          console.log(`Submitted request ${request.uuid} to Horde (${response.id})`);
+        } catch (error) {
+          console.error(`Error submitting request ${request.uuid}:`, error.message);
+
+          // Remove from active requests on error
+          this.activeRequests.delete(request.uuid);
+
+          let errorMessage = 'Failed to submit request';
+          if (error.response?.status === 401) {
+            errorMessage = 'Invalid API key';
+          } else if (error.response?.status === 403) {
+            errorMessage = 'Access forbidden';
+          }
+
+          HordeRequest.update(request.uuid, {
+            status: 'failed',
+            message: errorMessage
+          });
         }
-
-        HordeRequest.update(request.uuid, {
-          status: 'failed',
-          message: errorMessage
-        });
       }
+    } finally {
+      this.isSubmitting = false;
     }
   }
 
@@ -200,64 +222,80 @@ class QueueManager {
    * Process pending downloads
    */
   async processDownloads() {
-    const pendingDownloads = HordePendingDownload.findAll();
+    // Prevent concurrent download processing
+    if (this.isDownloading) return;
+    this.isDownloading = true;
 
-    for (const download of pendingDownloads) {
-      try {
-        // Download the image
-        const imageData = await hordeApi.downloadImage(download.uri);
+    try {
+      const pendingDownloads = HordePendingDownload.findAll()
+        .filter(download => !this.activeDownloads.has(download.uuid));
 
-        // Generate filename
-        const imageUuid = uuidv4();
-        const imagePath = path.join(imagesDir, `${imageUuid}.png`);
-        const thumbnailPath = path.join(imagesDir, `${imageUuid}_thumb.jpg`);
+      for (const download of pendingDownloads) {
+        try {
+          // Mark as being downloaded to prevent duplicates
+          this.activeDownloads.add(download.uuid);
 
-        // Save original image
-        fs.writeFileSync(imagePath, imageData);
+          // Download the image
+          const imageData = await hordeApi.downloadImage(download.uri);
 
-        // Generate square thumbnail (512x512)
-        await sharp(imageData)
-          .resize(512, 512, {
-            fit: 'cover',
-            position: 'center'
-          })
-          .jpeg({ quality: 85 })
-          .toFile(thumbnailPath);
+          // Generate filename
+          const imageUuid = uuidv4();
+          const imagePath = path.join(imagesDir, `${imageUuid}.png`);
+          const thumbnailPath = path.join(imagesDir, `${imageUuid}_thumb.jpg`);
 
-        // Get request info for metadata
-        const request = HordeRequest.findById(download.request_id);
+          // Save original image
+          fs.writeFileSync(imagePath, imageData);
 
-        // Save to database
-        GeneratedImage.create({
-          uuid: imageUuid,
-          requestId: download.request_id,
-          backend: 'AI Horde',
-          promptSimple: request?.prompt,
-          fullRequest: request?.full_request,
-          fullResponse: download.full_response,
-          imagePath: `${imageUuid}.png`,
-          thumbnailPath: `${imageUuid}_thumb.jpg`
-        });
+          // Generate square thumbnail (512x512)
+          await sharp(imageData)
+            .resize(512, 512, {
+              fit: 'cover',
+              position: 'center'
+            })
+            .jpeg({ quality: 85 })
+            .toFile(thumbnailPath);
 
-        // Delete pending download
-        HordePendingDownload.delete(download.uuid);
+          // Get request info for metadata
+          const request = HordeRequest.findById(download.request_id);
 
-        console.log(`Downloaded and saved image ${imageUuid}`);
-
-        // Check if all downloads for this request are complete
-        const remainingDownloads = HordePendingDownload.findAll()
-          .filter(d => d.request_id === download.request_id);
-
-        if (remainingDownloads.length === 0) {
-          HordeRequest.update(download.request_id, {
-            status: 'completed',
-            message: 'All images downloaded'
+          // Save to database
+          GeneratedImage.create({
+            uuid: imageUuid,
+            requestId: download.request_id,
+            backend: 'AI Horde',
+            promptSimple: request?.prompt,
+            fullRequest: request?.full_request,
+            fullResponse: download.full_response,
+            imagePath: `${imageUuid}.png`,
+            thumbnailPath: `${imageUuid}_thumb.jpg`
           });
+
+          // Delete pending download
+          HordePendingDownload.delete(download.uuid);
+
+          // Remove from active downloads
+          this.activeDownloads.delete(download.uuid);
+
+          console.log(`Downloaded and saved image ${imageUuid}`);
+
+          // Check if all downloads for this request are complete
+          const remainingDownloads = HordePendingDownload.findAll()
+            .filter(d => d.request_id === download.request_id);
+
+          if (remainingDownloads.length === 0) {
+            HordeRequest.update(download.request_id, {
+              status: 'completed',
+              message: 'All images downloaded'
+            });
+          }
+        } catch (error) {
+          console.error(`Error downloading image ${download.uuid}:`, error.message);
+          // Remove from active downloads so it can be retried
+          this.activeDownloads.delete(download.uuid);
         }
-      } catch (error) {
-        console.error(`Error downloading image ${download.uuid}:`, error.message);
-        // Don't delete the pending download on error, will retry
       }
+    } finally {
+      this.isDownloading = false;
     }
   }
 

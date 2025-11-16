@@ -70,13 +70,14 @@ export default {
       const status = props.request.status
       if (status === 'completed') return 'status-completed'
       if (status === 'failed') return 'status-failed'
-      if (status === 'processing' || status === 'downloading') return 'status-processing'
+      if (status === 'submitting' || status === 'processing' || status === 'downloading') return 'status-processing'
       return 'status-pending'
     })
 
     const statusText = computed(() => {
       const status = props.request.status
       if (status === 'pending') return 'Pending'
+      if (status === 'submitting') return 'Submitting'
       if (status === 'processing') return 'Processing'
       if (status === 'downloading') return 'Downloading'
       if (status === 'completed') return 'Completed'
@@ -85,7 +86,7 @@ export default {
     })
 
     const showProgress = computed(() => {
-      return ['pending', 'processing', 'downloading'].includes(props.request.status)
+      return ['pending', 'submitting', 'processing', 'downloading'].includes(props.request.status)
     })
 
     const formatWaitTime = (seconds) => {

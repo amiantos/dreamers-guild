@@ -40,7 +40,7 @@ export const HordeRequest = {
   findPending() {
     const stmt = db.prepare(`
       SELECT * FROM horde_requests
-      WHERE status IN ('pending', 'processing', 'waiting')
+      WHERE status IN ('pending', 'submitting', 'processing', 'waiting', 'downloading')
       ORDER BY date_created ASC
     `);
     return stmt.all();
