@@ -22,8 +22,9 @@ export const requestsApi = {
     return apiClient.post('/requests', data)
   },
 
-  delete(id) {
-    return apiClient.delete(`/requests/${id}`)
+  delete(id, imageAction = null) {
+    const params = imageAction ? `?imageAction=${imageAction}` : ''
+    return apiClient.delete(`/requests/${id}${params}`)
   },
 
   getQueueStatus() {

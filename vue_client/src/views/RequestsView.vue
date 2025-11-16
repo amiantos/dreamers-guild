@@ -23,9 +23,15 @@
         :key="request.uuid"
         :request="request"
         @view-images="viewRequestImages"
-        @delete="deleteRequest"
+        @delete="showDeleteModal"
       />
     </div>
+
+    <DeleteRequestModal
+      v-if="deleteModalVisible"
+      @close="deleteModalVisible = false"
+      @delete="confirmDelete"
+    />
   </div>
 </template>
 
@@ -34,17 +40,21 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { requestsApi } from '../api/client.js'
 import RequestCard from '../components/RequestCard.vue'
+import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 
 export default {
   name: 'RequestsView',
   components: {
-    RequestCard
+    RequestCard,
+    DeleteRequestModal
   },
   setup() {
     const router = useRouter()
     const requests = ref([])
     const queueStatus = ref(null)
     const loading = ref(true)
+    const deleteModalVisible = ref(false)
+    const requestToDelete = ref(null)
     let pollInterval = null
 
     const fetchRequests = async () => {
@@ -71,14 +81,22 @@ export default {
       router.push(`/library/request/${requestId}`)
     }
 
-    const deleteRequest = async (requestId) => {
-      if (!confirm('Delete this request?')) return
+    const showDeleteModal = (requestId) => {
+      requestToDelete.value = requestId
+      deleteModalVisible.value = true
+    }
+
+    const confirmDelete = async (imageAction) => {
+      if (!requestToDelete.value) return
 
       try {
-        await requestsApi.delete(requestId)
-        requests.value = requests.value.filter(r => r.uuid !== requestId)
+        await requestsApi.delete(requestToDelete.value, imageAction)
+        requests.value = requests.value.filter(r => r.uuid !== requestToDelete.value)
+        deleteModalVisible.value = false
+        requestToDelete.value = null
       } catch (error) {
         console.error('Error deleting request:', error)
+        alert('Failed to delete request. Please try again.')
       }
     }
 
@@ -103,8 +121,10 @@ export default {
       requests,
       queueStatus,
       loading,
+      deleteModalVisible,
       viewRequestImages,
-      deleteRequest
+      showDeleteModal,
+      confirmDelete
     }
   }
 }

@@ -1,5 +1,5 @@
 import express from 'express';
-import { HordeRequest } from '../db/models.js';
+import { HordeRequest, GeneratedImage, HordePendingDownload } from '../db/models.js';
 import queueManager from '../services/queueManager.js';
 
 const router = express.Router();
@@ -50,7 +50,31 @@ router.post('/', (req, res) => {
 // Delete a request
 router.delete('/:id', (req, res) => {
   try {
-    HordeRequest.delete(req.params.id);
+    const { imageAction } = req.query; // 'prune' or 'keep'
+    const requestId = req.params.id;
+
+    // Delete any pending downloads for this request
+    const pendingDownloads = HordePendingDownload.findAll().filter(d => d.request_id === requestId);
+    pendingDownloads.forEach(d => HordePendingDownload.delete(d.uuid));
+
+    if (imageAction === 'prune') {
+      // Delete all non-favorited images (for now, all images since favoriting doesn't exist)
+      const images = GeneratedImage.getByRequestId(requestId);
+      images.forEach(img => {
+        if (!img.is_favorite) {
+          GeneratedImage.delete(img.uuid);
+        }
+      });
+    } else if (imageAction === 'keep') {
+      // Keep all images by removing the request_id reference
+      const images = GeneratedImage.getByRequestId(requestId);
+      images.forEach(img => {
+        GeneratedImage.update(img.uuid, { requestId: null });
+      });
+    }
+
+    // Now delete the request
+    HordeRequest.delete(requestId);
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting request:', error);
