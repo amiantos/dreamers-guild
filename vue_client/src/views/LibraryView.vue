@@ -2,7 +2,7 @@
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
     <!-- Requests Panel -->
     <div class="requests-panel" :class="{ open: isPanelOpen }">
-      <div class="panel-content">
+      <div class="panel-content" ref="panelContent">
         <div v-if="requests.length === 0" class="panel-empty-state">
           <p>No requests yet</p>
           <p class="hint">Click the + button to generate your first AI image</p>
@@ -169,6 +169,8 @@ export default {
     const queueStatus = ref(null)
     const deleteModalVisible = ref(false)
     const requestToDelete = ref(null)
+    const panelContent = ref(null)
+    const hasOpenedPanel = ref(false)
     let pollInterval = null
     let imagesPollInterval = null
     let finalImageCheckTimeout = null
@@ -394,7 +396,8 @@ export default {
     const fetchRequests = async () => {
       try {
         const response = await requestsApi.getAll()
-        requests.value = response.data
+        // Reverse the array to show oldest to newest (newest at bottom)
+        requests.value = response.data.reverse()
       } catch (error) {
         console.error('Error fetching requests:', error)
       }
@@ -531,6 +534,22 @@ export default {
             finalImageCheckTimeout = null
           }, 3000)
         }
+      }
+    })
+
+    // Watch for panel opening to scroll to bottom on first open
+    watch(isPanelOpen, (isOpen) => {
+      if (isOpen && !hasOpenedPanel.value && panelContent.value) {
+        // Use nextTick to ensure DOM is updated
+        setTimeout(() => {
+          if (panelContent.value) {
+            const panelElement = panelContent.value.parentElement
+            if (panelElement) {
+              panelElement.scrollTop = panelElement.scrollHeight
+            }
+          }
+        }, 100)
+        hasOpenedPanel.value = true
       }
     })
 
