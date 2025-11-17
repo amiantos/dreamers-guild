@@ -897,20 +897,20 @@ export default {
   border-top: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
 }
 
 .panel-tab:hover .tab-content {
-  animation: bounce 0.4s ease;
+  animation: bounce 0.4s ease-in-out;
 }
 
 @keyframes bounce {
-  0% { padding-top: 0.75rem; }
-  50% { padding-top: 1.25rem; }
-  100% { padding-top: 0.75rem; }
+  0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  50% { padding-top: 1rem; padding-bottom: 0.75rem; }
+  100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 
 .status-dot {
