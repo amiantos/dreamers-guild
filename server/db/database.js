@@ -88,9 +88,21 @@ function initDatabase() {
       favorite_models TEXT,
       favorite_styles TEXT,
       last_used_settings TEXT,
+      worker_preferences TEXT,
       date_modified INTEGER
     )
   `);
+
+  // Migration: Add worker_preferences column if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN worker_preferences TEXT`);
+    console.log('Migration: Added worker_preferences column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
 
   // Create indexes
   db.exec(`

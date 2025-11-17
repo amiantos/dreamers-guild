@@ -235,8 +235,8 @@ export const UserSettings = {
     // Create default settings if none exist
     if (!settings) {
       const insertStmt = db.prepare(`
-        INSERT INTO user_settings (id, api_key, default_params, favorite_models, favorite_styles, last_used_settings, date_modified)
-        VALUES (1, ?, ?, ?, ?, ?, ?)
+        INSERT INTO user_settings (id, api_key, default_params, favorite_models, favorite_styles, last_used_settings, worker_preferences, date_modified)
+        VALUES (1, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       insertStmt.run(
@@ -245,6 +245,7 @@ export const UserSettings = {
         JSON.stringify([]),
         JSON.stringify([]),
         JSON.stringify({}),
+        JSON.stringify({ slowWorkers: true, trustedWorkers: false, nsfw: false }),
         Date.now()
       );
 
@@ -264,6 +265,7 @@ export const UserSettings = {
     if (data.favoriteModels !== undefined) { fields.push('favorite_models = ?'); values.push(JSON.stringify(data.favoriteModels)); }
     if (data.favoriteStyles !== undefined) { fields.push('favorite_styles = ?'); values.push(JSON.stringify(data.favoriteStyles)); }
     if (data.lastUsedSettings !== undefined) { fields.push('last_used_settings = ?'); values.push(JSON.stringify(data.lastUsedSettings)); }
+    if (data.workerPreferences !== undefined) { fields.push('worker_preferences = ?'); values.push(JSON.stringify(data.workerPreferences)); }
 
     if (fields.length === 0) return this.get();
 

@@ -242,25 +242,6 @@
                 </div>
               </div>
             </div>
-
-            <!-- Worker Preferences (Always Visible) -->
-            <div class="toggles-section">
-              <h4>Worker Preferences</h4>
-              <div class="toggle-grid">
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.slowWorkers" />
-                  <span>Allow Slow Workers</span>
-                </label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.trustedWorkers" />
-                  <span>Trusted Workers Only</span>
-                </label>
-                <label class="toggle">
-                  <input type="checkbox" v-model="form.nsfw" />
-                  <span>Allow NSFW</span>
-                </label>
-              </div>
-            </div>
           </form>
         </div>
 
@@ -359,12 +340,27 @@ export default {
       karras: true,
       hiresFix: false,
       tiling: false,
-      nsfw: false,
-      trustedWorkers: false,
-      slowWorkers: true,
       postProcessing: [],
       loras: []
     })
+
+    // Load worker preferences from localStorage
+    const getWorkerPreferences = () => {
+      try {
+        const savedPrefs = localStorage.getItem('workerPreferences')
+        if (savedPrefs) {
+          return JSON.parse(savedPrefs)
+        }
+      } catch (error) {
+        console.error('Error loading worker preferences:', error)
+      }
+      // Default preferences
+      return {
+        slowWorkers: true,
+        trustedWorkers: false,
+        nsfw: false
+      }
+    }
 
 
     // Fetch available models from AI Horde (with caching)
@@ -459,6 +455,7 @@ export default {
         const settingsToSave = { ...form }
         // Don't save loras in last used settings as they're style-specific
         delete settingsToSave.loras
+        // Don't save worker preferences (they're now stored separately in settings)
 
         // Save to localStorage immediately for instant access
         localStorage.setItem('lastUsedSettings', JSON.stringify(settingsToSave))
@@ -682,10 +679,11 @@ export default {
       // Set model
       params.models = [form.model]
 
-      // Apply user preferences (worker settings)
-      params.nsfw = form.nsfw
-      params.trusted_workers = form.trustedWorkers
-      params.slow_workers = form.slowWorkers
+      // Apply user preferences (worker settings) from settings
+      const workerPrefs = getWorkerPreferences()
+      params.nsfw = workerPrefs.nsfw
+      params.trusted_workers = workerPrefs.trustedWorkers
+      params.slow_workers = workerPrefs.slowWorkers
 
       // If a style is selected, apply style parameters on top of baseRequest
       if (selectedStyleName.value !== 'None' && selectedStyleData.value) {

@@ -36,6 +36,7 @@ export default {
     const requestModalRef = ref(null)
     const modalInitialSettings = ref(null)
     const modalIncludeSeed = ref(false)
+    const shouldOpenRequestsPanel = ref(false)
 
     const handleCloseRequestModal = () => {
       showRequestModal.value = false
@@ -46,7 +47,8 @@ export default {
 
     const handleNewRequest = () => {
       handleCloseRequestModal()
-      // Request panel will show the new request automatically
+      // Signal to open the requests panel
+      shouldOpenRequestsPanel.value = true
     }
 
     const openRequestModal = () => {
@@ -95,6 +97,7 @@ export default {
     provide('loadSettingsFromImage', loadSettingsFromImage)
     provide('openRequestModal', openRequestModal)
     provide('openSettingsModal', openSettingsModal)
+    provide('shouldOpenRequestsPanel', shouldOpenRequestsPanel)
 
     return {
       showRequestModal,

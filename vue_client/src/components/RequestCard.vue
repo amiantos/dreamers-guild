@@ -18,20 +18,16 @@
               <span class="date">{{ formattedDate }}</span>
               <span class="divider">•</span>
               <span class="count">{{ request.n }} {{ request.n === 1 ? 'image' : 'images' }}</span>
+              <template v-if="statusMessage">
+                <span class="divider">•</span>
+                <span class="status-message">{{ statusMessage }}</span>
+              </template>
             </div>
           </div>
           <div class="request-status">
             <span class="status-badge" :class="statusClass">{{ statusText }}</span>
           </div>
         </div>
-
-    <div v-if="showProgress" class="progress-info">
-      <div v-if="request.queue_position > 0" class="queue-info">
-        Queue position: {{ request.queue_position }}
-        <span v-if="request.wait_time > 0">(~{{ formatWaitTime(request.wait_time) }})</span>
-      </div>
-      <div v-if="request.message" class="message">{{ request.message }}</div>
-    </div>
 
         <div class="request-actions">
           <button
@@ -129,8 +125,20 @@ export default {
       return status
     })
 
-    const showProgress = computed(() => {
-      return ['pending', 'submitting', 'processing', 'downloading'].includes(props.request.status)
+    const statusMessage = computed(() => {
+      // For completed/failed requests, don't show additional message
+      if (['completed', 'failed'].includes(props.request.status)) {
+        return null
+      }
+
+      // Show queue position if available
+      if (props.request.queue_position > 0) {
+        const waitTime = props.request.wait_time > 0 ? ` (~${formatWaitTime(props.request.wait_time)})` : ''
+        return `Queue position ${props.request.queue_position}${waitTime}`
+      }
+
+      // Otherwise show the message if available
+      return props.request.message || null
     })
 
     const formatWaitTime = (seconds) => {
@@ -145,7 +153,7 @@ export default {
       formattedDate,
       statusClass,
       statusText,
-      showProgress,
+      statusMessage,
       formatWaitTime
     }
   }
@@ -235,10 +243,15 @@ export default {
   gap: 0.5rem;
   font-size: 0.85rem;
   color: #999;
+  flex-wrap: wrap;
 }
 
 .divider {
   color: #555;
+}
+
+.status-message {
+  color: #aaa;
 }
 
 .request-status {
@@ -265,24 +278,7 @@ export default {
 }
 
 .status-failed {
-  
-}
 
-.progress-info {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  background: #0f0f0f;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  color: #999;
-}
-
-.queue-info {
-  margin-bottom: 0.5rem;
-}
-
-.message {
-  color: #aaa;
 }
 
 .request-actions {

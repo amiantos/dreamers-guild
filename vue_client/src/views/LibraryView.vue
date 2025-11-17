@@ -30,9 +30,6 @@
       <div class="header-content">
         <div class="header-left">
           <h2>Aislingeach</h2>
-          <button @click="openSettings" class="btn-settings-icon" title="Settings">
-            ⚙
-          </button>
         </div>
 
         <div class="header-controls">
@@ -67,13 +64,8 @@
       <!-- Requests Panel Toggle Tab (inside header) -->
       <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
         <div class="tab-content">
-          <span class="tab-arrow">{{ isPanelOpen ? '▲' : '▼' }}</span>
-          <div v-if="queueStatus" class="queue-status">
-            <span class="status-dot" :class="{ active: queueStatus.isProcessing }"></span>
-            <span>{{ queueStatus.active }}/{{ queueStatus.maxActive }} active</span>
-            <span class="divider">•</span>
-            <span>{{ queueStatus.pendingRequests }} pending</span>
-          </div>
+          <span class="status-dot" :class="requestStatusClass"></span>
+          <span class="tab-text">Requests</span>
         </div>
       </div>
     </div>
@@ -122,8 +114,13 @@
       @load-settings="handleLoadSettings"
     />
 
-    <!-- Floating Action Button -->
-    <button @click="openNewRequest" class="fab" title="New Request">
+    <!-- Floating Action Button (Settings) -->
+    <button @click="openSettings" class="fab fab-settings" title="Settings">
+      ⚙
+    </button>
+
+    <!-- Floating Action Button (New Request) -->
+    <button @click="openNewRequest" class="fab fab-new" title="New Request">
       +
     </button>
   </div>
@@ -178,6 +175,7 @@ export default {
     const loadSettingsFromImage = inject('loadSettingsFromImage')
     const openSettingsModal = inject('openSettingsModal')
     const openRequestModal = inject('openRequestModal')
+    const shouldOpenRequestsPanel = inject('shouldOpenRequestsPanel')
 
     const openSettings = () => {
       if (openSettingsModal) {
@@ -394,7 +392,8 @@ export default {
     const fetchRequests = async () => {
       try {
         const response = await requestsApi.getAll()
-        requests.value = response.data
+        // Reverse array to show oldest to newest (CSS flex-direction handles scroll anchoring)
+        requests.value = response.data.reverse()
       } catch (error) {
         console.error('Error fetching requests:', error)
       }
@@ -460,8 +459,7 @@ export default {
       localStorage.setItem('libraryFilters', JSON.stringify(newFilters))
       filters.value = newFilters
 
-      // Close the panel
-      isPanelOpen.value = false
+      // Don't close the panel - keep it open for user convenience
 
       // Refresh images
       offset.value = 0
@@ -502,6 +500,33 @@ export default {
         fetchImages()
       }
     }
+
+    // Watch for signal to open requests panel
+    if (shouldOpenRequestsPanel) {
+      watch(shouldOpenRequestsPanel, (shouldOpen) => {
+        if (shouldOpen) {
+          isPanelOpen.value = true
+          // Reset the signal
+          shouldOpenRequestsPanel.value = false
+        }
+      })
+    }
+
+    // Computed property for request status dot color
+    const requestStatusClass = computed(() => {
+      // Check if any request has failed status
+      const hasFailed = requests.value.some(r => r.status === 'failed')
+      if (hasFailed) return 'error'
+
+      // Check if any request is in progress
+      const hasActive = requests.value.some(r =>
+        ['pending', 'submitting', 'processing', 'downloading'].includes(r.status)
+      )
+      if (hasActive) return 'active'
+
+      // All requests are complete (or no requests)
+      return 'complete'
+    })
 
     // Watch queue status to start/stop image polling
     watch(queueStatus, (newStatus) => {
@@ -595,6 +620,7 @@ export default {
       togglePanel,
       requests,
       queueStatus,
+      requestStatusClass,
       viewRequestImages,
       showDeleteModal,
       confirmDelete,
@@ -618,7 +644,7 @@ export default {
 }
 
 .library-view.panel-open .header {
-  top: 50vh;
+  top: 25vh;
 }
 
 .header-content {
@@ -642,25 +668,6 @@ export default {
   margin: 0;
 }
 
-.btn-settings-icon {
-  background: transparent;
-  color: #999;
-  border: 1px solid #333;
-  padding: 0.5rem 0.6rem;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.btn-settings-icon:hover {
-  color: #fff;
-  background: #2a2a2a;
-  border-color: #444;
-}
 
 .header-controls {
   display: flex;
@@ -829,11 +836,10 @@ export default {
   font-weight: 500;
 }
 
-/* Floating Action Button */
+/* Floating Action Buttons */
 .fab {
   position: fixed;
   bottom: 2rem;
-  right: 2rem;
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -852,10 +858,23 @@ export default {
   justify-content: center;
 }
 
+.fab-new {
+  right: 2rem;
+}
+
+.fab-settings {
+  left: 2rem;
+  background: #555;
+}
+
 .fab:hover {
   background: #0051D5;
   transform: scale(1.05);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.fab-settings:hover {
+  background: #777;
 }
 
 .fab:active {
@@ -877,41 +896,41 @@ export default {
   border-radius: 0 0 12px 12px;
   border-top: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  min-width: 350px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: background 0.2s;
 }
 
 .panel-tab:hover .tab-content {
-  
+  animation: bounce 0.4s ease-in-out;
 }
 
-.tab-arrow {
-  font-size: 0.75rem;
-  color: #999;
-}
-
-.queue-status {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  color: #999;
+@keyframes bounce {
+  0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  50% { padding-top: 1rem; padding-bottom: 0.75rem; }
+  100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #666;
+  flex-shrink: 0;
+}
+
+.status-dot.complete {
+  background: #00ff00;
 }
 
 .status-dot.active {
-  background: #00ff00;
+  background: #ffcc00;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.error {
+  background: #ff3b30;
   animation: pulse 2s infinite;
 }
 
@@ -920,8 +939,10 @@ export default {
   50% { opacity: 0.5; }
 }
 
-.divider {
-  color: #444;
+.tab-text {
+  font-size: 0.95rem;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Requests Panel */
@@ -934,11 +955,14 @@ export default {
   transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
   box-shadow: none;
   z-index: 51;
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 .requests-panel.open {
-  max-height: 50vh;
+  max-height: 25vh;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .panel-content {
