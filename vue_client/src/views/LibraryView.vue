@@ -64,13 +64,8 @@
       <!-- Requests Panel Toggle Tab (inside header) -->
       <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
         <div class="tab-content">
-          <span class="tab-arrow">{{ isPanelOpen ? '▲' : '▼' }}</span>
-          <div v-if="queueStatus" class="queue-status">
-            <span class="status-dot" :class="{ active: queueStatus.isProcessing }"></span>
-            <span>{{ queueStatus.active }}/{{ queueStatus.maxActive }} active</span>
-            <span class="divider">•</span>
-            <span>{{ queueStatus.pendingRequests }} pending</span>
-          </div>
+          <span class="status-dot" :class="requestStatusClass"></span>
+          <span class="tab-text">Requests</span>
         </div>
       </div>
     </div>
@@ -517,6 +512,22 @@ export default {
       })
     }
 
+    // Computed property for request status dot color
+    const requestStatusClass = computed(() => {
+      // Check if any request has failed status
+      const hasFailed = requests.value.some(r => r.status === 'failed')
+      if (hasFailed) return 'error'
+
+      // Check if any request is in progress
+      const hasActive = requests.value.some(r =>
+        ['pending', 'submitting', 'processing', 'downloading'].includes(r.status)
+      )
+      if (hasActive) return 'active'
+
+      // All requests are complete (or no requests)
+      return 'complete'
+    })
+
     // Watch queue status to start/stop image polling
     watch(queueStatus, (newStatus) => {
       if (!newStatus) return
@@ -609,6 +620,7 @@ export default {
       togglePanel,
       requests,
       queueStatus,
+      requestStatusClass,
       viewRequestImages,
       showDeleteModal,
       confirmDelete,
@@ -884,41 +896,36 @@ export default {
   border-radius: 0 0 12px 12px;
   border-top: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  min-width: 350px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.75rem;
   padding: 0.75rem 1.5rem;
   transition: background 0.2s;
 }
 
 .panel-tab:hover .tab-content {
-  
-}
-
-.tab-arrow {
-  font-size: 0.75rem;
-  color: #999;
-}
-
-.queue-status {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  color: #999;
+  background: #1f1f1f;
 }
 
 .status-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: #666;
+  flex-shrink: 0;
+}
+
+.status-dot.complete {
+  background: #00ff00;
 }
 
 .status-dot.active {
-  background: #00ff00;
+  background: #ffcc00;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.error {
+  background: #ff3b30;
   animation: pulse 2s infinite;
 }
 
@@ -927,8 +934,10 @@ export default {
   50% { opacity: 0.5; }
 }
 
-.divider {
-  color: #444;
+.tab-text {
+  font-size: 0.95rem;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Requests Panel */
