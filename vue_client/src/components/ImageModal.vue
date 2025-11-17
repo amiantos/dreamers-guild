@@ -4,7 +4,7 @@
       <button class="btn-close" @click="$emit('close')">×</button>
 
       <button
-        v-if="showNavigation"
+        v-if="showNavigation && !isProtected"
         class="btn-nav btn-prev"
         @click="$emit('navigate', -1)"
         title="Previous image (←)"
@@ -13,7 +13,7 @@
       </button>
 
       <button
-        v-if="showNavigation"
+        v-if="showNavigation && !isProtected"
         class="btn-nav btn-next"
         @click="$emit('navigate', 1)"
         title="Next image (→)"
@@ -35,7 +35,7 @@
         </div>
       </div>
 
-      <div class="image-details">
+      <div v-if="!isProtected" class="image-details">
         <div v-if="image.prompt_simple" class="detail-row">
           <strong>Prompt:</strong>
           <p>{{ image.prompt_simple }}</p>
