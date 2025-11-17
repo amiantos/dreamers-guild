@@ -24,7 +24,8 @@ function extractKeywords(prompts, limit = 20) {
     // Split by commas and process each keyword
     const keywords = positivePrompt.split(',')
       .map(k => k.trim())
-      .filter(k => k.length > 0);
+      .filter(k => k.length > 0)
+      .filter(k => !k.startsWith('score_')); // Filter out score_ keywords
 
     keywords.forEach(keyword => {
       keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);

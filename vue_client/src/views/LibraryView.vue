@@ -47,14 +47,14 @@
         <div class="header-controls">
           <div class="right-controls">
             <!-- Active Filters -->
-            <div v-if="filters.requestId || filters.keywords" class="filter-chips">
+            <div v-if="filters.requestId || filters.keywords.length > 0" class="filter-chips">
               <div v-if="filters.requestId" class="filter-chip">
                 <span>Request: {{ filters.requestId.substring(0, 8) }}</span>
                 <button @click="clearFilter('requestId')" class="chip-remove">×</button>
               </div>
-              <div v-if="filters.keywords" class="filter-chip">
-                <span>{{ filters.keywords }}</span>
-                <button @click="clearFilter('keywords')" class="chip-remove">×</button>
+              <div v-for="keyword in filters.keywords" :key="keyword" class="filter-chip">
+                <span>{{ keyword }}</span>
+                <button @click="clearFilter('keywords', keyword)" class="chip-remove">×</button>
               </div>
             </div>
 
@@ -175,7 +175,7 @@ export default {
     const searchQuery = ref('')
     const filters = ref({
       requestId: null,
-      keywords: null,
+      keywords: [], // Changed to array for multiple keywords
       showFavoritesOnly: false,
       showHidden: false
     })
@@ -247,8 +247,10 @@ export default {
         if (filters.value.requestId) {
           response = await imagesApi.getByRequestId(filters.value.requestId, limit)
           hasMore.value = false // Request images don't paginate
-        } else if (filters.value.keywords) {
-          response = await imagesApi.search(filters.value.keywords, limit, filters.value)
+        } else if (filters.value.keywords.length > 0) {
+          // Join keywords with space for search
+          const searchTerms = filters.value.keywords.join(' ')
+          response = await imagesApi.search(searchTerms, limit, filters.value)
           hasMore.value = false // Search doesn't paginate yet
         } else {
           response = await imagesApi.getAll(limit, offset.value, filters.value)
@@ -314,28 +316,45 @@ export default {
       fetchImages()
     }
 
-    const clearFilter = (filterType) => {
-      filters.value[filterType] = null
+    const clearFilter = (filterType, value = null) => {
+      if (filterType === 'keywords' && value) {
+        // Remove specific keyword from array
+        filters.value.keywords = filters.value.keywords.filter(k => k !== value)
+      } else if (filterType === 'keywords') {
+        // Clear all keywords
+        filters.value.keywords = []
+      } else {
+        filters.value[filterType] = null
+      }
       offset.value = 0
       hasMore.value = true
       fetchImages()
+      updateUrl()
     }
 
     const applySearch = () => {
-      if (searchQuery.value.trim()) {
-        setFilter('keywords', searchQuery.value.trim())
+      const term = searchQuery.value.trim()
+      if (term && !filters.value.keywords.includes(term)) {
+        // Add to keywords array if not already present
+        filters.value.keywords.push(term)
+        searchQuery.value = '' // Clear search box
+        offset.value = 0
+        hasMore.value = true
+        fetchImages()
+        updateUrl()
       }
     }
 
     const clearAllFilters = () => {
       filters.value.requestId = null
-      filters.value.keywords = null
+      filters.value.keywords = []
       filters.value.showFavoritesOnly = false
       filters.value.showHidden = false
       searchQuery.value = ''
       offset.value = 0
       hasMore.value = true
       fetchImages()
+      updateUrl()
     }
 
     const navigateImage = (direction) => {
@@ -442,7 +461,7 @@ export default {
 
     const checkNewImages = async () => {
       // Don't check for new images if we're viewing a specific request or searching
-      if (filters.value.requestId || filters.value.keywords) {
+      if (filters.value.requestId || filters.value.keywords.length > 0) {
         return
       }
 
@@ -483,13 +502,8 @@ export default {
     }
 
     const viewRequestImages = (requestId) => {
-      // Set the request filter in localStorage
-      const newFilters = {
-        requestId: requestId,
-        keywords: null
-      }
-      localStorage.setItem('libraryFilters', JSON.stringify(newFilters))
-      filters.value = newFilters
+      filters.value.requestId = requestId
+      filters.value.keywords = []
 
       // Don't close the panel - keep it open for user convenience
 
@@ -546,6 +560,46 @@ export default {
       }
     }
 
+    const updateUrl = () => {
+      // Build the path based on current filters
+      let path = '/'
+      if (filters.value.showFavoritesOnly) {
+        path = '/favorites'
+      } else if (filters.value.showHidden) {
+        path = '/hidden'
+      }
+
+      // Build query params
+      const query = {}
+      if (filters.value.keywords.length > 0) {
+        query.q = filters.value.keywords.join(',')
+      }
+
+      // Update URL without triggering navigation
+      router.replace({ path, query })
+    }
+
+    const loadFiltersFromUrl = () => {
+      // Load filters from route
+      if (route.path === '/favorites') {
+        filters.value.showFavoritesOnly = true
+        filters.value.showHidden = false
+      } else if (route.path === '/hidden') {
+        filters.value.showFavoritesOnly = false
+        filters.value.showHidden = true
+      } else {
+        filters.value.showFavoritesOnly = false
+        filters.value.showHidden = false
+      }
+
+      // Load keywords from query params
+      if (route.query.q) {
+        filters.value.keywords = route.query.q.split(',').filter(k => k.trim().length > 0)
+      } else {
+        filters.value.keywords = []
+      }
+    }
+
     const selectAlbum = (album) => {
       // Update filters based on album selection
       filters.value.requestId = null
@@ -553,19 +607,21 @@ export default {
       if (album.id === 'all') {
         filters.value.showFavoritesOnly = false
         filters.value.showHidden = false
-        filters.value.keywords = null
+        filters.value.keywords = []
       } else if (album.id === 'favorites') {
         filters.value.showFavoritesOnly = true
         filters.value.showHidden = false
-        filters.value.keywords = null
+        filters.value.keywords = []
       } else if (album.id === 'hidden') {
         filters.value.showFavoritesOnly = false
         filters.value.showHidden = true
-        filters.value.keywords = null
+        filters.value.keywords = []
       } else if (album.id.startsWith('keyword:')) {
-        // Extract keyword from ID
+        // Extract keyword from ID and add to array if not present
         const keyword = album.id.replace('keyword:', '')
-        filters.value.keywords = keyword
+        if (!filters.value.keywords.includes(keyword)) {
+          filters.value.keywords.push(keyword)
+        }
         // Keep current favorite/hidden filters intact for keyword searches
       }
 
@@ -576,6 +632,7 @@ export default {
       offset.value = 0
       hasMore.value = true
       fetchImages()
+      updateUrl()
     }
 
     // Listen for filter changes from localStorage (e.g., from other tabs or RequestCard)
@@ -654,8 +711,17 @@ export default {
       }
     })
 
+    // Watch for route changes to update filters
+    watch(() => route.path + route.query.q, () => {
+      loadFiltersFromUrl()
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
+      fetchAlbums()
+    })
+
     onMounted(async () => {
-      loadFilters()
+      loadFiltersFromUrl()
       await fetchImages()
       loadImageFromUrl()
 
