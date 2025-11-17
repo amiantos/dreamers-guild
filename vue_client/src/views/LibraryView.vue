@@ -901,11 +901,12 @@ export default {
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: background 0.2s;
+  transition: transform 0.2s ease;
+  transform-origin: top center;
 }
 
 .panel-tab:hover .tab-content {
-  background: #1f1f1f;
+  transform: scaleY(1.1);
 }
 
 .status-dot {
