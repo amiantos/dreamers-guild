@@ -941,6 +941,7 @@ export default {
 .requests-panel.open {
   max-height: 25vh;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 
 .panel-content {
