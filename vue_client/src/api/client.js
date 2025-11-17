@@ -86,15 +86,32 @@ export const imagesApi = {
 
 export const settingsApi = {
   get() {
-    return apiClient.get('/settings')
+    return apiClient.get('/settings').then(res => res.data)
   },
 
   update(data) {
-    return apiClient.patch('/settings', data)
+    return apiClient.patch('/settings', data).then(res => res.data)
   },
 
   getHordeUser() {
-    return apiClient.get('/settings/horde-user')
+    return apiClient.get('/settings/horde-user').then(res => res.data)
+  },
+
+  // PIN management
+  setupHiddenPin(pin, declined = false) {
+    return apiClient.post('/settings/hidden-pin/setup', { pin, declined }).then(res => res.data)
+  },
+
+  verifyHiddenPin(pin) {
+    return apiClient.post('/settings/hidden-pin/verify', { pin }).then(res => res.data)
+  },
+
+  changeHiddenPin(currentPin, newPin) {
+    return apiClient.patch('/settings/hidden-pin', { currentPin, newPin }).then(res => res.data)
+  },
+
+  removeHiddenPin(pin) {
+    return apiClient.delete('/settings/hidden-pin', { data: { pin } }).then(res => res.data)
   }
 }
 

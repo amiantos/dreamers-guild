@@ -97,14 +97,23 @@
         :key="image.uuid"
         class="image-item"
         @click="viewImage(image)"
+        :class="{ 'hidden-locked': image.is_hidden && checkHiddenAuth && !checkHiddenAuth() }"
       >
+        <div v-if="image.is_hidden && checkHiddenAuth && !checkHiddenAuth()" class="locked-placeholder">
+          <i class="fa-solid fa-lock"></i>
+          <span>Hidden</span>
+        </div>
         <img
+          v-else
           :src="getThumbnailUrl(image.uuid)"
           :alt="image.prompt_simple"
           loading="lazy"
         />
         <div v-if="image.is_favorite" class="favorite-badge" title="Favorited">
           <i class="fa-solid fa-star"></i>
+        </div>
+        <div v-if="image.is_hidden && (!checkHiddenAuth || checkHiddenAuth())" class="hidden-badge" title="Hidden">
+          <i class="fa-solid fa-eye-slash"></i>
         </div>
         <div class="image-overlay">
           <div class="image-info">
@@ -201,6 +210,8 @@ export default {
     const openSettingsModal = inject('openSettingsModal')
     const openRequestModal = inject('openRequestModal')
     const shouldOpenRequestsPanel = inject('shouldOpenRequestsPanel')
+    const checkHiddenAuth = inject('checkHiddenAuth')
+    const requestHiddenAccess = inject('requestHiddenAccess')
 
     const openSettings = () => {
       if (openSettingsModal) {
@@ -301,6 +312,17 @@ export default {
     }
 
     const viewImage = (image) => {
+      // Check if image is hidden and user is not authenticated
+      if (image.is_hidden && checkHiddenAuth && !checkHiddenAuth()) {
+        if (requestHiddenAccess) {
+          requestHiddenAccess(() => {
+            // After successful auth, view the image
+            viewImage(image)
+          })
+        }
+        return
+      }
+
       // Store the current route before opening the modal
       if (!selectedImage.value) {
         routeBeforeModal.value = {
@@ -308,6 +330,7 @@ export default {
           query: { ...route.query }
         }
       }
+
       selectedImage.value = image
       // Update URL for bookmarking, but don't trigger route watcher
       router.replace(`/image/${image.uuid}`)
@@ -439,6 +462,7 @@ export default {
       if (props.imageId && images.value.length > 0) {
         const image = images.value.find(img => img.uuid === props.imageId)
         if (image) {
+          // Always show the image, ImageModal will handle blur protection for hidden images
           selectedImage.value = image
         } else {
           // Image not in current list, try to fetch it
@@ -613,8 +637,27 @@ export default {
         filters.value.showFavoritesOnly = true
         filters.value.showHidden = false
       } else if (route.path === '/hidden') {
-        filters.value.showFavoritesOnly = false
-        filters.value.showHidden = true
+        // Check if user has access to hidden gallery
+        if (checkHiddenAuth && !checkHiddenAuth()) {
+          // Request PIN access
+          if (requestHiddenAccess) {
+            requestHiddenAccess(() => {
+              // After successful auth, set the filter and load images
+              filters.value.showFavoritesOnly = false
+              filters.value.showHidden = true
+              offset.value = 0
+              hasMore.value = true
+              fetchImages()
+              fetchAlbums()
+            })
+          }
+          // Navigate back to home while waiting for auth
+          router.replace('/')
+          return
+        } else {
+          filters.value.showFavoritesOnly = false
+          filters.value.showHidden = true
+        }
       } else {
         filters.value.showFavoritesOnly = false
         filters.value.showHidden = false
@@ -641,9 +684,24 @@ export default {
         filters.value.showHidden = false
         filters.value.keywords = []
       } else if (album.id === 'hidden') {
-        filters.value.showFavoritesOnly = false
-        filters.value.showHidden = true
-        filters.value.keywords = []
+        // Check if user has access to hidden gallery
+        if (checkHiddenAuth && !checkHiddenAuth()) {
+          // Close the albums panel first
+          isAlbumsPanelOpen.value = false
+
+          // Request PIN access
+          if (requestHiddenAccess) {
+            requestHiddenAccess(() => {
+              // After successful auth, navigate to hidden gallery
+              router.push('/hidden')
+            })
+          }
+          return
+        } else {
+          filters.value.showFavoritesOnly = false
+          filters.value.showHidden = true
+          filters.value.keywords = []
+        }
       } else if (album.id.startsWith('keyword:')) {
         // Extract keyword from ID and add to array if not present
         const keyword = album.id.replace('keyword:', '')
@@ -1058,6 +1116,53 @@ export default {
   border-radius: 50%;
   z-index: 2;
   pointer-events: none;
+}
+
+.hidden-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: #999;
+  font-size: 1.5rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.locked-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  color: #999;
+  gap: 0.5rem;
+}
+
+.locked-placeholder i {
+  font-size: 2rem;
+}
+
+.locked-placeholder span {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.hidden-locked {
+  cursor: pointer;
+}
+
+.hidden-locked:hover .locked-placeholder {
+  background: rgba(0, 0, 0, 0.95);
+  color: #bbb;
 }
 
 .image-overlay {

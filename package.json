@@ -13,20 +13,27 @@
     "client:preview": "cd vue_client && npm run preview",
     "install:all": "npm install && cd vue_client && npm install"
   },
-  "keywords": ["ai", "image-generation", "ai-horde", "express", "vue"],
+  "keywords": [
+    "ai",
+    "image-generation",
+    "ai-horde",
+    "express",
+    "vue"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "better-sqlite3": "^11.7.0",
-    "dotenv": "^16.3.1",
-    "uuid": "^9.0.1",
     "axios": "^1.6.2",
-    "sharp": "^0.33.1"
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "sharp": "^0.33.1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2"
   }
 }

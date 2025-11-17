@@ -4,7 +4,7 @@
       <button class="btn-close" @click="$emit('close')">×</button>
 
       <button
-        v-if="showNavigation"
+        v-if="showNavigation && !isProtected"
         class="btn-nav btn-prev"
         @click="$emit('navigate', -1)"
         title="Previous image (←)"
@@ -13,7 +13,7 @@
       </button>
 
       <button
-        v-if="showNavigation"
+        v-if="showNavigation && !isProtected"
         class="btn-nav btn-next"
         @click="$emit('navigate', 1)"
         title="Next image (→)"
@@ -21,11 +21,21 @@
         ›
       </button>
 
-      <div class="image-container">
+      <div class="image-container" :class="{ 'protected': isProtected }">
         <img :src="imageUrl" :alt="image.prompt_simple" />
+        <div v-if="isProtected" class="protection-overlay">
+          <div class="protection-content">
+            <i class="fa-solid fa-lock"></i>
+            <h3>Hidden Image</h3>
+            <p>This image is protected. Enter your PIN to view it.</p>
+            <button @click="handleUnlock" class="btn btn-unlock">
+              <i class="fa-solid fa-unlock"></i> Enter PIN
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div class="image-details">
+      <div v-if="!isProtected" class="image-details">
         <div v-if="image.prompt_simple" class="detail-row">
           <strong>Prompt:</strong>
           <p>{{ image.prompt_simple }}</p>
@@ -85,7 +95,7 @@
 </template>
 
 <script>
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, inject } from 'vue'
 import { imagesApi } from '../api/client.js'
 
 export default {
@@ -108,6 +118,8 @@ export default {
   setup(props, { emit }) {
     const isFavorite = ref(!!props.image.is_favorite)
     const isHidden = ref(!!props.image.is_hidden)
+    const checkHiddenAuth = inject('checkHiddenAuth')
+    const requestHiddenAccess = inject('requestHiddenAccess')
 
     // Watch for prop changes when navigating between images
     watch(() => props.image, (newImage) => {
@@ -119,8 +131,14 @@ export default {
       return imagesApi.getImageUrl(props.image.uuid)
     })
 
+    // Check if current image is in the images array (not a direct URL load)
+    const isImageInArray = computed(() => {
+      return props.images.some(img => img.uuid === props.image.uuid)
+    })
+
     const showNavigation = computed(() => {
-      return props.images.length > 1
+      // Only show navigation if there are multiple images AND the current image is in the array
+      return props.images.length > 1 && isImageInArray.value
     })
 
     const hasSettings = computed(() => {
@@ -172,6 +190,19 @@ export default {
       }
     }
 
+    // Check if image should be protected (hidden and not authenticated)
+    const isProtected = computed(() => {
+      return props.image.is_hidden && checkHiddenAuth && !checkHiddenAuth()
+    })
+
+    const handleUnlock = () => {
+      if (requestHiddenAccess) {
+        requestHiddenAccess(() => {
+          // Image will automatically become visible once authenticated
+        })
+      }
+    }
+
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown)
     })
@@ -188,7 +219,9 @@ export default {
       isFavorite,
       isHidden,
       toggleFavorite,
-      toggleHidden
+      toggleHidden,
+      isProtected,
+      handleUnlock
     }
   }
 }
@@ -282,6 +315,11 @@ export default {
   background: #000;
   overflow: hidden;
   min-height: 0;
+  position: relative;
+}
+
+.image-container.protected img {
+  filter: blur(50px);
 }
 
 .image-container img {
@@ -290,6 +328,70 @@ export default {
   width: auto;
   height: auto;
   object-fit: contain;
+}
+
+.protection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.protection-content {
+  text-align: center;
+  color: #fff;
+  padding: 2rem;
+  max-width: 400px;
+}
+
+.protection-content i.fa-lock {
+  font-size: 4rem;
+  color: #007bff;
+  margin-bottom: 1.5rem;
+}
+
+.protection-content h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.protection-content p {
+  margin: 0 0 2rem 0;
+  color: #999;
+  font-size: 1.1rem;
+  line-height: 1.5;
+}
+
+.btn-unlock {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-unlock:hover {
+  background: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-unlock i {
+  font-size: 1rem;
 }
 
 .image-details {

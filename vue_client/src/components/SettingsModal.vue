@@ -94,17 +94,111 @@
 
           <div v-if="savingPrefs" class="saving-indicator">Saving...</div>
         </div>
+
+        <div class="section">
+          <h3>Hidden Gallery Protection</h3>
+          <p class="help-text">
+            Protect your hidden images with a 4-digit PIN.
+          </p>
+
+          <div v-if="settings.hasPinProtection" class="pin-status">
+            <div class="status-indicator">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="9" stroke="#007AFF" stroke-width="2"/>
+                <path d="M6 10l3 3 5-5" stroke="#007AFF" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span>PIN protection is enabled</span>
+            </div>
+            <div class="pin-actions">
+              <button @click="showChangePinModal" class="btn btn-secondary">Change PIN</button>
+              <button @click="showRemovePinModal" class="btn btn-danger">Remove PIN</button>
+            </div>
+          </div>
+
+          <div v-else-if="settings.hidden_pin_enabled === 0" class="pin-status">
+            <div class="status-indicator">
+              <span>PIN protection is disabled</span>
+            </div>
+            <button @click="showSetPinModal" class="btn btn-primary">Set PIN</button>
+          </div>
+
+          <div v-else class="pin-status">
+            <div class="status-indicator">
+              <span>PIN not configured</span>
+            </div>
+            <button @click="showSetPinModal" class="btn btn-primary">Set PIN</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Change PIN Modal -->
+    <div v-if="changePinModalOpen" class="modal-overlay" @click.self="changePinModalOpen = false">
+      <div class="modal-content pin-modal">
+        <div class="modal-header">
+          <h2>Change PIN</h2>
+          <button class="btn-close" @click="changePinModalOpen = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="pin-section">
+            <label>Current PIN</label>
+            <PinInput v-model="currentPin" ref="currentPinInput" @complete="handleCurrentPinComplete" />
+          </div>
+          <div v-if="currentPinVerified" class="pin-section">
+            <label>{{ newPinConfirmMode ? 'Confirm New PIN' : 'New PIN' }}</label>
+            <PinInput v-model="newPin" ref="newPinInput" @complete="handleNewPinComplete" />
+          </div>
+          <p v-if="pinError" class="error-message">{{ pinError }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remove PIN Modal -->
+    <div v-if="removePinModalOpen" class="modal-overlay" @click.self="removePinModalOpen = false">
+      <div class="modal-content pin-modal">
+        <div class="modal-header">
+          <h2>Remove PIN Protection</h2>
+          <button class="btn-close" @click="removePinModalOpen = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="help-text">Enter your PIN to remove protection from the hidden gallery.</p>
+          <div class="pin-section">
+            <label>Current PIN</label>
+            <PinInput v-model="removePinValue" ref="removePinInput" @complete="handleRemovePin" />
+          </div>
+          <p v-if="pinError" class="error-message">{{ pinError }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Set PIN Modal -->
+    <div v-if="setPinModalOpen" class="modal-overlay" @click.self="setPinModalOpen = false">
+      <div class="modal-content pin-modal">
+        <div class="modal-header">
+          <h2>Set PIN</h2>
+          <button class="btn-close" @click="setPinModalOpen = false">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="help-text">Set a 4-digit PIN to protect your hidden gallery.</p>
+          <div class="pin-section">
+            <label>{{ setPinConfirmMode ? 'Confirm PIN' : 'Enter PIN' }}</label>
+            <PinInput v-model="setPinValue" ref="setPinInput" @complete="handleSetPinComplete" />
+          </div>
+          <p v-if="pinError" class="error-message">{{ pinError }}</p>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, reactive, nextTick } from 'vue'
 import { settingsApi } from '../api/client.js'
+import PinInput from './PinInput.vue'
 
 export default {
   name: 'SettingsModal',
+  components: { PinInput },
   emits: ['close'],
   setup() {
     const settings = ref({})
@@ -120,6 +214,25 @@ export default {
       trustedWorkers: false,
       nsfw: false
     })
+
+    // PIN management state
+    const changePinModalOpen = ref(false)
+    const removePinModalOpen = ref(false)
+    const setPinModalOpen = ref(false)
+    const currentPin = ref('')
+    const newPin = ref('')
+    const removePinValue = ref('')
+    const setPinValue = ref('')
+    const currentPinVerified = ref(false)
+    const newPinConfirmMode = ref(false)
+    const setPinConfirmMode = ref(false)
+    const firstSetPin = ref('')
+    const firstNewPin = ref('')
+    const pinError = ref('')
+    const currentPinInput = ref(null)
+    const newPinInput = ref(null)
+    const removePinInput = ref(null)
+    const setPinInput = ref(null)
 
     const loadSettings = async () => {
       try {
@@ -146,7 +259,7 @@ export default {
 
         // Then load from server
         const response = await settingsApi.get()
-        settings.value = response.data
+        settings.value = response
         if (settings.value.hasApiKey) {
           loadUserInfo()
         }
@@ -171,7 +284,7 @@ export default {
       try {
         saving.value = true
         const response = await settingsApi.update({ apiKey: apiKey.value })
-        settings.value = response.data
+        settings.value = response
         apiKey.value = ''
         alert('API key saved successfully!')
 
@@ -195,9 +308,9 @@ export default {
         }
         userInfoError.value = null
         const response = await settingsApi.getHordeUser()
-        userInfo.value = response.data
+        userInfo.value = response
         // Cache user info to localStorage for instant loading next time
-        localStorage.setItem('userInfo', JSON.stringify(response.data))
+        localStorage.setItem('userInfo', JSON.stringify(response))
       } catch (error) {
         console.error('Error loading user info:', error)
         userInfoError.value = 'Failed to load account information. Check your API key.'
@@ -224,6 +337,146 @@ export default {
       }
     }
 
+    // PIN management methods
+    const showChangePinModal = () => {
+      changePinModalOpen.value = true
+      currentPin.value = ''
+      newPin.value = ''
+      currentPinVerified.value = false
+      newPinConfirmMode.value = false
+      pinError.value = ''
+      nextTick(() => {
+        currentPinInput.value?.focus()
+      })
+    }
+
+    const showRemovePinModal = () => {
+      removePinModalOpen.value = true
+      removePinValue.value = ''
+      pinError.value = ''
+      nextTick(() => {
+        removePinInput.value?.focus()
+      })
+    }
+
+    const showSetPinModal = () => {
+      setPinModalOpen.value = true
+      setPinValue.value = ''
+      setPinConfirmMode.value = false
+      firstSetPin.value = ''
+      pinError.value = ''
+      nextTick(() => {
+        setPinInput.value?.focus()
+      })
+    }
+
+    const handleCurrentPinComplete = async (value) => {
+      pinError.value = ''
+      try {
+        const response = await settingsApi.verifyHiddenPin(value)
+        if (response.valid) {
+          currentPinVerified.value = true
+          currentPin.value = value
+          nextTick(() => {
+            newPinInput.value?.focus()
+          })
+        } else {
+          pinError.value = 'Incorrect PIN'
+          currentPin.value = ''
+          setTimeout(() => {
+            pinError.value = ''
+            currentPinInput.value?.focus()
+          }, 2000)
+        }
+      } catch (error) {
+        console.error('Error verifying PIN:', error)
+        pinError.value = error.response?.data?.error || 'Failed to verify PIN'
+        currentPin.value = ''
+      }
+    }
+
+    const handleNewPinComplete = async (value) => {
+      if (!newPinConfirmMode.value) {
+        firstNewPin.value = value
+        newPinConfirmMode.value = true
+        newPin.value = ''
+        nextTick(() => {
+          newPinInput.value?.focus()
+        })
+      } else {
+        if (value === firstNewPin.value) {
+          try {
+            await settingsApi.changeHiddenPin(currentPin.value, value)
+            changePinModalOpen.value = false
+            await loadSettings()
+            alert('PIN changed successfully!')
+          } catch (error) {
+            console.error('Error changing PIN:', error)
+            pinError.value = error.response?.data?.error || 'Failed to change PIN'
+          }
+        } else {
+          pinError.value = 'PINs do not match'
+          newPinConfirmMode.value = false
+          firstNewPin.value = ''
+          newPin.value = ''
+          setTimeout(() => {
+            pinError.value = ''
+            newPinInput.value?.focus()
+          }, 2000)
+        }
+      }
+    }
+
+    const handleRemovePin = async (value) => {
+      pinError.value = ''
+      try {
+        await settingsApi.removeHiddenPin(value)
+        removePinModalOpen.value = false
+        await loadSettings()
+        alert('PIN protection removed successfully!')
+      } catch (error) {
+        console.error('Error removing PIN:', error)
+        pinError.value = error.response?.data?.error || 'Failed to remove PIN'
+        removePinValue.value = ''
+        setTimeout(() => {
+          pinError.value = ''
+          removePinInput.value?.focus()
+        }, 2000)
+      }
+    }
+
+    const handleSetPinComplete = async (value) => {
+      if (!setPinConfirmMode.value) {
+        firstSetPin.value = value
+        setPinConfirmMode.value = true
+        setPinValue.value = ''
+        nextTick(() => {
+          setPinInput.value?.focus()
+        })
+      } else {
+        if (value === firstSetPin.value) {
+          try {
+            await settingsApi.setupHiddenPin(value, false)
+            setPinModalOpen.value = false
+            await loadSettings()
+            alert('PIN set successfully!')
+          } catch (error) {
+            console.error('Error setting PIN:', error)
+            pinError.value = error.response?.data?.error || 'Failed to set PIN'
+          }
+        } else {
+          pinError.value = 'PINs do not match'
+          setPinConfirmMode.value = false
+          firstSetPin.value = ''
+          setPinValue.value = ''
+          setTimeout(() => {
+            pinError.value = ''
+            setPinInput.value?.focus()
+          }, 2000)
+        }
+      }
+    }
+
     onMounted(() => {
       loadSettings()
     })
@@ -239,7 +492,30 @@ export default {
       savingPrefs,
       saveApiKey,
       refreshUserInfo,
-      saveWorkerPrefs
+      saveWorkerPrefs,
+      // PIN management
+      changePinModalOpen,
+      removePinModalOpen,
+      setPinModalOpen,
+      currentPin,
+      newPin,
+      removePinValue,
+      setPinValue,
+      currentPinVerified,
+      newPinConfirmMode,
+      setPinConfirmMode,
+      pinError,
+      currentPinInput,
+      newPinInput,
+      removePinInput,
+      setPinInput,
+      showChangePinModal,
+      showRemovePinModal,
+      showSetPinModal,
+      handleCurrentPinComplete,
+      handleNewPinComplete,
+      handleRemovePin,
+      handleSetPinComplete
     }
   }
 }
@@ -492,5 +768,57 @@ export default {
   padding: 0.5rem;
   color: #007AFF;
   font-size: 0.9rem;
+}
+
+.pin-status {
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.status-indicator svg {
+  flex-shrink: 0;
+}
+
+.pin-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-danger {
+  background: #ff3b30;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #d32f2f;
+}
+
+.pin-modal {
+  max-width: 450px;
+}
+
+.pin-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 1.5rem 0;
+}
+
+.pin-section label {
+  font-weight: 500;
+  color: #fff;
+  font-size: 1rem;
 }
 </style>

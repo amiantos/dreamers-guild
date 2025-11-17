@@ -104,6 +104,29 @@ function initDatabase() {
     }
   }
 
+  // Migration: Add hidden_pin_hash column if it doesn't exist
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN hidden_pin_hash TEXT`);
+    console.log('Migration: Added hidden_pin_hash column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
+  // Migration: Add hidden_pin_enabled column if it doesn't exist
+  // Values: NULL = not configured, 1 = enabled, 0 = explicitly declined
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN hidden_pin_enabled INTEGER`);
+    console.log('Migration: Added hidden_pin_enabled column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_images_date_created
