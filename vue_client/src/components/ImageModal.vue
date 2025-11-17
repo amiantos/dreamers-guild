@@ -131,8 +131,14 @@ export default {
       return imagesApi.getImageUrl(props.image.uuid)
     })
 
+    // Check if current image is in the images array (not a direct URL load)
+    const isImageInArray = computed(() => {
+      return props.images.some(img => img.uuid === props.image.uuid)
+    })
+
     const showNavigation = computed(() => {
-      return props.images.length > 1
+      // Only show navigation if there are multiple images AND the current image is in the array
+      return props.images.length > 1 && isImageInArray.value
     })
 
     const hasSettings = computed(() => {
