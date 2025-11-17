@@ -120,6 +120,27 @@ class HordeAPI {
       throw error;
     }
   }
+
+  /**
+   * Cancel an ongoing image generation request
+   * @param {string} requestId - The request ID to cancel
+   * @returns {Promise<Object>} Cancellation response
+   */
+  async cancelRequest(requestId) {
+    try {
+      const client = this.getClient();
+      const response = await client.delete(`/generate/status/${requestId}`);
+      return response.data;
+    } catch (error) {
+      // 404 means request was already completed/cancelled, which is fine
+      if (error.response?.status === 404) {
+        console.log(`Request ${requestId} already completed or cancelled`);
+        return { cancelled: false, message: 'Already completed or not found' };
+      }
+      console.error('Error cancelling request:', error.response?.data || error.message);
+      throw error;
+    }
+  }
 }
 
 export default new HordeAPI();

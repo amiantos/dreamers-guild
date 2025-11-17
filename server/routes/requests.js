@@ -49,10 +49,13 @@ router.post('/', (req, res) => {
 });
 
 // Delete a request
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { imageAction } = req.query; // 'prune', 'keep', or 'hide'
     const requestId = req.params.id;
+
+    // Cancel the request on AI Horde if it's still active
+    await queueManager.cancelRequest(requestId);
 
     // Delete any pending downloads for this request
     const pendingDownloads = HordePendingDownload.findAll().filter(d => d.request_id === requestId);

@@ -417,6 +417,38 @@ class QueueManager {
       pendingDownloads: HordePendingDownload.findAll().length
     };
   }
+
+  /**
+   * Cancel an active request
+   * @param {string} requestId - Local request ID
+   * @returns {Promise<boolean>} True if request was actively cancelled
+   */
+  async cancelRequest(requestId) {
+    // Check if this request is active
+    const hordeRequestId = this.activeRequests.get(requestId);
+
+    if (hordeRequestId) {
+      console.log(`Cancelling active request ${requestId} (Horde ID: ${hordeRequestId})`);
+
+      try {
+        // Cancel on AI Horde
+        await hordeApi.cancelRequest(hordeRequestId);
+
+        // Remove from active requests
+        this.activeRequests.delete(requestId);
+
+        return true;
+      } catch (error) {
+        console.error(`Error cancelling request ${requestId}:`, error.message);
+        // Still remove from active requests even if cancel failed
+        this.activeRequests.delete(requestId);
+        return false;
+      }
+    }
+
+    // Request wasn't active, nothing to cancel
+    return false;
+  }
 }
 
 export default new QueueManager();
