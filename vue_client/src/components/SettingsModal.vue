@@ -27,7 +27,7 @@
           </div>
         </div>
 
-        <div class="section" v-if="settings.hasApiKey">
+        <div class="section" v-if="settings.hasApiKey || userInfo">
           <h3>Account Information</h3>
 
           <div v-if="loadingUserInfo" class="loading">Loading account info...</div>
