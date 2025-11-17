@@ -389,6 +389,8 @@ export default {
         await imagesApi.delete(imageId)
         images.value = images.value.filter(img => img.uuid !== imageId)
         selectedImage.value = null
+        // Refresh albums since counts and keywords may have changed
+        fetchAlbums()
       } catch (error) {
         console.error('Error deleting image:', error)
       }
@@ -405,6 +407,10 @@ export default {
       const imageIndex = images.value.findIndex(img => img.uuid === updates.uuid)
       if (imageIndex !== -1) {
         images.value[imageIndex] = { ...images.value[imageIndex], ...updates }
+        // Refresh albums if favorite or hidden status changed
+        if ('is_favorite' in updates || 'is_hidden' in updates) {
+          fetchAlbums()
+        }
       }
     }
 
@@ -480,6 +486,8 @@ export default {
           // Prepend new images to the list
           images.value = [...trulyNewImages, ...images.value]
           console.log(`Added ${trulyNewImages.length} new image(s) to library`)
+          // Refresh albums since new images may introduce new keywords
+          fetchAlbums()
         }
       } catch (error) {
         console.error('Error checking for new images:', error)
