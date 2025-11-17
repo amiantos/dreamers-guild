@@ -901,12 +901,17 @@ export default {
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: transform 0.2s ease;
   transform-origin: top center;
 }
 
 .panel-tab:hover .tab-content {
-  transform: scaleY(1.1);
+  animation: bounce 0.4s ease;
+}
+
+@keyframes bounce {
+  0% { transform: scaleY(1); }
+  50% { transform: scaleY(1.1); }
+  100% { transform: scaleY(1); }
 }
 
 .status-dot {
