@@ -44,17 +44,17 @@
         <div class="actions">
           <button
             @click="toggleFavorite"
-            :class="['btn', 'btn-favorite', { 'active': isFavorite }]"
+            :class="['btn', 'btn-icon', 'btn-favorite', { 'active': isFavorite }]"
             :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
           >
-            <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i> Favorite
+            <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
           </button>
           <button
             @click="toggleHidden"
-            :class="['btn', 'btn-hidden', { 'active': isHidden }]"
+            :class="['btn', 'btn-icon', 'btn-hidden', { 'active': isHidden }]"
             :title="isHidden ? 'Unhide image' : 'Hide image'"
           >
-            <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i> {{ isHidden ? 'Hidden' : 'Hide' }}
+            <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
           </button>
           <button
             v-if="hasSettings"
@@ -75,8 +75,8 @@
           <a :href="imageUrl" :download="`aislingeach-${image.uuid}.png`" class="btn btn-download">
             <i class="fa-solid fa-download"></i> Download
           </a>
-          <button @click="$emit('delete', image.uuid)" class="btn btn-delete">
-            <i class="fa-solid fa-trash"></i> Delete
+          <button @click="$emit('delete', image.uuid)" class="btn btn-icon btn-delete" title="Delete image">
+            <i class="fa-solid fa-trash"></i>
           </button>
         </div>
       </div>
@@ -335,6 +335,15 @@ export default {
   transition: all 0.2s;
   text-decoration: none;
   display: inline-block;
+}
+
+.btn-icon {
+  padding: 0.6rem;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-load-settings {
