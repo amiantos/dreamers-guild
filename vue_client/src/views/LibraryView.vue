@@ -179,6 +179,7 @@ export default {
       showFavoritesOnly: false,
       showHidden: false
     })
+    const routeBeforeModal = ref(null) // Store route before opening modal
 
     // Requests panel state
     const isPanelOpen = ref(false)
@@ -300,13 +301,31 @@ export default {
     }
 
     const viewImage = (image) => {
+      // Store the current route before opening the modal
+      if (!selectedImage.value) {
+        routeBeforeModal.value = {
+          path: route.path,
+          query: { ...route.query }
+        }
+      }
       selectedImage.value = image
-      updateImageUrl(image.uuid)
+      // Update URL for bookmarking, but don't trigger route watcher
+      router.replace(`/image/${image.uuid}`)
     }
 
     const closeImage = () => {
       selectedImage.value = null
-      router.replace('/')
+      // Restore the route to what it was before opening the modal
+      if (routeBeforeModal.value) {
+        router.replace({
+          path: routeBeforeModal.value.path,
+          query: routeBeforeModal.value.query
+        })
+        routeBeforeModal.value = null
+      } else {
+        // Fallback to root if no stored route
+        router.replace('/')
+      }
     }
 
     const setFilter = (filterType, value) => {
@@ -368,7 +387,8 @@ export default {
       const newImage = images.value[newIndex]
       if (newImage) {
         selectedImage.value = newImage
-        updateImageUrl(newImage.uuid)
+        // Update URL for bookmarking, but don't trigger route watcher
+        router.replace(`/image/${newImage.uuid}`)
       }
     }
 
@@ -720,7 +740,17 @@ export default {
     })
 
     // Watch for route changes to update filters
-    watch(() => route.path + route.query.q, () => {
+    watch(() => route.path + route.query.q, (newVal, oldVal) => {
+      // Ignore route changes when opening/closing/navigating the modal
+      // This allows URL updates for bookmarking without triggering data reloads
+      const newPath = route.path
+      const oldPath = oldVal ? oldVal.split('?')[0] : ''
+
+      if (newPath.startsWith('/image/') || oldPath.startsWith('/image/')) {
+        // Modal-related route change - don't reload data
+        return
+      }
+
       loadFiltersFromUrl()
       offset.value = 0
       hasMore.value = true
