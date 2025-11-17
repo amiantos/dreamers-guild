@@ -509,7 +509,6 @@ export default {
 
     const showDeleteModal = (requestId) => {
       const request = requests.value.find(r => r.uuid === requestId)
-      console.log('showDeleteModal - request:', request)
 
       // For failed requests, delete immediately without confirmation
       if (request.status === 'failed') {
@@ -677,7 +676,8 @@ export default {
       viewRequestImages,
       showDeleteModal,
       confirmDelete,
-      deleteModalVisible
+      deleteModalVisible,
+      requestToDelete
     }
   }
 }
