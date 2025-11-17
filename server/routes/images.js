@@ -38,7 +38,10 @@ router.get('/search', (req, res) => {
   try {
     const keywords = req.query.q || '';
     const limit = parseInt(req.query.limit) || 100;
-    const images = GeneratedImage.findByKeywords(keywords, limit);
+    const showFavorites = req.query.favorites === 'true';
+    const showHidden = req.query.hidden === 'true';
+
+    const images = GeneratedImage.findByKeywords(keywords, limit, { showFavorites, showHidden });
     res.json(images);
   } catch (error) {
     console.error('Error searching images:', error);

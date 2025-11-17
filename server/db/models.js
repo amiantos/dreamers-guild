@@ -144,14 +144,33 @@ export const GeneratedImage = {
     return stmt.all(requestId, limit);
   },
 
-  findByKeywords(keywords, limit = 100) {
-    const stmt = db.prepare(`
+  findByKeywords(keywords, limit = 100, filters = {}) {
+    let query = `
       SELECT * FROM generated_images
       WHERE is_trashed = 0 AND prompt_simple LIKE ?
+    `;
+
+    const params = [`%${keywords}%`];
+
+    // Apply filters
+    if (filters.showFavorites) {
+      query += ` AND is_favorite = 1`;
+    } else if (filters.showHidden) {
+      query += ` AND is_hidden = 1`;
+    } else {
+      // Default view: exclude hidden images
+      query += ` AND is_hidden = 0`;
+    }
+
+    query += `
       ORDER BY date_created DESC
       LIMIT ?
-    `);
-    return stmt.all(`%${keywords}%`, limit);
+    `;
+
+    params.push(limit);
+
+    const stmt = db.prepare(query);
+    return stmt.all(...params);
   },
 
   update(uuid, data) {

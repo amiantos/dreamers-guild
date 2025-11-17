@@ -239,7 +239,7 @@ export default {
           response = await imagesApi.getByRequestId(filters.value.requestId, limit)
           hasMore.value = false // Request images don't paginate
         } else if (filters.value.keywords) {
-          response = await imagesApi.search(filters.value.keywords, limit)
+          response = await imagesApi.search(filters.value.keywords, limit, filters.value)
           hasMore.value = false // Search doesn't paginate yet
         } else {
           response = await imagesApi.getAll(limit, offset.value, filters.value)
