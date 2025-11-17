@@ -198,8 +198,9 @@ class QueueManager {
         // Check if completed
         if (status.done) {
           console.log(`[Status] ✓ Request ${requestUuid.substring(0, 8)}... is DONE, fetching results`);
-          await this.handleCompletedRequest(requestUuid, hordeId);
+          // Remove from active requests FIRST to prevent duplicate processing
           this.activeRequests.delete(requestUuid);
+          await this.handleCompletedRequest(requestUuid, hordeId);
         } else {
           console.log(`[Status] Request ${requestUuid.substring(0, 8)}... still in progress`);
         }
