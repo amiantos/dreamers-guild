@@ -189,7 +189,10 @@ export default {
 
     const loadUserInfo = async () => {
       try {
-        loadingUserInfo.value = true
+        // Only show loading if we don't have cached data
+        if (!userInfo.value) {
+          loadingUserInfo.value = true
+        }
         userInfoError.value = null
         const response = await settingsApi.getHordeUser()
         userInfo.value = response.data
