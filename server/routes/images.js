@@ -10,7 +10,10 @@ router.get('/', (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
-    const images = GeneratedImage.findAll(limit, offset);
+    const showFavorites = req.query.favorites === 'true';
+    const showHidden = req.query.hidden === 'true';
+
+    const images = GeneratedImage.findAll(limit, offset, { showFavorites, showHidden });
     res.json(images);
   } catch (error) {
     console.error('Error fetching images:', error);

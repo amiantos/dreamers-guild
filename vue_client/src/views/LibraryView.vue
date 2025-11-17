@@ -88,23 +88,18 @@
       </div>
     </div>
 
-    <div v-if="loading && filteredImages.length === 0" class="loading">
+    <div v-if="loading && images.length === 0" class="loading">
       Loading images...
     </div>
 
-    <div v-else-if="filteredImages.length === 0 && images.length === 0" class="empty-state">
-      <p>No images yet</p>
-      <p class="hint">Generate some images to see them here</p>
-    </div>
-
-    <div v-else-if="filteredImages.length === 0" class="empty-state">
-      <p>No images match the current filters</p>
-      <p class="hint">Try adjusting your filters</p>
+    <div v-else-if="images.length === 0" class="empty-state">
+      <p>No images found</p>
+      <p class="hint">Try adjusting your filters or generate some images</p>
     </div>
 
     <div v-else class="image-grid" ref="gridContainer">
       <div
-        v-for="image in filteredImages"
+        v-for="image in images"
         :key="image.uuid"
         class="image-item"
         @click="viewImage(image)"
@@ -132,7 +127,7 @@
     <ImageModal
       v-if="selectedImage"
       :image="selectedImage"
-      :images="filteredImages"
+      :images="images"
       :currentIndex="currentImageIndex"
       @close="closeImage"
       @delete="deleteImage"
@@ -230,24 +225,7 @@ export default {
 
     const currentImageIndex = computed(() => {
       if (!selectedImage.value) return -1
-      return filteredImages.value.findIndex(img => img.uuid === selectedImage.value.uuid)
-    })
-
-    const filteredImages = computed(() => {
-      return images.value.filter(image => {
-        // If showing favorites only, show all favorited images (including hidden ones)
-        if (filters.value.showFavoritesOnly) {
-          return !!image.is_favorite
-        }
-
-        // If showing hidden only, show all hidden images (including favorited ones)
-        if (filters.value.showHidden) {
-          return !!image.is_hidden
-        }
-
-        // Default view: show all non-hidden images
-        return !image.is_hidden
-      })
+      return images.value.findIndex(img => img.uuid === selectedImage.value.uuid)
     })
 
     const fetchImages = async (append = false) => {
@@ -264,7 +242,7 @@ export default {
           response = await imagesApi.search(filters.value.keywords, limit)
           hasMore.value = false // Search doesn't paginate yet
         } else {
-          response = await imagesApi.getAll(limit, offset.value)
+          response = await imagesApi.getAll(limit, offset.value, filters.value)
         }
 
         const newImages = response.data
@@ -357,6 +335,10 @@ export default {
       if (filters.value.showFavoritesOnly) {
         filters.value.showHidden = false
       }
+      // Refetch images with new filter
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
     }
 
     const toggleHiddenFilter = () => {
@@ -365,6 +347,10 @@ export default {
       if (filters.value.showHidden) {
         filters.value.showFavoritesOnly = false
       }
+      // Refetch images with new filter
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
     }
 
     const navigateImage = (direction) => {
@@ -658,7 +644,6 @@ export default {
 
     return {
       images,
-      filteredImages,
       loading,
       selectedImage,
       currentImageIndex,

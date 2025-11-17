@@ -105,14 +105,33 @@ export const GeneratedImage = {
     return stmt.get(uuid);
   },
 
-  findAll(limit = 100, offset = 0) {
-    const stmt = db.prepare(`
+  findAll(limit = 100, offset = 0, filters = {}) {
+    let query = `
       SELECT * FROM generated_images
       WHERE is_trashed = 0
+    `;
+
+    const params = [];
+
+    // Apply filters
+    if (filters.showFavorites) {
+      query += ` AND is_favorite = 1`;
+    } else if (filters.showHidden) {
+      query += ` AND is_hidden = 1`;
+    } else {
+      // Default view: exclude hidden images
+      query += ` AND is_hidden = 0`;
+    }
+
+    query += `
       ORDER BY date_created DESC
       LIMIT ? OFFSET ?
-    `);
-    return stmt.all(limit, offset);
+    `;
+
+    params.push(limit, offset);
+
+    const stmt = db.prepare(query);
+    return stmt.all(...params);
   },
 
   findByRequestId(requestId, limit = 100) {

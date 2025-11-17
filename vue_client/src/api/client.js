@@ -33,8 +33,15 @@ export const requestsApi = {
 }
 
 export const imagesApi = {
-  getAll(limit = 100, offset = 0) {
-    return apiClient.get(`/images?limit=${limit}&offset=${offset}`)
+  getAll(limit = 100, offset = 0, filters = {}) {
+    let url = `/images?limit=${limit}&offset=${offset}`
+    if (filters.showFavoritesOnly) {
+      url += '&favorites=true'
+    }
+    if (filters.showHidden) {
+      url += '&hidden=true'
+    }
+    return apiClient.get(url)
   },
 
   getByRequestId(requestId, limit = 100) {
