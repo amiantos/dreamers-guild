@@ -2,10 +2,6 @@
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
     <!-- Requests Panel -->
     <div class="requests-panel" :class="{ open: isPanelOpen }">
-      <div class="panel-header">
-        <h3>Requests</h3>
-      </div>
-
       <div class="panel-content">
         <div v-if="requests.length === 0" class="panel-empty-state">
           <p>No requests yet</p>
@@ -616,7 +612,7 @@ export default {
 .header {
   position: sticky;
   top: 0;
-  background: #0a0a0a;
+  background: #000;
   z-index: 50;
   transition: top 0.3s ease-out;
 }
@@ -877,9 +873,8 @@ export default {
 }
 
 .panel-tab .tab-content {
-  background: #0d0d0d;
+  background: #171717;
   border-radius: 0 0 12px 12px;
-  border: 1px solid #222;
   border-top: none;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   min-width: 350px;
@@ -892,7 +887,7 @@ export default {
 }
 
 .panel-tab:hover .tab-content {
-  background: #151515;
+  
 }
 
 .tab-arrow {
@@ -933,7 +928,7 @@ export default {
 .requests-panel {
   position: sticky;
   top: 0;
-  background: #0d0d0d;
+  background: #171717;
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
@@ -944,23 +939,11 @@ export default {
 .requests-panel.open {
   max-height: 50vh;
   overflow-y: auto;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-  border-bottom: 1px solid #222;
-}
-
-.panel-header {
-  padding: 1.5rem 2rem 1rem;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.panel-header h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
 }
 
 .panel-content {
   padding: 1.5rem 2rem;
+  background: #171717;
 }
 
 .panel-empty-state {

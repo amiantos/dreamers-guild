@@ -154,16 +154,11 @@ export default {
 
 <style scoped>
 .request-card {
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.2s;
+
 }
 
 .request-card:hover {
-  border-color: #444;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
 }
 
 .card-content {
@@ -258,23 +253,19 @@ export default {
 }
 
 .status-pending {
-  background: #3a3a3a;
-  color: #aaa;
+  
 }
 
 .status-processing {
-  background: #1a3a5a;
-  color: #4a9eff;
+  
 }
 
 .status-completed {
-  background: #1a3a2a;
-  color: #4aff88;
+  
 }
 
 .status-failed {
-  background: #3a1a1a;
-  color: #ff4a4a;
+  
 }
 
 .progress-info {
