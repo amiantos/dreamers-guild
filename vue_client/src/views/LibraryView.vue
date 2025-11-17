@@ -41,7 +41,7 @@
           <button @click="toggleAlbumsPanel" class="btn-albums-toggle" title="Albums">
             <i class="fa-solid fa-folder"></i>
           </button>
-          <h2>Aislingeach</h2>
+          <h2>{{ galleryTitle }}</h2>
         </div>
 
         <div class="header-controls">
@@ -56,24 +56,6 @@
                 <span>{{ filters.keywords }}</span>
                 <button @click="clearFilter('keywords')" class="chip-remove">×</button>
               </div>
-            </div>
-
-            <!-- Filter Buttons -->
-            <div class="filter-buttons">
-              <button
-                @click="toggleFavoritesFilter"
-                :class="['btn-filter', { active: filters.showFavoritesOnly }]"
-                title="Show favorites only"
-              >
-                <i class="fa-star" :class="filters.showFavoritesOnly ? 'fa-solid' : 'fa-regular'"></i>
-              </button>
-              <button
-                @click="toggleHiddenFilter"
-                :class="['btn-filter', { active: filters.showHidden }]"
-                title="Show hidden images"
-              >
-                <i :class="filters.showHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
-              </button>
             </div>
 
             <!-- Search Bar -->
@@ -246,6 +228,15 @@ export default {
       return images.value.findIndex(img => img.uuid === selectedImage.value.uuid)
     })
 
+    const galleryTitle = computed(() => {
+      if (filters.value.showFavoritesOnly) {
+        return 'Favorites Gallery'
+      } else if (filters.value.showHidden) {
+        return 'Hidden Gallery'
+      }
+      return 'Your Gallery'
+    })
+
     const fetchImages = async (append = false) => {
       if (!hasMore.value && append) return
 
@@ -342,22 +333,6 @@ export default {
       filters.value.showFavoritesOnly = false
       filters.value.showHidden = false
       searchQuery.value = ''
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-    }
-
-    const toggleFavoritesFilter = () => {
-      filters.value.showFavoritesOnly = !filters.value.showFavoritesOnly
-      // Refetch images with new filter
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-    }
-
-    const toggleHiddenFilter = () => {
-      filters.value.showHidden = !filters.value.showHidden
-      // Refetch images with new filter
       offset.value = 0
       hasMore.value = true
       fetchImages()
@@ -705,6 +680,7 @@ export default {
       loading,
       selectedImage,
       currentImageIndex,
+      galleryTitle,
       gridContainer,
       filters,
       searchQuery,
@@ -719,8 +695,6 @@ export default {
       applySearch,
       clearFilter,
       clearAllFilters,
-      toggleFavoritesFilter,
-      toggleHiddenFilter,
       openSettings,
       openNewRequest,
       // Requests panel
@@ -851,39 +825,6 @@ export default {
 
 .chip-remove:hover {
   color: #ff4a4a;
-}
-
-.filter-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn-filter {
-  padding: 0.5rem;
-  width: 40px;
-  height: 40px;
-  background: transparent;
-  border: 1px solid #333;
-  border-radius: 6px;
-  color: #999;
-  font-size: 1.1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-filter:hover {
-  background: #1a1a1a;
-  border-color: #666;
-  color: #fff;
-}
-
-.btn-filter.active {
-  background: #007AFF;
-  border-color: #007AFF;
-  color: #fff;
 }
 
 .search-bar {
