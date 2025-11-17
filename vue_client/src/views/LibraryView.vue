@@ -935,13 +935,13 @@ export default {
   transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
   box-shadow: none;
   z-index: 51;
+  display: flex;
+  flex-direction: column-reverse;
 }
 
 .requests-panel.open {
   max-height: 50vh;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column-reverse;
 }
 
 .panel-content {
