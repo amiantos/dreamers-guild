@@ -1,4 +1,6 @@
 node_modules
+vue_client/node_modules
+vue_client/dist
 npm-debug.log
 .env
 .git
