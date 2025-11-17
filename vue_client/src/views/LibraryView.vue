@@ -394,8 +394,8 @@ export default {
     const fetchRequests = async () => {
       try {
         const response = await requestsApi.getAll()
-        // Keep original order - CSS flex-direction will handle the display order
-        requests.value = response.data
+        // Reverse array to show oldest to newest (CSS flex-direction handles scroll anchoring)
+        requests.value = response.data.reverse()
       } catch (error) {
         console.error('Error fetching requests:', error)
       }
