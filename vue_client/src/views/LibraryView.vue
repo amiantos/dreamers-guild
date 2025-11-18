@@ -89,13 +89,7 @@
         </div>
       </div>
 
-      <!-- Requests Panel Toggle Tab (inside header) -->
-      <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
-        <div class="tab-content">
-          <span class="status-dot" :class="requestStatusClass"></span>
-          <span class="tab-text">Requests</span>
-        </div>
-      </div>
+
     </div>
 
     <div v-if="loading && images.length === 0" class="loading">
@@ -164,6 +158,14 @@
     <button @click="openNewRequest" class="fab fab-new" title="New Request">
       <i class="fa-solid fa-plus"></i>
     </button>
+
+    <!-- Requests Panel Toggle Tab (moved to bottom) -->
+    <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
+      <div class="tab-content">
+        <span class="status-dot" :class="requestStatusClass"></span>
+        <span class="tab-text">Requests</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -923,7 +925,7 @@ export default {
 }
 
 .library-view.panel-open .header {
-  top: 25vh;
+  /* No longer pushing header down */
 }
 
 .header-content {
@@ -1248,19 +1250,20 @@ export default {
 
 /* Requests Panel Tab */
 .panel-tab {
-  position: absolute;
-  top: 0;
-  left: 50vw;
+  position: fixed;
+  bottom: 0;
+  top: auto;
+  left: 50%;
   transform: translateX(-50%);
   cursor: pointer;
-  z-index: 49;
+  z-index: 60; /* Higher than FABs (40) and Header (50) */
 }
 
 .panel-tab .tab-content {
   background: #171717;
-  border-radius: 0 0 12px 12px;
-  border-top: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1274,7 +1277,7 @@ export default {
 
 @keyframes bounce {
   0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-  50% { padding-top: 1rem; padding-bottom: 0.75rem; }
+  50% { padding-top: 0.75rem; padding-bottom: 1rem; }
   100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 
@@ -1312,20 +1315,23 @@ export default {
 
 /* Requests Panel */
 .requests-panel {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  bottom: 0;
+  top: auto;
+  left: 0;
+  right: 0;
   background: #171717;
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
-  box-shadow: none;
-  z-index: 51;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  z-index: 55; /* Above header but below tab */
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column; /* Normal direction now */
 }
 
 .requests-panel.open {
-  max-height: 25vh;
+  max-height: 40vh;
   overflow-y: auto;
   overscroll-behavior-y: contain;
 }
