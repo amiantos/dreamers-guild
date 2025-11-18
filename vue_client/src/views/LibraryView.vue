@@ -12,6 +12,7 @@
     <div class="requests-panel" :class="{ open: isPanelOpen }">
       <div class="panel-content">
         <div v-if="requests.length === 0" class="panel-empty-state">
+          <br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/><br/>
           <p>No requests yet</p>
           <p class="hint">Click the + button to generate your first AI image</p>
         </div>
