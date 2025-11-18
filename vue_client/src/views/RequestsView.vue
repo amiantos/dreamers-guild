@@ -27,10 +27,27 @@
       />
     </div>
 
+    <!-- Floating action button for delete all -->
+    <button
+      v-if="requests.length > 0"
+      @click="showDeleteAllModal"
+      class="fab-delete-all"
+      title="Delete all requests"
+    >
+      <i class="fa-solid fa-trash"></i>
+    </button>
+
     <DeleteRequestModal
       v-if="deleteModalVisible"
       @close="deleteModalVisible = false"
       @delete="confirmDelete"
+    />
+
+    <DeleteAllRequestsModal
+      v-if="deleteAllModalVisible"
+      :requests="requests"
+      @close="deleteAllModalVisible = false"
+      @delete="confirmDeleteAll"
     />
   </div>
 </template>
@@ -41,12 +58,14 @@ import { useRouter } from 'vue-router'
 import { requestsApi } from '../api/client.js'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
+import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 
 export default {
   name: 'RequestsView',
   components: {
     RequestCard,
-    DeleteRequestModal
+    DeleteRequestModal,
+    DeleteAllRequestsModal
   },
   setup() {
     const router = useRouter()
@@ -54,6 +73,7 @@ export default {
     const queueStatus = ref(null)
     const loading = ref(true)
     const deleteModalVisible = ref(false)
+    const deleteAllModalVisible = ref(false)
     const requestToDelete = ref(null)
     let pollInterval = null
 
@@ -108,6 +128,21 @@ export default {
       }
     }
 
+    const showDeleteAllModal = () => {
+      deleteAllModalVisible.value = true
+    }
+
+    const confirmDeleteAll = async (imageAction) => {
+      try {
+        await requestsApi.deleteAll(imageAction)
+        requests.value = []
+        deleteAllModalVisible.value = false
+      } catch (error) {
+        console.error('Error deleting all requests:', error)
+        alert('Failed to delete all requests. Please try again.')
+      }
+    }
+
     onMounted(() => {
       fetchRequests()
       fetchQueueStatus()
@@ -130,9 +165,12 @@ export default {
       queueStatus,
       loading,
       deleteModalVisible,
+      deleteAllModalVisible,
       viewRequestImages,
       showDeleteModal,
-      confirmDelete
+      showDeleteAllModal,
+      confirmDelete,
+      confirmDeleteAll
     }
   }
 }
@@ -211,5 +249,37 @@ export default {
 .requests-grid {
   display: grid;
   gap: 1rem;
+}
+
+.fab-delete-all {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #999;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+}
+
+.fab-delete-all:hover {
+  background: #3a3a3a;
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.fab-delete-all:active {
+  transform: scale(0.95);
 }
 </style>
