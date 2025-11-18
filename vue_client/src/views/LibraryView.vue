@@ -170,6 +170,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { imagesApi, requestsApi, albumsApi } from '../api/client.js'
+import { useImagePolling } from '../composables/useImagePolling.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
@@ -215,13 +216,20 @@ export default {
     const deleteAllModalVisible = ref(false)
     const requestToDelete = ref(null)
     let pollInterval = null
-    let imagesPollInterval = null
-    let finalImageCheckTimeout = null
-    const wasActive = ref(false)
 
     // Albums panel state
     const isAlbumsPanelOpen = ref(false)
     const albums = ref([])
+
+    // Initialize image polling composable
+    const imagePolling = useImagePolling({
+      filters,
+      images,
+      onNewImages: () => {
+        // Refresh albums when new images are added
+        fetchAlbums()
+      }
+    })
 
     // Inject functions from App.vue
     const loadSettingsFromImage = inject('loadSettingsFromImage')
@@ -241,16 +249,6 @@ export default {
       if (openRequestModal) {
         openRequestModal()
       }
-    }
-
-    // Load filters from localStorage - removed, filters reset on page load
-    const loadFilters = () => {
-      // Filters no longer persist across page loads
-    }
-
-    // Save filters to localStorage - removed
-    const saveFilters = () => {
-      // Filters no longer persist across page loads
     }
 
     const currentImageIndex = computed(() => {
@@ -597,49 +595,6 @@ export default {
       }
     }
 
-    const checkNewImages = async () => {
-      // Don't check for new images if we're viewing a specific request or searching
-      if (filters.value.requestId || filters.value.keywords.length > 0) {
-        return
-      }
-
-      try {
-        // Fetch the latest images with current filters applied
-        const response = await imagesApi.getAll(20, 0, filters.value)
-        const newImages = response.data
-
-        if (newImages.length === 0) return
-
-        // Find images we don't have yet
-        const existingIds = new Set(images.value.map(img => img.uuid))
-        const trulyNewImages = newImages.filter(img => !existingIds.has(img.uuid))
-
-        if (trulyNewImages.length > 0) {
-          // Prepend new images to the list
-          images.value = [...trulyNewImages, ...images.value]
-          console.log(`Added ${trulyNewImages.length} new image(s) to library`)
-          // Refresh albums since new images may introduce new keywords
-          fetchAlbums()
-        }
-      } catch (error) {
-        console.error('Error checking for new images:', error)
-      }
-    }
-
-    const startImagePolling = () => {
-      if (imagesPollInterval) return // Already polling
-
-      console.log('Starting image polling (active requests detected)')
-      imagesPollInterval = setInterval(checkNewImages, 3000)
-    }
-
-    const stopImagePolling = () => {
-      if (imagesPollInterval) {
-        console.log('Stopping image polling (no active requests)')
-        clearInterval(imagesPollInterval)
-        imagesPollInterval = null
-      }
-    }
 
     const viewRequestImages = (requestId) => {
       filters.value.requestId = requestId
@@ -829,16 +784,6 @@ export default {
       updateFilterUrl()
     }
 
-    // Listen for filter changes from localStorage (e.g., from other tabs or RequestCard)
-    const handleStorageChange = (e) => {
-      if (e.key === 'libraryFilters') {
-        loadFilters()
-        offset.value = 0
-        hasMore.value = true
-        fetchImages()
-      }
-    }
-
     // Watch for signal to open requests panel
     if (shouldOpenRequestsPanel) {
       watch(shouldOpenRequestsPanel, (shouldOpen) => {
@@ -875,35 +820,7 @@ export default {
     })
 
     // Watch queue status to start/stop image polling
-    watch(queueStatus, (newStatus) => {
-      if (!newStatus) return
-
-      const hasActivity = newStatus.active > 0 || newStatus.pendingRequests > 0
-
-      if (hasActivity) {
-        // Clear any pending final check if we become active again
-        if (finalImageCheckTimeout) {
-          clearTimeout(finalImageCheckTimeout)
-          finalImageCheckTimeout = null
-        }
-        startImagePolling()
-        wasActive.value = true
-      } else {
-        stopImagePolling()
-
-        // If we were active and now we're idle, schedule a final check
-        // to catch any images that were still being saved
-        if (wasActive.value) {
-          console.log('Queue became idle, scheduling final image check in 3 seconds...')
-          finalImageCheckTimeout = setTimeout(() => {
-            console.log('Running final image check')
-            checkNewImages()
-            wasActive.value = false
-            finalImageCheckTimeout = null
-          }, 3000)
-        }
-      }
-    })
+    imagePolling.watchQueueStatus(queueStatus)
 
     // Watch for route changes to update filters
     watch(() => route.path + route.query.q, (newVal, oldVal) => {
@@ -943,25 +860,15 @@ export default {
       }, 2000)
 
       window.addEventListener('scroll', handleScroll)
-      window.addEventListener('storage', handleStorageChange)
     })
 
     onUnmounted(() => {
       if (pollInterval) {
         clearInterval(pollInterval)
       }
-      if (imagesPollInterval) {
-        clearInterval(imagesPollInterval)
-      }
-      if (finalImageCheckTimeout) {
-        clearTimeout(finalImageCheckTimeout)
-      }
+      imagePolling.cleanup()
       window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('storage', handleStorageChange)
     })
-
-    // Expose setFilter so it can be called from router navigation
-    window.setLibraryFilter = setFilter
 
     return {
       images,
