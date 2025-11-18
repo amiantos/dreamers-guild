@@ -18,14 +18,6 @@
         </div>
 
         <div v-else class="requests-grid">
-          <button
-            @click="showDeleteAllModal"
-            class="btn-clear-history"
-          >
-            <i class="fa-solid fa-trash"></i>
-            Clear Request History
-          </button>
-
           <RequestCard
             v-for="request in requests"
             :key="request.uuid"
@@ -33,6 +25,14 @@
             @view-images="viewRequestImages"
             @delete="showDeleteModal"
           />
+
+          <button
+            @click="showDeleteAllModal"
+            class="btn-clear-history"
+          >
+            <i class="fa-solid fa-trash"></i>
+            Clear Request History
+          </button>
         </div>
       </div>
     </div>
@@ -575,8 +575,8 @@ export default {
     const fetchRequests = async () => {
       try {
         const response = await requestsApi.getAll()
-        // Reverse array to show oldest to newest (CSS flex-direction handles scroll anchoring)
-        requests.value = response.data.reverse()
+        // Show newest to oldest
+        requests.value = response.data
       } catch (error) {
         console.error('Error fetching requests:', error)
       }
