@@ -1279,7 +1279,7 @@ export default {
 }
 
 .library-view.panel-open .panel-tab {
-  transform: translate(-50%, calc(-1 * var(--panel-height)));
+  transform: translate(-50%, calc(-1 * var(--panel-height) + 1px));
 }
 
 .panel-tab .tab-content {
