@@ -25,6 +25,7 @@ export const baseRequest = {
     karras: false,
     tiling: false,
     hires_fix: false,
+    hires_fix_denoising_strength: 0.5,
     clip_skip: 1
   }
 }
@@ -37,6 +38,7 @@ export const styleCopyParams = [
   'cfg_scale',
   'clip_skip',
   'hires_fix',
+  'hires_fix_denoising_strength',
   'karras',
   'sampler_name',
   'loras',

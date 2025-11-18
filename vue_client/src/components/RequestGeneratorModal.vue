@@ -200,6 +200,31 @@
                 </div>
               </div>
 
+              <!-- Hires Fix Section -->
+              <div class="form-group hires-fix-section">
+                <div class="hires-fix-header">
+                  <label class="toggle">
+                    <input type="checkbox" v-model="form.hiresFix" />
+                    <span>Hires Fix</span>
+                  </label>
+                </div>
+                
+                <div v-if="form.hiresFix" class="hires-fix-controls">
+                  <label for="hires_denoise">Denoising Strength</label>
+                  <div class="slider-group">
+                    <input
+                      type="range"
+                      id="hires_denoise"
+                      v-model.number="form.hiresFixDenoisingStrength"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                    />
+                    <span class="range-value">{{ form.hiresFixDenoisingStrength }}</span>
+                  </div>
+                </div>
+              </div>
+
               <!-- Advanced Toggles -->
               <div class="toggles-section">
                 <h4>Advanced Options</h4>
@@ -209,12 +234,12 @@
                     <span>Karras</span>
                   </label>
                   <label class="toggle">
-                    <input type="checkbox" v-model="form.hiresFix" />
-                    <span>Hires Fix</span>
-                  </label>
-                  <label class="toggle">
                     <input type="checkbox" v-model="form.tiling" />
                     <span>Tiling</span>
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" v-model="form.transparent" />
+                    <span>Transparent Background</span>
                   </label>
                 </div>
               </div>
@@ -238,6 +263,10 @@
                   <label class="checkbox-item">
                     <input type="checkbox" value="RealESRGAN_x4plus" v-model="form.postProcessing" />
                     <span>RealESRGAN x4</span>
+                  </label>
+                  <label class="checkbox-item">
+                    <input type="checkbox" value="strip_background" v-model="form.postProcessing" />
+                    <span>Strip Background</span>
                   </label>
                 </div>
               </div>
@@ -342,7 +371,9 @@ export default {
       useRandomSeed: true,
       karras: true,
       hiresFix: false,
+      hiresFixDenoisingStrength: 0.5,
       tiling: false,
+      transparent: false,
       postProcessing: [],
       loras: []
     })
@@ -444,6 +475,7 @@ export default {
         if (params.width !== undefined) form.width = params.width
         if (params.karras !== undefined) form.karras = params.karras
         if (params.hires_fix !== undefined) form.hiresFix = params.hires_fix
+        if (params.hires_fix_denoising_strength !== undefined) form.hiresFixDenoisingStrength = params.hires_fix_denoising_strength
         if (params.clip_skip !== undefined) form.clipSkip = params.clip_skip
         if (params.steps !== undefined) form.steps = params.steps
         if (params.n !== undefined) form.n = params.n
@@ -509,6 +541,7 @@ export default {
       if (style.sampler_name) form.sampler = style.sampler_name
       if (style.karras !== undefined) form.karras = style.karras
       if (style.hires_fix !== undefined) form.hiresFix = style.hires_fix
+      if (style.hires_fix_denoising_strength !== undefined) form.hiresFixDenoisingStrength = style.hires_fix_denoising_strength
       if (style.tiling !== undefined) form.tiling = style.tiling
       if (style.clip_skip !== undefined) form.clipSkip = style.clip_skip
       if (style.loras && Array.isArray(style.loras)) {
@@ -605,6 +638,11 @@ export default {
       params.slow_workers = settingsStore.workerPreferences.slowWorkers
       params.allow_downgrade = settingsStore.workerPreferences.allowDowngrade
       params.replacement_filter = settingsStore.workerPreferences.replacementFilter
+      
+      // Add transparent flag if enabled
+      if (form.transparent) {
+        params.transparent = true
+      }
 
       // If a style is selected, apply style parameters on top of baseRequest
       if (selectedStyleName.value !== 'None' && selectedStyleData.value) {
@@ -631,6 +669,9 @@ export default {
         params.params.sampler_name = form.sampler
         params.params.karras = form.karras
         params.params.hires_fix = form.hiresFix
+        if (form.hiresFix) {
+          params.params.hires_fix_denoising_strength = form.hiresFixDenoisingStrength
+        }
         params.params.tiling = form.tiling
         params.params.clip_skip = form.clipSkip
 
@@ -641,7 +682,13 @@ export default {
 
         // Add post-processing if any
         if (form.postProcessing.length > 0) {
-          params.params.post_processing = form.postProcessing
+          // Ensure strip_background is always last
+          let processedPP = [...form.postProcessing]
+          if (processedPP.includes('strip_background')) {
+            processedPP = processedPP.filter(p => p !== 'strip_background')
+            processedPP.push('strip_background')
+          }
+          params.params.post_processing = processedPP
         }
 
         // Add loras if any
@@ -798,6 +845,24 @@ export default {
   flex-shrink: 0;
   background: #1a1a1a;
   z-index: 1;
+}
+
+.hires-fix-section {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.hires-fix-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.hires-fix-controls {
+  margin-top: 1rem;
+  padding-left: 0.5rem;
 }
 
 .modal-header h2 {
