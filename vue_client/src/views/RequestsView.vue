@@ -29,7 +29,7 @@
 
     <!-- Floating action button for delete all -->
     <button
-      v-if="requests.length > 0"
+      v-if="!loading && requests.length > 0"
       @click="showDeleteAllModal"
       class="fab-delete-all"
       title="Delete all requests"
