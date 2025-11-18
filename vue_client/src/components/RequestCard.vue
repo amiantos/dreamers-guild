@@ -53,6 +53,7 @@
 <script>
 import { computed, ref, onMounted, watch } from 'vue'
 import { imagesApi } from '../api/client.js'
+import { getStatusClass, getStatusText } from '../utils/statusUtils.js'
 
 export default {
   name: 'RequestCard',
@@ -107,24 +108,9 @@ export default {
       fetchThumbnail()
     })
 
-    const statusClass = computed(() => {
-      const status = props.request.status
-      if (status === 'completed') return 'status-completed'
-      if (status === 'failed') return 'status-failed'
-      if (status === 'submitting' || status === 'processing' || status === 'downloading') return 'status-processing'
-      return 'status-pending'
-    })
+    const statusClass = computed(() => getStatusClass(props.request.status))
 
-    const statusText = computed(() => {
-      const status = props.request.status
-      if (status === 'pending') return 'Pending'
-      if (status === 'submitting') return 'Submitting'
-      if (status === 'processing') return 'Processing'
-      if (status === 'downloading') return 'Downloading'
-      if (status === 'completed') return 'Completed'
-      if (status === 'failed') return 'Failed'
-      return status
-    })
+    const statusText = computed(() => getStatusText(props.request.status))
 
     const statusMessage = computed(() => {
       // For completed/failed requests, don't show additional message
@@ -267,19 +253,23 @@ export default {
 }
 
 .status-pending {
-  
+  background-color: rgba(128, 128, 128, 0.2);
+  color: #aaa;
 }
 
 .status-processing {
-  
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
 }
 
 .status-completed {
-  
+  background-color: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
 }
 
 .status-failed {
-
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
 }
 
 .request-actions {

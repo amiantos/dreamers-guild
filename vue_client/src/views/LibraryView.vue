@@ -243,16 +243,6 @@ export default {
       }
     }
 
-    // Load filters from localStorage - removed, filters reset on page load
-    const loadFilters = () => {
-      // Filters no longer persist across page loads
-    }
-
-    // Save filters to localStorage - removed
-    const saveFilters = () => {
-      // Filters no longer persist across page loads
-    }
-
     const currentImageIndex = computed(() => {
       if (!selectedImage.value) return -1
       return images.value.findIndex(img => img.uuid === selectedImage.value.uuid)
@@ -829,16 +819,6 @@ export default {
       updateFilterUrl()
     }
 
-    // Listen for filter changes from localStorage (e.g., from other tabs or RequestCard)
-    const handleStorageChange = (e) => {
-      if (e.key === 'libraryFilters') {
-        loadFilters()
-        offset.value = 0
-        hasMore.value = true
-        fetchImages()
-      }
-    }
-
     // Watch for signal to open requests panel
     if (shouldOpenRequestsPanel) {
       watch(shouldOpenRequestsPanel, (shouldOpen) => {
@@ -943,7 +923,6 @@ export default {
       }, 2000)
 
       window.addEventListener('scroll', handleScroll)
-      window.addEventListener('storage', handleStorageChange)
     })
 
     onUnmounted(() => {
@@ -957,11 +936,7 @@ export default {
         clearTimeout(finalImageCheckTimeout)
       }
       window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('storage', handleStorageChange)
     })
-
-    // Expose setFilter so it can be called from router navigation
-    window.setLibraryFilter = setFilter
 
     return {
       images,
