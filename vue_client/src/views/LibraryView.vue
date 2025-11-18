@@ -17,6 +17,14 @@
         </div>
 
         <div v-else class="requests-grid">
+          <button
+            @click="showDeleteAllModal"
+            class="btn-clear-history"
+          >
+            <i class="fa-solid fa-trash"></i>
+            Clear Request History
+          </button>
+
           <RequestCard
             v-for="request in requests"
             :key="request.uuid"
@@ -33,6 +41,13 @@
       :request="requestToDelete"
       @close="deleteModalVisible = false"
       @delete="confirmDelete"
+    />
+
+    <DeleteAllRequestsModal
+      v-if="deleteAllModalVisible"
+      :requests="requests"
+      @close="deleteAllModalVisible = false"
+      @delete="confirmDeleteAll"
     />
 
     <div class="header">
@@ -158,6 +173,7 @@ import { imagesApi, requestsApi, albumsApi } from '../api/client.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
+import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import AlbumsPanel from '../components/AlbumsPanel.vue'
 
 export default {
@@ -166,6 +182,7 @@ export default {
     ImageModal,
     RequestCard,
     DeleteRequestModal,
+    DeleteAllRequestsModal,
     AlbumsPanel
   },
   props: {
@@ -195,6 +212,7 @@ export default {
     const requests = ref([])
     const queueStatus = ref(null)
     const deleteModalVisible = ref(false)
+    const deleteAllModalVisible = ref(false)
     const requestToDelete = ref(null)
     let pollInterval = null
     let imagesPollInterval = null
@@ -668,6 +686,26 @@ export default {
       }
     }
 
+    const showDeleteAllModal = () => {
+      deleteAllModalVisible.value = true
+    }
+
+    const confirmDeleteAll = async (imageAction) => {
+      try {
+        await requestsApi.deleteAll(imageAction)
+        requests.value = []
+        deleteAllModalVisible.value = false
+
+        // Refresh the image library to reflect deleted images
+        offset.value = 0
+        hasMore.value = true
+        await fetchImages()
+      } catch (error) {
+        console.error('Error deleting all requests:', error)
+        alert('Failed to delete all requests. Please try again.')
+      }
+    }
+
     // Albums panel functions
     const toggleAlbumsPanel = () => {
       isAlbumsPanelOpen.value = !isAlbumsPanelOpen.value
@@ -957,6 +995,9 @@ export default {
       showDeleteModal,
       confirmDelete,
       deleteModalVisible,
+      deleteAllModalVisible,
+      showDeleteAllModal,
+      confirmDeleteAll,
       requestToDelete,
       // Albums panel
       isAlbumsPanelOpen,
@@ -1391,6 +1432,34 @@ export default {
 .panel-content {
   padding: 1.5rem 2rem;
   background: #171717;
+  position: relative;
+}
+
+.btn-clear-history {
+  width: 100%;
+  padding: 1rem;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #999;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-clear-history:hover {
+  background: #3a3a3a;
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+}
+
+.btn-clear-history:active {
+  transform: scale(0.98);
 }
 
 .panel-empty-state {

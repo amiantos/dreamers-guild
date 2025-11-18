@@ -48,6 +48,60 @@ router.post('/', (req, res) => {
   }
 });
 
+// Delete all requests
+router.delete('/', async (req, res) => {
+  try {
+    const { imageAction } = req.query; // 'prune', 'keep', 'hide', or 'cancel'
+
+    // Get all requests
+    const requests = HordeRequest.findAll();
+
+    // Cancel all active requests on AI Horde
+    for (const request of requests) {
+      await queueManager.cancelRequest(request.uuid);
+    }
+
+    // Delete all pending downloads
+    const allPendingDownloads = HordePendingDownload.findAll();
+    allPendingDownloads.forEach(d => HordePendingDownload.delete(d.uuid));
+
+    // Process images based on action
+    for (const request of requests) {
+      const images = GeneratedImage.findByRequestId(request.uuid);
+
+      if (imageAction === 'prune') {
+        // Delete all non-favorited and non-hidden images
+        images.forEach(img => {
+          if (!img.is_favorite && !img.is_hidden) {
+            GeneratedImage.delete(img.uuid);
+          } else {
+            // Remove request_id from favorited/hidden images
+            GeneratedImage.update(img.uuid, { requestId: null });
+          }
+        });
+      } else if (imageAction === 'hide') {
+        // Mark all images as hidden and remove the request_id reference
+        images.forEach(img => {
+          GeneratedImage.update(img.uuid, { isHidden: true, requestId: null });
+        });
+      } else if (imageAction === 'keep' || imageAction === 'cancel') {
+        // Keep all images by removing the request_id reference
+        images.forEach(img => {
+          GeneratedImage.update(img.uuid, { requestId: null });
+        });
+      }
+
+      // Delete the request
+      HordeRequest.delete(request.uuid);
+    }
+
+    res.json({ success: true, deletedCount: requests.length });
+  } catch (error) {
+    console.error('Error deleting all requests:', error);
+    res.status(500).json({ error: 'Failed to delete all requests' });
+  }
+});
+
 // Delete a request
 router.delete('/:id', async (req, res) => {
   try {
