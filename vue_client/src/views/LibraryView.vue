@@ -11,6 +11,16 @@
     <!-- Requests Panel -->
     <div class="requests-panel" :class="{ open: isPanelOpen }">
       <div class="panel-content">
+        <!-- Delete All Button -->
+        <button
+          v-if="requests.length > 0"
+          @click="showDeleteAllModal"
+          class="btn-delete-all-requests"
+          title="Delete all requests"
+        >
+          <i class="fa-solid fa-trash"></i>
+        </button>
+
         <div v-if="requests.length === 0" class="panel-empty-state">
           <p>No requests yet</p>
           <p class="hint">Click the + button to generate your first AI image</p>
@@ -145,16 +155,6 @@
       @load-settings="handleLoadSettings"
       @update="handleImageUpdate"
     />
-
-    <!-- Floating Action Button (Delete All Requests) -->
-    <button
-      v-show="isPanelOpen && requests.length > 0"
-      @click="showDeleteAllModal"
-      class="fab fab-delete-all"
-      title="Delete all requests"
-    >
-      <i class="fa-solid fa-trash"></i>
-    </button>
 
     <!-- Floating Action Button (Settings) -->
     <button @click="openSettings" class="fab fab-settings" title="Settings">
@@ -1328,23 +1328,6 @@ export default {
   right: 2rem;
 }
 
-.fab-delete-all {
-  right: 2rem;
-  bottom: 8rem;
-  background: #2a2a2a;
-  border: 1px solid #444;
-  color: #999;
-  font-size: 1.25rem;
-  width: 56px;
-  height: 56px;
-}
-
-.fab-delete-all:hover {
-  background: #3a3a3a;
-  border-color: #ff6b6b;
-  color: #ff6b6b;
-}
-
 .fab-settings {
   left: 2rem;
   background: #555;
@@ -1451,6 +1434,39 @@ export default {
 .panel-content {
   padding: 1.5rem 2rem;
   background: #171717;
+  position: relative;
+}
+
+.btn-delete-all-requests {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #999;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.btn-delete-all-requests:hover {
+  background: #3a3a3a;
+  border-color: #ff6b6b;
+  color: #ff6b6b;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.btn-delete-all-requests:active {
+  transform: scale(0.95);
 }
 
 .panel-empty-state {
