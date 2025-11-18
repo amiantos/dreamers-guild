@@ -450,8 +450,46 @@ export default {
       const imageIndex = images.value.findIndex(img => img.uuid === updates.uuid)
       if (imageIndex !== -1) {
         images.value[imageIndex] = { ...images.value[imageIndex], ...updates }
-        // Refresh albums if favorite or hidden status changed
-        if ('is_favorite' in updates || 'is_hidden' in updates) {
+
+        // Check if hidden status changed and image should be removed from current view
+        if ('is_hidden' in updates) {
+          const shouldRemove = (
+            // Image was hidden and we're NOT in hidden gallery
+            (updates.is_hidden === 1 && !filters.value.showHidden) ||
+            // Image was unhidden and we ARE in hidden gallery
+            (updates.is_hidden === 0 && filters.value.showHidden)
+          )
+
+          if (shouldRemove) {
+            // Remove the image from the array
+            images.value.splice(imageIndex, 1)
+
+            // If this is the currently selected image, navigate or close
+            if (selectedImage.value && selectedImage.value.uuid === updates.uuid) {
+              if (images.value.length === 0) {
+                // No more images, close the modal
+                closeImage()
+              } else {
+                // Navigate to the next image (or previous if we were at the end)
+                let newIndex = imageIndex
+                if (newIndex >= images.value.length) {
+                  newIndex = images.value.length - 1
+                }
+                const newImage = images.value[newIndex]
+                if (newImage) {
+                  selectedImage.value = newImage
+                  router.replace(`/image/${newImage.uuid}`)
+                } else {
+                  closeImage()
+                }
+              }
+            }
+          }
+
+          // Refresh albums if favorite or hidden status changed
+          fetchAlbums()
+        } else if ('is_favorite' in updates) {
+          // Refresh albums for favorite changes
           fetchAlbums()
         }
       }
