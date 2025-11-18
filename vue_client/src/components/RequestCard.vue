@@ -1,5 +1,5 @@
 <template>
-  <div class="request-card" :class="statusClass">
+  <div class="request-card">
     <div class="card-content">
       <div class="thumbnail-container">
         <div v-if="request.status === 'completed' && thumbnailUrl" class="thumbnail">
