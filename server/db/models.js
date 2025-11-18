@@ -1,5 +1,8 @@
 import db from './database.js';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
+import { imagesDir } from './database.js';
 
 // HordeRequest model
 export const HordeRequest = {
@@ -203,6 +206,38 @@ export const GeneratedImage = {
   },
 
   delete(uuid) {
+    // Get image info before deleting from database
+    const image = this.findById(uuid);
+
+    if (image) {
+      // Delete image file if it exists
+      if (image.image_path) {
+        const imagePath = path.join(imagesDir, image.image_path);
+        try {
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+            console.log(`Deleted image file: ${image.image_path}`);
+          }
+        } catch (error) {
+          console.error(`Error deleting image file ${image.image_path}:`, error.message);
+        }
+      }
+
+      // Delete thumbnail file if it exists
+      if (image.thumbnail_path) {
+        const thumbnailPath = path.join(imagesDir, image.thumbnail_path);
+        try {
+          if (fs.existsSync(thumbnailPath)) {
+            fs.unlinkSync(thumbnailPath);
+            console.log(`Deleted thumbnail file: ${image.thumbnail_path}`);
+          }
+        } catch (error) {
+          console.error(`Error deleting thumbnail file ${image.thumbnail_path}:`, error.message);
+        }
+      }
+    }
+
+    // Delete database record
     const stmt = db.prepare('DELETE FROM generated_images WHERE uuid = ?');
     return stmt.run(uuid);
   }

@@ -329,23 +329,29 @@ class QueueManager {
           const imageData = await hordeApi.downloadImage(download.uri);
           console.log(`[Download] ← Received ${imageData.length} bytes`);
 
-          // Generate filename
+          // Detect image format using sharp
+          const metadata = await sharp(imageData).metadata();
+          const imageFormat = metadata.format; // e.g., 'png', 'webp', 'jpeg'
+          console.log(`[Download] Detected image format: ${imageFormat}`);
+
+          // Generate filename with correct extension
           const imageUuid = uuidv4();
-          const imagePath = path.join(imagesDir, `${imageUuid}.png`);
-          const thumbnailPath = path.join(imagesDir, `${imageUuid}_thumb.jpg`);
+          const imageExtension = imageFormat === 'jpeg' ? 'jpg' : imageFormat;
+          const imagePath = path.join(imagesDir, `${imageUuid}.${imageExtension}`);
+          const thumbnailPath = path.join(imagesDir, `${imageUuid}_thumb.webp`);
 
           // Save original image
-          console.log(`[Download] Saving image to ${imageUuid}.png`);
+          console.log(`[Download] Saving image to ${imageUuid}.${imageExtension}`);
           fs.writeFileSync(imagePath, imageData);
 
-          // Generate square thumbnail (512x512)
-          console.log(`[Download] Generating thumbnail ${imageUuid}_thumb.jpg`);
+          // Generate square thumbnail (512x512) in WEBP format
+          console.log(`[Download] Generating thumbnail ${imageUuid}_thumb.webp`);
           await sharp(imageData)
             .resize(512, 512, {
               fit: 'cover',
               position: 'center'
             })
-            .jpeg({ quality: 85 })
+            .webp({ quality: 85 })
             .toFile(thumbnailPath);
 
           // Get request info for metadata
@@ -359,8 +365,8 @@ class QueueManager {
             promptSimple: request?.prompt,
             fullRequest: request?.full_request,
             fullResponse: download.full_response,
-            imagePath: `${imageUuid}.png`,
-            thumbnailPath: `${imageUuid}_thumb.jpg`
+            imagePath: `${imageUuid}.${imageExtension}`,
+            thumbnailPath: `${imageUuid}_thumb.webp`
           });
 
           // Remove from active downloads
