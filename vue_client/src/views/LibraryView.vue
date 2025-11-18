@@ -22,6 +22,7 @@
             v-for="request in requests"
             :key="request.uuid"
             :request="request"
+            class="request-card-item"
             @view-images="viewRequestImages"
             @delete="showDeleteModal"
           />
@@ -1412,5 +1413,10 @@ export default {
 .requests-grid {
   display: grid;
   gap: 1rem;
+}
+
+.request-card-item:not(:last-child) {
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
 }
 </style>
