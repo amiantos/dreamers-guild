@@ -489,6 +489,38 @@ export default {
           // Refresh albums if favorite or hidden status changed
           fetchAlbums()
         } else if ('is_favorite' in updates) {
+          // Check if favorite status changed and image should be removed from current view
+          const shouldRemove = (
+            // Image was unfavorited and we're in favorites gallery
+            (updates.is_favorite === 0 && filters.value.showFavoritesOnly)
+          )
+
+          if (shouldRemove) {
+            // Remove the image from the array
+            images.value.splice(imageIndex, 1)
+
+            // If this is the currently selected image, navigate or close
+            if (selectedImage.value && selectedImage.value.uuid === updates.uuid) {
+              if (images.value.length === 0) {
+                // No more images, close the modal
+                closeImage()
+              } else {
+                // Navigate to the next image (or previous if we were at the end)
+                let newIndex = imageIndex
+                if (newIndex >= images.value.length) {
+                  newIndex = images.value.length - 1
+                }
+                const newImage = images.value[newIndex]
+                if (newImage) {
+                  selectedImage.value = newImage
+                  router.replace(`/image/${newImage.uuid}`)
+                } else {
+                  closeImage()
+                }
+              }
+            }
+          }
+
           // Refresh albums for favorite changes
           fetchAlbums()
         }
