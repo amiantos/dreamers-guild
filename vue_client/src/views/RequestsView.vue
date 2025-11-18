@@ -17,7 +17,7 @@
       <p class="hint">Click "New Request" to generate your first AI image</p>
     </div>
 
-    <div v-else>
+    <div v-else class="requests-container">
       <div class="requests-grid">
         <RequestCard
           v-for="request in requests"
@@ -27,16 +27,17 @@
           @delete="showDeleteModal"
         />
       </div>
-
-      <!-- Floating action button for delete all -->
-      <button
-        @click="showDeleteAllModal"
-        class="fab-delete-all"
-        title="Delete all requests"
-      >
-        <i class="fa-solid fa-trash"></i>
-      </button>
     </div>
+
+    <!-- Floating action button for delete all - MOVED OUTSIDE -->
+    <button
+      v-show="!loading && requests.length > 0"
+      @click="showDeleteAllModal"
+      class="fab-delete-all"
+      title="Delete all requests"
+    >
+      <i class="fa-solid fa-trash"></i>
+    </button>
 
     <DeleteRequestModal
       v-if="deleteModalVisible"
