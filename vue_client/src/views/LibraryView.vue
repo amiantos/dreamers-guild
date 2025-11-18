@@ -1331,9 +1331,13 @@ export default {
 }
 
 .requests-panel.open {
-  height: 25vh;
+  max-height: 25vh;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+}
+
+.requests-panel.open .panel-content {
+  min-height: 25vh;
 }
 
 .panel-content {
