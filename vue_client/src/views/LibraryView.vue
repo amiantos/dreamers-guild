@@ -18,6 +18,15 @@
         </div>
 
         <div v-else class="requests-grid">
+          <RequestCard
+            v-for="request in requests"
+            :key="request.uuid"
+            :request="request"
+            class="request-card-item"
+            @view-images="viewRequestImages"
+            @delete="showDeleteModal"
+          />
+
           <button
             @click="showDeleteAllModal"
             class="btn-clear-history"
@@ -25,14 +34,6 @@
             <i class="fa-solid fa-trash"></i>
             Clear Request History
           </button>
-
-          <RequestCard
-            v-for="request in requests"
-            :key="request.uuid"
-            :request="request"
-            @view-images="viewRequestImages"
-            @delete="showDeleteModal"
-          />
         </div>
       </div>
     </div>
@@ -89,13 +90,7 @@
         </div>
       </div>
 
-      <!-- Requests Panel Toggle Tab (inside header) -->
-      <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
-        <div class="tab-content">
-          <span class="status-dot" :class="requestStatusClass"></span>
-          <span class="tab-text">Requests</span>
-        </div>
-      </div>
+
     </div>
 
     <div v-if="loading && images.length === 0" class="loading">
@@ -164,6 +159,14 @@
     <button @click="openNewRequest" class="fab fab-new" title="New Request">
       <i class="fa-solid fa-plus"></i>
     </button>
+
+    <!-- Requests Panel Toggle Tab (moved to bottom) -->
+    <div class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
+      <div class="tab-content">
+        <span class="status-dot" :class="requestStatusClass"></span>
+        <span class="tab-text">Requests</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -573,8 +576,8 @@ export default {
     const fetchRequests = async () => {
       try {
         const response = await requestsApi.getAll()
-        // Reverse array to show oldest to newest (CSS flex-direction handles scroll anchoring)
-        requests.value = response.data.reverse()
+        // Show newest to oldest
+        requests.value = response.data
       } catch (error) {
         console.error('Error fetching requests:', error)
       }
@@ -912,6 +915,12 @@ export default {
 <style scoped>
 .library-view {
   padding: 0;
+  --panel-height: 40vh;
+  transition: padding-bottom 0.3s ease-out;
+}
+
+.library-view.panel-open {
+  padding-bottom: var(--panel-height);
 }
 
 .header {
@@ -923,7 +932,7 @@ export default {
 }
 
 .library-view.panel-open .header {
-  top: 25vh;
+  /* No longer pushing header down */
 }
 
 .header-content {
@@ -1215,7 +1224,7 @@ export default {
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: all 0.2s;
+  transition: all 0.2s, transform 0.3s ease-out;
   z-index: 40;
   display: flex;
   align-items: center;
@@ -1246,21 +1255,39 @@ export default {
   transform: scale(0.95);
 }
 
+.library-view.panel-open .fab {
+  transform: translateY(calc(-1 * var(--panel-height)));
+}
+
+.library-view.panel-open .fab:hover {
+  transform: translateY(calc(-1 * var(--panel-height))) scale(1.05);
+}
+
+.library-view.panel-open .fab:active {
+  transform: translateY(calc(-1 * var(--panel-height))) scale(0.95);
+}
+
 /* Requests Panel Tab */
 .panel-tab {
-  position: absolute;
-  top: 0;
-  left: 50vw;
+  position: fixed;
+  bottom: 0;
+  top: auto;
+  left: 50%;
   transform: translateX(-50%);
   cursor: pointer;
-  z-index: 49;
+  z-index: 60; /* Higher than FABs (40) and Header (50) */
+  transition: transform 0.3s ease-out;
+}
+
+.library-view.panel-open .panel-tab {
+  transform: translate(-50%, calc(-1 * var(--panel-height) + 1px));
 }
 
 .panel-tab .tab-content {
   background: #171717;
-  border-radius: 0 0 12px 12px;
-  border-top: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1274,7 +1301,7 @@ export default {
 
 @keyframes bounce {
   0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-  50% { padding-top: 1rem; padding-bottom: 0.75rem; }
+  50% { padding-top: 0.75rem; padding-bottom: 1rem; }
   100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 
@@ -1312,22 +1339,27 @@ export default {
 
 /* Requests Panel */
 .requests-panel {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  bottom: 0;
+  top: auto;
+  left: 0;
+  right: 0;
   background: #171717;
   max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-out, box-shadow 0.3s ease-out;
-  box-shadow: none;
-  z-index: 51;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  z-index: 55; /* Above header but below tab */
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column; /* Normal direction now */
+  height: var(--panel-height);
+  max-height: var(--panel-height);
+  transform: translateY(100%);
 }
 
 .requests-panel.open {
-  max-height: 25vh;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
+  transform: translateY(0);
 }
 
 .panel-content {
@@ -1381,5 +1413,10 @@ export default {
 .requests-grid {
   display: grid;
   gap: 1rem;
+}
+
+.request-card-item:not(:last-child) {
+  border-bottom: 1px solid #333;
+  padding-bottom: 1rem;
 }
 </style>
