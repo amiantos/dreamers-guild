@@ -11,11 +11,6 @@
       @submit="handleNewRequest"
     />
 
-    <SettingsModal
-      v-if="showSettingsModal"
-      @close="handleSettingsClose"
-    />
-
     <PinSetupModal
       v-if="showPinSetupModal"
       @close="showPinSetupModal = false"
@@ -34,7 +29,6 @@
 import { ref, provide, nextTick, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
-import SettingsModal from './components/SettingsModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import { settingsApi } from './api/client.js'
@@ -43,13 +37,11 @@ export default {
   name: 'App',
   components: {
     RequestGeneratorModal,
-    SettingsModal,
     PinSetupModal,
     PinEntryModal
   },
   setup() {
     const showRequestModal = ref(false)
-    const showSettingsModal = ref(false)
     const requestModalRef = ref(null)
     const modalInitialSettings = ref(null)
     const modalIncludeSeed = ref(false)
@@ -215,11 +207,6 @@ export default {
       pendingHiddenAccess.value = null
     }
 
-    const handleSettingsClose = async () => {
-      showSettingsModal.value = false
-      await loadSettings()
-    }
-
     const handleCloseRequestModal = () => {
       showRequestModal.value = false
       // Clear the initial settings when modal closes
@@ -235,10 +222,6 @@ export default {
 
     const openRequestModal = () => {
       showRequestModal.value = true
-    }
-
-    const openSettingsModal = () => {
-      showSettingsModal.value = true
     }
 
     const loadSettingsFromImage = async (image, includeSeed = false) => {
@@ -278,14 +261,12 @@ export default {
     // Provide functions to child components
     provide('loadSettingsFromImage', loadSettingsFromImage)
     provide('openRequestModal', openRequestModal)
-    provide('openSettingsModal', openSettingsModal)
     provide('shouldOpenRequestsPanel', shouldOpenRequestsPanel)
     provide('checkHiddenAuth', checkHiddenAuth)
     provide('requestHiddenAccess', requestHiddenAccess)
 
     return {
       showRequestModal,
-      showSettingsModal,
       requestModalRef,
       modalInitialSettings,
       modalIncludeSeed,
@@ -296,8 +277,7 @@ export default {
       showPinEntryModal,
       handlePinSetupComplete,
       handlePinVerified,
-      handlePinEntryCancel,
-      handleSettingsClose
+      handlePinEntryCancel
     }
   }
 }

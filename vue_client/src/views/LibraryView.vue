@@ -155,9 +155,9 @@
     />
 
     <!-- Floating Action Button (Settings) -->
-    <button @click="openSettings" class="fab fab-settings" title="Settings">
+    <router-link to="/settings" class="fab fab-settings" title="Settings">
       <i class="fa-solid fa-gear"></i>
-    </button>
+    </router-link>
 
     <!-- Floating Action Button (New Request) -->
     <button @click="openNewRequest" class="fab fab-new" title="New Request">
@@ -233,17 +233,10 @@ export default {
 
     // Inject functions from App.vue
     const loadSettingsFromImage = inject('loadSettingsFromImage')
-    const openSettingsModal = inject('openSettingsModal')
     const openRequestModal = inject('openRequestModal')
     const shouldOpenRequestsPanel = inject('shouldOpenRequestsPanel')
     const checkHiddenAuth = inject('checkHiddenAuth')
     const requestHiddenAccess = inject('requestHiddenAccess')
-
-    const openSettings = () => {
-      if (openSettingsModal) {
-        openSettingsModal()
-      }
-    }
 
     const openNewRequest = () => {
       if (openRequestModal) {
@@ -890,7 +883,6 @@ export default {
       applySearch,
       clearFilter,
       clearAllFilters,
-      openSettings,
       openNewRequest,
       // Requests panel
       isPanelOpen,
@@ -1223,6 +1215,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  text-decoration: none;
 }
 
 .fab-new {

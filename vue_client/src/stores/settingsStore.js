@@ -28,11 +28,13 @@ export const useSettingsStore = defineStore('settings', () => {
     postProcessing: []
   })
 
-  // Worker preferences
+  // AI Horde preferences (renamed from worker preferences)
   const workerPreferences = ref({
     slowWorkers: true,
     trustedWorkers: false,
-    nsfw: false
+    nsfw: false,
+    allowDowngrade: true,
+    replacementFilter: true
   })
 
   // Loading states
@@ -197,7 +199,9 @@ export const useSettingsStore = defineStore('settings', () => {
     workerPreferences.value = {
       slowWorkers: true,
       trustedWorkers: false,
-      nsfw: false
+      nsfw: false,
+      allowDowngrade: true,
+      replacementFilter: true
     }
     localStorage.removeItem('workerPreferences')
   }

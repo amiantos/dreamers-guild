@@ -295,6 +295,7 @@ import { getRandomPreset } from '../config/presets.js'
 import { useModelCache } from '../composables/useModelCache.js'
 import { useKudosEstimation } from '../composables/useKudosEstimation.js'
 import { splitPrompt, replaceNegativePlaceholder } from '../utils/promptUtils.js'
+import { useSettingsStore } from '../stores/settingsStore.js'
 import axios from 'axios'
 import ModelPicker from './ModelPicker.vue'
 import StylePicker from './StylePicker.vue'
@@ -317,6 +318,7 @@ export default {
   },
   emits: ['close', 'submit'],
   setup(props, { emit }) {
+    const settingsStore = useSettingsStore()
     const submitting = ref(false)
     const showModelPicker = ref(false)
     const showStylePicker = ref(false)
@@ -349,23 +351,8 @@ export default {
     const { models, fetchModels, getMostPopularModel } = useModelCache()
     const { kudosEstimate, estimating, estimateKudos: estimateKudosComposable } = useKudosEstimation()
 
-    // Load worker preferences from localStorage
-    const getWorkerPreferences = () => {
-      try {
-        const savedPrefs = localStorage.getItem('workerPreferences')
-        if (savedPrefs) {
-          return JSON.parse(savedPrefs)
-        }
-      } catch (error) {
-        console.error('Error loading worker preferences:', error)
-      }
-      // Default preferences
-      return {
-        slowWorkers: true,
-        trustedWorkers: false,
-        nsfw: false
-      }
-    }
+    // Load worker preferences from settings store
+    settingsStore.loadWorkerPreferences()
 
     // Load last used settings (from localStorage for speed, fallback to server)
     const loadLastUsedSettings = async () => {
@@ -612,11 +599,12 @@ export default {
       // Set model
       params.models = [form.model]
 
-      // Apply user preferences (worker settings) from settings
-      const workerPrefs = getWorkerPreferences()
-      params.nsfw = workerPrefs.nsfw
-      params.trusted_workers = workerPrefs.trustedWorkers
-      params.slow_workers = workerPrefs.slowWorkers
+      // Apply user preferences (AI Horde settings) from settings store
+      params.nsfw = settingsStore.workerPreferences.nsfw
+      params.trusted_workers = settingsStore.workerPreferences.trustedWorkers
+      params.slow_workers = settingsStore.workerPreferences.slowWorkers
+      params.allow_downgrade = settingsStore.workerPreferences.allowDowngrade
+      params.replacement_filter = settingsStore.workerPreferences.replacementFilter
 
       // If a style is selected, apply style parameters on top of baseRequest
       if (selectedStyleName.value !== 'None' && selectedStyleData.value) {

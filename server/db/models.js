@@ -328,7 +328,7 @@ export const UserSettings = {
         JSON.stringify([]),
         JSON.stringify([]),
         JSON.stringify({}),
-        JSON.stringify({ slowWorkers: true, trustedWorkers: false, nsfw: false }),
+        JSON.stringify({ slowWorkers: true, trustedWorkers: false, nsfw: false, allowDowngrade: true, replacementFilter: true }),
         null,
         null,
         Date.now()
