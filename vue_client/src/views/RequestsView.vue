@@ -17,30 +17,26 @@
       <p class="hint">Click "New Request" to generate your first AI image</p>
     </div>
 
-    <div v-else class="requests-grid">
-      <RequestCard
-        v-for="request in requests"
-        :key="request.uuid"
-        :request="request"
-        @view-images="viewRequestImages"
-        @delete="showDeleteModal"
-      />
-    </div>
+    <div v-else>
+      <div class="requests-grid">
+        <RequestCard
+          v-for="request in requests"
+          :key="request.uuid"
+          :request="request"
+          @view-images="viewRequestImages"
+          @delete="showDeleteModal"
+        />
+      </div>
 
-    <!-- Debug info (temporary) -->
-    <div style="position: fixed; top: 10px; right: 10px; background: red; color: white; padding: 10px; z-index: 9999; font-size: 12px;">
-      Debug: loading={{ loading }}, requests.length={{ requests.length }}, condition={{ !loading && requests.length > 0 }}
+      <!-- Floating action button for delete all -->
+      <button
+        @click="showDeleteAllModal"
+        class="fab-delete-all"
+        title="Delete all requests"
+      >
+        <i class="fa-solid fa-trash"></i>
+      </button>
     </div>
-
-    <!-- Floating action button for delete all -->
-    <button
-      v-if="!loading && requests.length > 0"
-      @click="showDeleteAllModal"
-      class="fab-delete-all"
-      title="Delete all requests"
-    >
-      <i class="fa-solid fa-trash"></i>
-    </button>
 
     <DeleteRequestModal
       v-if="deleteModalVisible"
