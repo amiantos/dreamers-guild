@@ -460,6 +460,7 @@ export default {
             requestHiddenAccess(() => {
               // After successful auth, toggle on
               filters.value.showHidden = true
+              sessionStorage.setItem('showHidden', 'true')
               offset.value = 0
               hasMore.value = true
               fetchImages()
@@ -472,6 +473,14 @@ export default {
 
       // Toggle the hidden images filter
       filters.value.showHidden = !filters.value.showHidden
+
+      // Save to sessionStorage
+      if (filters.value.showHidden) {
+        sessionStorage.setItem('showHidden', 'true')
+      } else {
+        sessionStorage.removeItem('showHidden')
+      }
+
       offset.value = 0
       hasMore.value = true
       fetchImages()
@@ -776,6 +785,12 @@ export default {
         // Set remaining keywords
         filters.value.keywords = queryKeywords
       }
+
+      // Load showHidden from sessionStorage (persists across navigation)
+      const savedShowHidden = sessionStorage.getItem('showHidden')
+      if (savedShowHidden === 'true') {
+        filters.value.showHidden = true
+      }
     }
 
     const selectAlbum = (album) => {
@@ -803,6 +818,7 @@ export default {
               filters.value.showFavoritesOnly = false
               filters.value.showHidden = true
               filters.value.keywords = []
+              sessionStorage.setItem('showHidden', 'true')
               offset.value = 0
               hasMore.value = true
               fetchImages()
@@ -814,6 +830,7 @@ export default {
           filters.value.showFavoritesOnly = false
           filters.value.showHidden = true
           filters.value.keywords = []
+          sessionStorage.setItem('showHidden', 'true')
         }
       } else if (album.id.startsWith('keyword:')) {
         // Extract keyword from ID and add to array if not present
@@ -983,7 +1000,7 @@ export default {
 <style scoped>
 .library-view {
   padding: 0;
-  --panel-height: 40vh;
+  --panel-height: 30vh;
   transition: padding-bottom 0.3s ease-out;
 }
 
