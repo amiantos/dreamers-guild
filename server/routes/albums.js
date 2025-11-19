@@ -41,7 +41,7 @@ function extractKeywords(prompts, limit = 20) {
 
 /**
  * GET /api/albums
- * Get all albums (system albums: All Images, Favorites, Hidden + keyword albums)
+ * Get all keyword albums extracted from image prompts
  */
 router.get('/', (req, res) => {
   try {
@@ -49,75 +49,16 @@ router.get('/', (req, res) => {
 
     // Parse filter params for context-aware keyword albums
     const showFavorites = req.query.favorites === 'true';
-    const showHidden = req.query.hidden === 'true';
+    const includeHidden = req.query.includeHidden === 'true';
 
     // Build base query for filtering
     let baseWhere = 'is_trashed = 0';
-    if (showFavorites && showHidden) {
-      baseWhere += ' AND is_favorite = 1 AND is_hidden = 1';
-    } else if (showFavorites) {
-      baseWhere += ' AND is_favorite = 1 AND is_hidden = 0';
-    } else if (showHidden) {
-      baseWhere += ' AND is_hidden = 1';
-    } else {
+    if (showFavorites) {
+      baseWhere += ' AND is_favorite = 1';
+    }
+    if (!includeHidden) {
       baseWhere += ' AND is_hidden = 0';
     }
-
-    // All Images album
-    const allCount = db.prepare(`
-      SELECT COUNT(*) as count FROM generated_images
-      WHERE is_trashed = 0 AND is_hidden = 0
-    `).get();
-
-    const allThumbnail = db.prepare(`
-      SELECT uuid FROM generated_images
-      WHERE is_trashed = 0 AND is_hidden = 0
-      ORDER BY date_created DESC
-      LIMIT 1
-    `).get();
-
-    albums.push({
-      id: 'all',
-      name: 'All Images',
-      type: 'system',
-      count: allCount.count,
-      thumbnail: allThumbnail ? allThumbnail.uuid : null
-    });
-
-    // Favorites album
-    const favoritesCount = db.prepare(`
-      SELECT COUNT(*) as count FROM generated_images
-      WHERE is_favorite = 1 AND is_hidden = 0 AND is_trashed = 0
-    `).get();
-
-    const favoriteThumbnail = db.prepare(`
-      SELECT uuid FROM generated_images
-      WHERE is_favorite = 1 AND is_hidden = 0 AND is_trashed = 0
-      ORDER BY date_created DESC
-      LIMIT 1
-    `).get();
-
-    albums.push({
-      id: 'favorites',
-      name: 'Favorites',
-      type: 'system',
-      count: favoritesCount.count,
-      thumbnail: favoriteThumbnail ? favoriteThumbnail.uuid : null
-    });
-
-    // Hidden album
-    const hiddenCount = db.prepare(`
-      SELECT COUNT(*) as count FROM generated_images
-      WHERE is_hidden = 1 AND is_trashed = 0
-    `).get();
-
-    albums.push({
-      id: 'hidden',
-      name: 'Hidden',
-      type: 'system',
-      count: hiddenCount.count,
-      thumbnail: null // Always use icon for hidden
-    });
 
     // Keyword albums - extract from prompts with context-aware filtering
     const prompts = db.prepare(`
@@ -125,7 +66,7 @@ router.get('/', (req, res) => {
       WHERE ${baseWhere}
     `).all().map(row => row.prompt_simple);
 
-    const topKeywords = extractKeywords(prompts, 20);
+    const topKeywords = extractKeywords(prompts, 50);
 
     topKeywords.forEach(({ keyword, count }) => {
       // Get most recent image for this keyword

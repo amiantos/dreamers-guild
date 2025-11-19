@@ -44,7 +44,7 @@ export const imagesApi = {
       url += '&favorites=true'
     }
     if (filters.showHidden) {
-      url += '&hidden=true'
+      url += '&includeHidden=true'
     }
     return apiClient.get(url)
   },
@@ -59,7 +59,7 @@ export const imagesApi = {
       url += '&favorites=true'
     }
     if (filters.showHidden) {
-      url += '&hidden=true'
+      url += '&includeHidden=true'
     }
     return apiClient.get(url)
   },
@@ -142,7 +142,7 @@ export const albumsApi = {
       params.push('favorites=true')
     }
     if (filters.showHidden) {
-      params.push('hidden=true')
+      params.push('includeHidden=true')
     }
     if (params.length > 0) {
       url += '?' + params.join('&')

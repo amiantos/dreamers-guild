@@ -26,7 +26,7 @@
 </template>
 
 <script>
-import { ref, provide, nextTick, computed, onMounted, onUnmounted } from 'vue'
+import { ref, provide, nextTick, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
@@ -53,21 +53,13 @@ export default {
     const settings = ref({})
     const settingsLoaded = ref(false)
     const hiddenAuthState = ref({
-      isAuthenticated: false,
-      lastAuthTime: null
+      isAuthenticated: false
     })
     const pendingHiddenAccess = ref(null) // Callback to run after successful PIN entry
-    const AUTH_TIMEOUT = 5 * 60 * 1000 // 5 minutes in milliseconds
 
     // Load settings on mount
     onMounted(async () => {
       await loadSettings()
-      setupActivityTracking()
-    })
-
-    // Clean up activity listeners on unmount
-    onUnmounted(() => {
-      cleanupActivityTracking()
     })
 
     const loadSettings = async () => {
@@ -78,40 +70,6 @@ export default {
       } catch (error) {
         console.error('Error loading settings:', error)
         settingsLoaded.value = true // Mark as loaded even on error to prevent blocking
-      }
-    }
-
-    // Activity tracking for 5-minute timeout
-    let activityTimeout = null
-    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart']
-
-    const resetAuthTimeout = () => {
-      if (hiddenAuthState.value.isAuthenticated) {
-        hiddenAuthState.value.lastAuthTime = Date.now()
-
-        if (activityTimeout) {
-          clearTimeout(activityTimeout)
-        }
-
-        activityTimeout = setTimeout(() => {
-          hiddenAuthState.value.isAuthenticated = false
-          hiddenAuthState.value.lastAuthTime = null
-        }, AUTH_TIMEOUT)
-      }
-    }
-
-    const setupActivityTracking = () => {
-      activityEvents.forEach(event => {
-        window.addEventListener(event, resetAuthTimeout, { passive: true })
-      })
-    }
-
-    const cleanupActivityTracking = () => {
-      activityEvents.forEach(event => {
-        window.removeEventListener(event, resetAuthTimeout)
-      })
-      if (activityTimeout) {
-        clearTimeout(activityTimeout)
       }
     }
 
@@ -136,15 +94,8 @@ export default {
         return true
       }
 
-      // Check if authenticated and within timeout
-      if (hiddenAuthState.value.isAuthenticated && hiddenAuthState.value.lastAuthTime) {
-        const timeSinceAuth = Date.now() - hiddenAuthState.value.lastAuthTime
-        if (timeSinceAuth < AUTH_TIMEOUT) {
-          return true
-        }
-      }
-
-      return false
+      // Check if authenticated (session-based, no timeout)
+      return hiddenAuthState.value.isAuthenticated
     }
 
     const requestHiddenAccess = (callback) => {
@@ -177,11 +128,6 @@ export default {
     const handlePinSetupComplete = async ({ hasPin }) => {
       await loadSettings()
       hiddenAuthState.value.isAuthenticated = hasPin
-      hiddenAuthState.value.lastAuthTime = hasPin ? Date.now() : null
-
-      if (hasPin) {
-        resetAuthTimeout()
-      }
 
       // Execute pending callback
       if (pendingHiddenAccess.value) {
@@ -192,8 +138,6 @@ export default {
 
     const handlePinVerified = () => {
       hiddenAuthState.value.isAuthenticated = true
-      hiddenAuthState.value.lastAuthTime = Date.now()
-      resetAuthTimeout()
 
       // Execute pending callback
       if (pendingHiddenAccess.value) {

@@ -117,17 +117,13 @@ export const GeneratedImage = {
     const params = [];
 
     // Apply filters
-    if (filters.showFavorites && filters.showHidden) {
-      // Both filters: show images that are favorited AND hidden
-      query += ` AND is_favorite = 1 AND is_hidden = 1`;
-    } else if (filters.showFavorites) {
-      // Favorites only: show favorited images that are NOT hidden
-      query += ` AND is_favorite = 1 AND is_hidden = 0`;
-    } else if (filters.showHidden) {
-      // Hidden only: show all hidden images
-      query += ` AND is_hidden = 1`;
-    } else {
-      // Default view: exclude hidden images
+    if (filters.showFavorites) {
+      // Show favorited images
+      query += ` AND is_favorite = 1`;
+    }
+
+    // Exclude hidden images unless includeHidden is true
+    if (!filters.includeHidden) {
       query += ` AND is_hidden = 0`;
     }
 
@@ -142,6 +138,26 @@ export const GeneratedImage = {
     return stmt.all(...params);
   },
 
+  countAll(filters = {}) {
+    let query = `
+      SELECT COUNT(*) as count FROM generated_images
+      WHERE is_trashed = 0
+    `;
+
+    // Apply same filters as findAll
+    if (filters.showFavorites) {
+      query += ` AND is_favorite = 1`;
+    }
+
+    if (!filters.includeHidden) {
+      query += ` AND is_hidden = 0`;
+    }
+
+    const stmt = db.prepare(query);
+    const result = stmt.get();
+    return result.count;
+  },
+
   findByRequestId(requestId, limit = 100) {
     const stmt = db.prepare(`
       SELECT * FROM generated_images
@@ -152,26 +168,38 @@ export const GeneratedImage = {
     return stmt.all(requestId, limit);
   },
 
+  countByRequestId(requestId) {
+    const stmt = db.prepare(`
+      SELECT COUNT(*) as count FROM generated_images
+      WHERE request_id = ? AND is_trashed = 0
+    `);
+    const result = stmt.get(requestId);
+    return result.count;
+  },
+
   findByKeywords(keywords, limit = 100, filters = {}) {
     let query = `
       SELECT * FROM generated_images
-      WHERE is_trashed = 0 AND prompt_simple LIKE ?
+      WHERE is_trashed = 0
     `;
 
-    const params = [`%${keywords}%`];
+    const params = [];
+
+    // Split keywords by comma and add AND conditions for each
+    const keywordList = keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
+    keywordList.forEach(keyword => {
+      query += ` AND prompt_simple LIKE ?`;
+      params.push(`%${keyword}%`);
+    });
 
     // Apply filters
-    if (filters.showFavorites && filters.showHidden) {
-      // Both filters: show images that are favorited AND hidden
-      query += ` AND is_favorite = 1 AND is_hidden = 1`;
-    } else if (filters.showFavorites) {
-      // Favorites only: show favorited images that are NOT hidden
-      query += ` AND is_favorite = 1 AND is_hidden = 0`;
-    } else if (filters.showHidden) {
-      // Hidden only: show all hidden images
-      query += ` AND is_hidden = 1`;
-    } else {
-      // Default view: exclude hidden images
+    if (filters.showFavorites) {
+      // Show favorited images
+      query += ` AND is_favorite = 1`;
+    }
+
+    // Exclude hidden images unless includeHidden is true
+    if (!filters.includeHidden) {
       query += ` AND is_hidden = 0`;
     }
 
@@ -184,6 +212,35 @@ export const GeneratedImage = {
 
     const stmt = db.prepare(query);
     return stmt.all(...params);
+  },
+
+  countByKeywords(keywords, filters = {}) {
+    let query = `
+      SELECT COUNT(*) as count FROM generated_images
+      WHERE is_trashed = 0
+    `;
+
+    const params = [];
+
+    // Split keywords by comma and add AND conditions for each (same as findByKeywords)
+    const keywordList = keywords.split(',').map(k => k.trim()).filter(k => k.length > 0);
+    keywordList.forEach(keyword => {
+      query += ` AND prompt_simple LIKE ?`;
+      params.push(`%${keyword}%`);
+    });
+
+    // Apply same filters as findByKeywords
+    if (filters.showFavorites) {
+      query += ` AND is_favorite = 1`;
+    }
+
+    if (!filters.includeHidden) {
+      query += ` AND is_hidden = 0`;
+    }
+
+    const stmt = db.prepare(query);
+    const result = stmt.get(...params);
+    return result.count;
   },
 
   update(uuid, data) {

@@ -17,7 +17,7 @@
             <div class="meta">
               <span class="date">{{ formattedDate }}</span>
               <span class="divider">•</span>
-              <span class="count">{{ request.n }} {{ request.n === 1 ? 'image' : 'images' }}</span>
+              <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
               <template v-if="statusMessage">
                 <span class="divider">•</span>
                 <span class="status-message">{{ statusMessage }}</span>
@@ -66,6 +66,7 @@ export default {
   emits: ['view-images', 'delete'],
   setup(props) {
     const thumbnailUrl = ref(null)
+    const actualImageCount = ref(null)
 
     const truncatedPrompt = computed(() => {
       const maxLength = 100
@@ -85,8 +86,10 @@ export default {
       if (props.request.status === 'completed') {
         try {
           const response = await imagesApi.getByRequestId(props.request.uuid, 1)
-          if (response.data && response.data.length > 0) {
-            thumbnailUrl.value = imagesApi.getThumbnailUrl(response.data[0].uuid)
+          // Backend returns { data: images, total }
+          if (response.data && response.data.data && response.data.data.length > 0) {
+            thumbnailUrl.value = imagesApi.getThumbnailUrl(response.data.data[0].uuid)
+            actualImageCount.value = response.data.total
           }
         } catch (error) {
           console.error('Error fetching thumbnail:', error)
@@ -134,6 +137,11 @@ export default {
       return `${minutes}m`
     }
 
+    const imageCount = computed(() => {
+      // Use actual count from backend if available, otherwise fall back to requested count
+      return actualImageCount.value !== null ? actualImageCount.value : props.request.n
+    })
+
     return {
       thumbnailUrl,
       truncatedPrompt,
@@ -141,7 +149,8 @@ export default {
       statusClass,
       statusText,
       statusMessage,
-      formatWaitTime
+      formatWaitTime,
+      imageCount
     }
   }
 }

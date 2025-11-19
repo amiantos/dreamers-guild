@@ -1,66 +1,38 @@
 <template>
-  <div class="albums-panel" :class="{ open: isOpen }">
+  <div class="keywords-panel" :class="{ open: isOpen }">
     <div class="panel-header">
-      <h3>Albums</h3>
+      <h3>Frequent Keywords</h3>
       <button class="btn-close" @click="$emit('close')" title="Close">
         <i class="fa-solid fa-times"></i>
       </button>
     </div>
 
     <div class="panel-content">
-      <div v-if="albums.length === 0" class="empty-state">
-        <p>No albums</p>
+      <div v-if="keywords.length === 0" class="empty-state">
+        <p>No keywords</p>
       </div>
 
-      <div v-else class="albums-list">
-        <!-- System Albums -->
+      <div v-else class="keywords-list">
+        <!-- Keywords -->
         <div
-          v-for="album in systemAlbums"
-          :key="album.id"
-          class="album-card"
-          @click="$emit('select', album)"
+          v-for="keyword in keywords"
+          :key="keyword.id"
+          class="keyword-card"
+          @click="$emit('select', keyword)"
         >
-          <div class="album-thumbnail">
+          <div class="keyword-thumbnail">
             <img
-              v-if="album.thumbnail"
-              :src="getThumbnailUrl(album.thumbnail)"
-              :alt="album.name"
+              v-if="keyword.thumbnail"
+              :src="getThumbnailUrl(keyword.thumbnail)"
+              :alt="keyword.name"
             />
-            <div v-else class="album-icon">
-              <i v-if="album.id === 'all'" class="fa-solid fa-images"></i>
-              <i v-else-if="album.id === 'favorites'" class="fa-solid fa-star"></i>
-              <i v-else-if="album.id === 'hidden'" class="fa-solid fa-eye-slash"></i>
-            </div>
-          </div>
-          <div class="album-info">
-            <div class="album-name">{{ album.name }}</div>
-            <div class="album-count">{{ album.count }}</div>
-          </div>
-        </div>
-
-        <!-- Divider -->
-        <div v-if="keywordAlbums.length > 0" class="albums-divider"></div>
-
-        <!-- Keyword Albums -->
-        <div
-          v-for="album in keywordAlbums"
-          :key="album.id"
-          class="album-card"
-          @click="$emit('select', album)"
-        >
-          <div class="album-thumbnail">
-            <img
-              v-if="album.thumbnail"
-              :src="getThumbnailUrl(album.thumbnail)"
-              :alt="album.name"
-            />
-            <div v-else class="album-icon">
+            <div v-else class="keyword-icon">
               <i class="fa-solid fa-hashtag"></i>
             </div>
           </div>
-          <div class="album-info">
-            <div class="album-name">{{ album.name }}</div>
-            <div class="album-count">{{ album.count }}</div>
+          <div class="keyword-info">
+            <div class="keyword-name">{{ keyword.name }}</div>
+            <div class="keyword-count">{{ keyword.count }}</div>
           </div>
         </div>
       </div>
@@ -73,9 +45,9 @@ import { computed } from 'vue'
 import { imagesApi } from '../api/client.js'
 
 export default {
-  name: 'AlbumsPanel',
+  name: 'KeywordsPanel',
   props: {
-    albums: {
+    keywords: {
       type: Array,
       required: true
     },
@@ -90,30 +62,20 @@ export default {
       return imagesApi.getThumbnailUrl(imageId)
     }
 
-    const systemAlbums = computed(() => {
-      return props.albums.filter(album => album.type === 'system')
-    })
-
-    const keywordAlbums = computed(() => {
-      return props.albums.filter(album => album.type === 'keyword')
-    })
-
     return {
-      getThumbnailUrl,
-      systemAlbums,
-      keywordAlbums
+      getThumbnailUrl
     }
   }
 }
 </script>
 
 <style scoped>
-.albums-panel {
+.keywords-panel {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: 200px;
+  width: 300px;
   background: #171717;
   border-right: 1px solid #333;
   z-index: 100;
@@ -124,7 +86,7 @@ export default {
   flex-direction: column;
 }
 
-.albums-panel.open {
+.keywords-panel.open {
   transform: translateX(0);
 }
 
@@ -173,19 +135,13 @@ export default {
   color: #666;
 }
 
-.albums-list {
+.keywords-list {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.albums-divider {
-  height: 1px;
-  background: #333;
-  margin: 0.5rem 0;
-}
-
-.album-card {
+.keyword-card {
   background: #0f0f0f;
   border: 1px solid #333;
   border-radius: 8px;
@@ -197,13 +153,13 @@ export default {
   gap: 0.75rem;
 }
 
-.album-card:hover {
+.keyword-card:hover {
   background: #1a1a1a;
   border-color: #444;
   transform: translateX(4px);
 }
 
-.album-thumbnail {
+.keyword-thumbnail {
   width: 48px;
   height: 48px;
   border-radius: 6px;
@@ -212,13 +168,13 @@ export default {
   flex-shrink: 0;
 }
 
-.album-thumbnail img {
+.keyword-thumbnail img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.album-icon {
+.keyword-icon {
   width: 100%;
   height: 100%;
   display: flex;
@@ -227,35 +183,23 @@ export default {
   font-size: 1.5rem;
 }
 
-.album-icon i.fa-images {
-  color: #007AFF;
-}
-
-.album-icon i.fa-star {
-  color: #FFD60A;
-}
-
-.album-icon i.fa-eye-slash {
-  color: #999;
-}
-
-.album-icon i.fa-hashtag {
+.keyword-icon i.fa-hashtag {
   color: #00D4FF;
 }
 
-.album-info {
+.keyword-info {
   flex: 1;
   min-width: 0;
 }
 
-.album-name {
+.keyword-name {
   font-size: 0.95rem;
   font-weight: 500;
   color: #fff;
   margin-bottom: 0.25rem;
 }
 
-.album-count {
+.keyword-count {
   font-size: 0.85rem;
   color: #999;
 }

@@ -1,11 +1,11 @@
 <template>
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
-    <!-- Albums Panel -->
-    <AlbumsPanel
-      :albums="albums"
-      :isOpen="isAlbumsPanelOpen"
-      @close="isAlbumsPanelOpen = false"
-      @select="selectAlbum"
+    <!-- Keywords Panel -->
+    <KeywordsPanel
+      :keywords="keywords"
+      :isOpen="isKeywordsPanelOpen"
+      @close="isKeywordsPanelOpen = false"
+      @select="selectKeyword"
     />
 
     <!-- Requests Panel -->
@@ -54,9 +54,6 @@
     <div class="header">
       <div class="header-content">
         <div class="header-left">
-          <button @click="toggleAlbumsPanel" class="btn-albums-toggle" title="Albums">
-            <i class="fa-solid fa-folder"></i>
-          </button>
           <h2>{{ galleryTitle }}</h2>
         </div>
 
@@ -84,6 +81,33 @@
                 class="search-input"
               />
               <button @click="applySearch" class="btn-search">Search</button>
+            </div>
+
+            <!-- Favorites Toggle Button -->
+            <button
+              @click="toggleFavorites"
+              class="btn-favorites-toggle"
+              :class="{ active: filters.showFavoritesOnly }"
+              title="Show Favorites"
+            >
+              <i class="fa-solid fa-star"></i>
+            </button>
+
+            <!-- Keywords Panel Toggle Button -->
+            <button @click="toggleKeywordsPanel" class="btn-keywords-toggle" title="Keywords">
+              <i class="fa-solid fa-filter"></i>
+            </button>
+
+            <!-- Overflow Menu -->
+            <div class="menu-container" ref="menuContainer">
+              <button @click="toggleMenu" class="btn-menu" title="More options">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </button>
+              <div v-if="showMenu" class="menu-dropdown">
+                <div class="menu-item" @click="toggleHiddenImages">
+                  <span>{{ filters.showHidden ? 'Hide Hidden Images' : 'Show Hidden Images' }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -178,7 +202,7 @@ import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
-import AlbumsPanel from '../components/AlbumsPanel.vue'
+import KeywordsPanel from '../components/KeywordsPanel.vue'
 
 export default {
   name: 'LibraryView',
@@ -187,7 +211,7 @@ export default {
     RequestCard,
     DeleteRequestModal,
     DeleteAllRequestsModal,
-    AlbumsPanel
+    KeywordsPanel
   },
   props: {
     imageId: String // selected image ID from URL
@@ -196,6 +220,7 @@ export default {
     const router = useRouter()
     const route = useRoute()
     const images = ref([])
+    const totalCount = ref(0)
     const loading = ref(true)
     const selectedImage = ref(null)
     const gridContainer = ref(null)
@@ -220,17 +245,21 @@ export default {
     const requestToDelete = ref(null)
     let pollInterval = null
 
-    // Albums panel state
-    const isAlbumsPanelOpen = ref(false)
-    const albums = ref([])
+    // Keywords panel state
+    const isKeywordsPanelOpen = ref(false)
+    const keywords = ref([])
+
+    // Menu state
+    const showMenu = ref(false)
+    const menuContainer = ref(null)
 
     // Initialize image polling composable
     const imagePolling = useImagePolling({
       filters,
       images,
       onNewImages: () => {
-        // Refresh albums when new images are added
-        fetchAlbums()
+        // Refresh keywords when new images are added
+        fetchKeywords()
       }
     })
 
@@ -253,12 +282,8 @@ export default {
     })
 
     const galleryTitle = computed(() => {
-      if (filters.value.showFavoritesOnly) {
-        return 'Favorite Images'
-      } else if (filters.value.showHidden) {
-        return 'Hidden Images'
-      }
-      return 'All Images'
+      const count = totalCount.value
+      return `${count} Image${count !== 1 ? 's' : ''}`
     })
 
     const fetchImages = async (append = false) => {
@@ -272,20 +297,22 @@ export default {
           response = await imagesApi.getByRequestId(filters.value.requestId, limit)
           hasMore.value = false // Request images don't paginate
         } else if (filters.value.keywords.length > 0) {
-          // Join keywords with space for search
-          const searchTerms = filters.value.keywords.join(' ')
+          // Join keywords with comma for search (supports AND filtering)
+          const searchTerms = filters.value.keywords.join(',')
           response = await imagesApi.search(searchTerms, limit, filters.value)
           hasMore.value = false // Search doesn't paginate yet
         } else {
           response = await imagesApi.getAll(limit, offset.value, filters.value)
         }
 
-        const newImages = response.data
+        const newImages = response.data.data || []
+        totalCount.value = response.data.total || 0
 
         if (append) {
           images.value = [...images.value, ...newImages]
         } else {
           images.value = newImages
+          offset.value = 0
         }
 
         if (newImages.length < limit) {
@@ -295,6 +322,7 @@ export default {
         }
       } catch (error) {
         console.error('Error fetching images:', error)
+        totalCount.value = 0
       } finally {
         loading.value = false
       }
@@ -411,6 +439,58 @@ export default {
       updateFilterUrl()
     }
 
+    const toggleFavorites = () => {
+      filters.value.showFavoritesOnly = !filters.value.showFavoritesOnly
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
+      updateFilterUrl()
+    }
+
+    const toggleMenu = () => {
+      showMenu.value = !showMenu.value
+    }
+
+    const toggleHiddenImages = () => {
+      // Close the menu
+      showMenu.value = false
+
+      // If turning on, check authentication first
+      if (!filters.value.showHidden) {
+        // Check if user has access
+        if (checkHiddenAuth && !checkHiddenAuth()) {
+          // Request PIN access
+          if (requestHiddenAccess) {
+            requestHiddenAccess(() => {
+              // After successful auth, toggle on
+              filters.value.showHidden = true
+              sessionStorage.setItem('showHidden', 'true')
+              offset.value = 0
+              hasMore.value = true
+              fetchImages()
+              fetchKeywords()
+            })
+          }
+          return
+        }
+      }
+
+      // Toggle the hidden images filter
+      filters.value.showHidden = !filters.value.showHidden
+
+      // Save to sessionStorage
+      if (filters.value.showHidden) {
+        sessionStorage.setItem('showHidden', 'true')
+      } else {
+        sessionStorage.removeItem('showHidden')
+      }
+
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
+      fetchKeywords()
+    }
+
     const navigateImage = (direction) => {
       const currentIndex = currentImageIndex.value
       let newIndex = currentIndex + direction
@@ -444,8 +524,8 @@ export default {
         await imagesApi.delete(imageId)
         images.value = images.value.filter(img => img.uuid !== imageId)
         selectedImage.value = null
-        // Refresh albums since counts and keywords may have changed
-        fetchAlbums()
+        // Refresh keywords since counts and keywords may have changed
+        fetchKeywords()
       } catch (error) {
         console.error('Error deleting image:', error)
       }
@@ -498,8 +578,8 @@ export default {
             }
           }
 
-          // Refresh albums if favorite or hidden status changed
-          fetchAlbums()
+          // Refresh keywords if favorite or hidden status changed
+          fetchKeywords()
         } else if ('is_favorite' in updates) {
           // Check if favorite status changed and image should be removed from current view
           const shouldRemove = (
@@ -533,8 +613,8 @@ export default {
             }
           }
 
-          // Refresh albums for favorite changes
-          fetchAlbums()
+          // Refresh keywords for favorite changes
+          fetchKeywords()
         }
       }
     }
@@ -657,121 +737,83 @@ export default {
       }
     }
 
-    // Albums panel functions
-    const toggleAlbumsPanel = () => {
-      isAlbumsPanelOpen.value = !isAlbumsPanelOpen.value
+    // Keywords panel functions
+    const toggleKeywordsPanel = () => {
+      isKeywordsPanelOpen.value = !isKeywordsPanelOpen.value
     }
 
-    const fetchAlbums = async () => {
+    const fetchKeywords = async () => {
       try {
         const response = await albumsApi.getAll(filters.value)
-        albums.value = response.data
+        keywords.value = response.data
       } catch (error) {
-        console.error('Error fetching albums:', error)
+        console.error('Error fetching keywords:', error)
       }
     }
 
     const updateFilterUrl = () => {
-      // Build the path based on current filters
-      let path = '/'
-      if (filters.value.showFavoritesOnly) {
-        path = '/favorites'
-      } else if (filters.value.showHidden) {
-        path = '/hidden'
-      }
-
       // Build query params
       const query = {}
-      if (filters.value.keywords.length > 0) {
-        query.q = filters.value.keywords.join(',')
+
+      // Add favorites as special keyword if enabled
+      const queryKeywords = [...filters.value.keywords]
+      if (filters.value.showFavoritesOnly) {
+        queryKeywords.unshift('favorites')
+      }
+
+      if (queryKeywords.length > 0) {
+        query.q = queryKeywords.join(',')
       }
 
       // Update URL without triggering navigation
-      router.replace({ path, query })
+      router.replace({ path: '/', query })
     }
 
     const loadFiltersFromUrl = () => {
-      // Load filters from route
-      if (route.path === '/favorites') {
-        filters.value.showFavoritesOnly = true
-        filters.value.showHidden = false
-      } else if (route.path === '/hidden') {
-        // Check if user has access to hidden gallery
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          // Request PIN access
-          if (requestHiddenAccess) {
-            requestHiddenAccess(() => {
-              // After successful auth, set the filter and load images
-              filters.value.showFavoritesOnly = false
-              filters.value.showHidden = true
-              offset.value = 0
-              hasMore.value = true
-              fetchImages()
-              fetchAlbums()
-            })
-          }
-          // Navigate back to home while waiting for auth
-          router.replace('/')
-          return
-        } else {
-          filters.value.showFavoritesOnly = false
-          filters.value.showHidden = true
-        }
-      } else {
-        filters.value.showFavoritesOnly = false
-        filters.value.showHidden = false
-      }
+      // Reset filters
+      filters.value.showFavoritesOnly = false
+      filters.value.keywords = []
 
       // Load keywords from query params
       if (route.query.q) {
-        filters.value.keywords = route.query.q.split(',').filter(k => k.trim().length > 0)
-      } else {
-        filters.value.keywords = []
+        const queryKeywords = route.query.q.split(',').filter(k => k.trim().length > 0)
+
+        // Check for special 'favorites' keyword
+        const favoritesIndex = queryKeywords.indexOf('favorites')
+        if (favoritesIndex !== -1) {
+          filters.value.showFavoritesOnly = true
+          // Remove 'favorites' from keywords array (it's not a real search term)
+          queryKeywords.splice(favoritesIndex, 1)
+        }
+
+        // Set remaining keywords
+        filters.value.keywords = queryKeywords
+      }
+
+      // Load showHidden from sessionStorage (persists across navigation)
+      const savedShowHidden = sessionStorage.getItem('showHidden')
+      if (savedShowHidden === 'true') {
+        filters.value.showHidden = true
       }
     }
 
-    const selectAlbum = (album) => {
-      // Update filters based on album selection
+    const selectKeyword = (keyword) => {
+      // Update filters based on keyword selection
       filters.value.requestId = null
 
-      if (album.id === 'all') {
-        filters.value.showFavoritesOnly = false
-        filters.value.showHidden = false
-        filters.value.keywords = []
-      } else if (album.id === 'favorites') {
-        filters.value.showFavoritesOnly = true
-        filters.value.showHidden = false
-        filters.value.keywords = []
-      } else if (album.id === 'hidden') {
-        // Check if user has access to hidden gallery
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          // Close the albums panel first
-          isAlbumsPanelOpen.value = false
-
-          // Request PIN access
-          if (requestHiddenAccess) {
-            requestHiddenAccess(() => {
-              // After successful auth, navigate to hidden gallery
-              router.push('/hidden')
-            })
-          }
-          return
+      if (keyword.id.startsWith('keyword:')) {
+        // Extract keyword from ID and toggle it
+        const keywordText = keyword.id.replace('keyword:', '')
+        const index = filters.value.keywords.indexOf(keywordText)
+        if (index !== -1) {
+          // Remove keyword if already present
+          filters.value.keywords.splice(index, 1)
         } else {
-          filters.value.showFavoritesOnly = false
-          filters.value.showHidden = true
-          filters.value.keywords = []
-        }
-      } else if (album.id.startsWith('keyword:')) {
-        // Extract keyword from ID and add to array if not present
-        const keyword = album.id.replace('keyword:', '')
-        if (!filters.value.keywords.includes(keyword)) {
-          filters.value.keywords.push(keyword)
+          // Add keyword if not present
+          filters.value.keywords.push(keywordText)
         }
         // Keep current favorite/hidden filters intact for keyword searches
       }
-
-      // Close the albums panel
-      isAlbumsPanelOpen.value = false
 
       // Refresh images with new filters
       offset.value = 0
@@ -791,11 +833,11 @@ export default {
       })
     }
 
-    // Watch for filter changes to refresh keyword albums
+    // Watch for filter changes to refresh keywords
     watch(
       () => ({ showFavoritesOnly: filters.value.showFavoritesOnly, showHidden: filters.value.showHidden }),
       () => {
-        fetchAlbums()
+        fetchKeywords()
       }
     )
 
@@ -834,8 +876,14 @@ export default {
       offset.value = 0
       hasMore.value = true
       fetchImages()
-      fetchAlbums()
+      fetchKeywords()
     })
+
+    const handleClickOutside = (event) => {
+      if (menuContainer.value && !menuContainer.value.contains(event.target)) {
+        showMenu.value = false
+      }
+    }
 
     onMounted(async () => {
       loadFiltersFromUrl()
@@ -846,8 +894,8 @@ export default {
       fetchRequests()
       fetchQueueStatus()
 
-      // Fetch albums
-      fetchAlbums()
+      // Fetch keywords
+      fetchKeywords()
 
       // Poll for updates every 2 seconds
       pollInterval = setInterval(() => {
@@ -856,6 +904,7 @@ export default {
       }, 2000)
 
       window.addEventListener('scroll', handleScroll)
+      window.addEventListener('click', handleClickOutside)
     })
 
     onUnmounted(() => {
@@ -864,6 +913,7 @@ export default {
       }
       imagePolling.cleanup()
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('click', handleClickOutside)
     })
 
     return {
@@ -901,11 +951,18 @@ export default {
       showDeleteAllModal,
       confirmDeleteAll,
       requestToDelete,
-      // Albums panel
-      isAlbumsPanelOpen,
-      toggleAlbumsPanel,
-      albums,
-      selectAlbum
+      // Keywords panel
+      isKeywordsPanelOpen,
+      toggleKeywordsPanel,
+      keywords,
+      selectKeyword,
+      // Menu and filters
+      showMenu,
+      menuContainer,
+      toggleFavorites,
+      toggleMenu,
+      toggleHiddenImages,
+      checkHiddenAuth
     }
   }
 }
@@ -914,7 +971,7 @@ export default {
 <style scoped>
 .library-view {
   padding: 0;
-  --panel-height: 40vh;
+  --panel-height: 30vh;
   transition: padding-bottom 0.3s ease-out;
 }
 
@@ -955,7 +1012,7 @@ export default {
   margin: 0;
 }
 
-.btn-albums-toggle {
+.btn-keywords-toggle {
   width: 40px;
   height: 40px;
   border-radius: 6px;
@@ -970,7 +1027,7 @@ export default {
   justify-content: center;
 }
 
-.btn-albums-toggle:hover {
+.btn-keywords-toggle:hover {
   background: #1a1a1a;
   border-color: #666;
   color: #fff;
@@ -1068,6 +1125,91 @@ export default {
   background: #0051D5;
 }
 
+.btn-favorites-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #999;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-favorites-toggle:hover {
+  background: #1a1a1a;
+  border-color: #666;
+  color: #FFD60A;
+}
+
+.btn-favorites-toggle.active {
+  background: #1a1a1a;
+  border-color: #FFD60A;
+  color: #FFD60A;
+}
+
+.menu-container {
+  position: relative;
+}
+
+.btn-menu {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid #333;
+  color: #999;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-menu:hover {
+  background: #1a1a1a;
+  border-color: #666;
+  color: #fff;
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  min-width: 183px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: #2a2a2a;
+}
+
+.menu-item i {
+  width: 20px;
+  color: #999;
+}
+
 .loading,
 .loading-more {
   text-align: center;
@@ -1126,7 +1268,7 @@ export default {
   right: 0.5rem;
   background: rgba(0, 0, 0, 0.8);
   color: #FFD60A;
-  font-size: 1.5rem;
+  font-size: 1rem;
   width: 2rem;
   height: 2rem;
   display: flex;
@@ -1143,7 +1285,7 @@ export default {
   left: 0.5rem;
   background: rgba(0, 0, 0, 0.8);
   color: #999;
-  font-size: 1.5rem;
+  font-size: 1rem;
   width: 2rem;
   height: 2rem;
   display: flex;

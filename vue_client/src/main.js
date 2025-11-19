@@ -14,16 +14,6 @@ const router = createRouter({
       component: LibraryView
     },
     {
-      path: '/favorites',
-      name: 'favorites',
-      component: LibraryView
-    },
-    {
-      path: '/hidden',
-      name: 'hidden',
-      component: LibraryView
-    },
-    {
       path: '/image/:imageId',
       name: 'library-image',
       component: LibraryView,

@@ -28,7 +28,8 @@ export function useImagePolling({ filters, images, onNewImages }) {
     try {
       // Fetch the latest images with current filters applied
       const response = await imagesApi.getAll(20, 0, filters.value)
-      const newImages = response.data
+      // Backend returns { data: images, total }, axios wraps it in response.data
+      const newImages = (response.data && response.data.data) ? response.data.data : []
 
       if (newImages.length === 0) return
 

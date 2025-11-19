@@ -11,10 +11,12 @@ router.get('/', (req, res) => {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
     const showFavorites = req.query.favorites === 'true';
-    const showHidden = req.query.hidden === 'true';
+    const includeHidden = req.query.includeHidden === 'true';
 
-    const images = GeneratedImage.findAll(limit, offset, { showFavorites, showHidden });
-    res.json(images);
+    const images = GeneratedImage.findAll(limit, offset, { showFavorites, includeHidden });
+    const total = GeneratedImage.countAll({ showFavorites, includeHidden });
+
+    res.json({ data: images, total });
   } catch (error) {
     console.error('Error fetching images:', error);
     res.status(500).json({ error: 'Failed to fetch images' });
@@ -26,7 +28,8 @@ router.get('/request/:requestId', (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const images = GeneratedImage.findByRequestId(req.params.requestId, limit);
-    res.json(images);
+    const total = GeneratedImage.countByRequestId(req.params.requestId);
+    res.json({ data: images, total });
   } catch (error) {
     console.error('Error fetching images for request:', error);
     res.status(500).json({ error: 'Failed to fetch images' });
@@ -39,10 +42,12 @@ router.get('/search', (req, res) => {
     const keywords = req.query.q || '';
     const limit = parseInt(req.query.limit) || 100;
     const showFavorites = req.query.favorites === 'true';
-    const showHidden = req.query.hidden === 'true';
+    const includeHidden = req.query.includeHidden === 'true';
 
-    const images = GeneratedImage.findByKeywords(keywords, limit, { showFavorites, showHidden });
-    res.json(images);
+    const images = GeneratedImage.findByKeywords(keywords, limit, { showFavorites, includeHidden });
+    const total = GeneratedImage.countByKeywords(keywords, { showFavorites, includeHidden });
+
+    res.json({ data: images, total });
   } catch (error) {
     console.error('Error searching images:', error);
     res.status(500).json({ error: 'Failed to search images' });
