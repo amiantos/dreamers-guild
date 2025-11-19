@@ -82,12 +82,44 @@
           >
             <i class="fa-solid fa-sliders"></i> Load Settings + Seed
           </button>
+          <button
+            v-if="hasSettings"
+            @click="showDetailsView('request')"
+            class="btn btn-view-request"
+            title="View full request JSON"
+          >
+            <i class="fa-solid fa-code"></i> View Request
+          </button>
+          <button
+            v-if="hasResponse"
+            @click="showDetailsView('response')"
+            class="btn btn-view-response"
+            title="View full response JSON"
+          >
+            <i class="fa-solid fa-file-code"></i> View Response
+          </button>
           <a :href="imageUrl" :download="`aislingeach-${image.uuid}.png`" class="btn btn-download">
             <i class="fa-solid fa-download"></i> Download
           </a>
           <button @click="$emit('delete', image.uuid)" class="btn btn-icon btn-delete" title="Delete image">
             <i class="fa-solid fa-trash"></i>
           </button>
+        </div>
+      </div>
+      <!-- Details Overlay -->
+      <div v-if="showDetails" class="request-details-overlay">
+        <div class="request-details-header">
+          <h3>{{ detailsTitle }}</h3>
+          <div class="header-actions">
+            <button class="btn-copy" @click="copyToClipboard" :title="copyButtonText">
+              <i :class="copied ? 'fa-solid fa-check' : 'fa-solid fa-copy'"></i>
+              {{ copyButtonText }}
+            </button>
+            <button class="btn-close-details" @click="closeDetails">×</button>
+          </div>
+        </div>
+        <div class="request-details-body">
+          <pre>{{ currentDetailsContent }}</pre>
         </div>
       </div>
     </div>
@@ -120,6 +152,9 @@ export default {
     const isHidden = ref(!!props.image.is_hidden)
     const checkHiddenAuth = inject('checkHiddenAuth')
     const requestHiddenAccess = inject('requestHiddenAccess')
+    const showDetails = ref(false)
+    const detailsType = ref('request')
+    const copied = ref(false)
 
     // Watch for prop changes when navigating between images
     watch(() => props.image, (newImage) => {
@@ -144,6 +179,64 @@ export default {
     const hasSettings = computed(() => {
       return props.image.full_request && props.image.full_request.trim() !== ''
     })
+
+    const hasResponse = computed(() => {
+      return props.image.full_response && props.image.full_response.trim() !== ''
+    })
+
+    const formattedRequest = computed(() => {
+      if (!props.image.full_request) return ''
+      try {
+        return JSON.stringify(JSON.parse(props.image.full_request), null, 2)
+      } catch (e) {
+        return props.image.full_request
+      }
+    })
+
+    const formattedResponse = computed(() => {
+      if (!props.image.full_response) return ''
+      try {
+        return JSON.stringify(JSON.parse(props.image.full_response), null, 2)
+      } catch (e) {
+        return props.image.full_response
+      }
+    })
+
+    const detailsTitle = computed(() => {
+      return detailsType.value === 'request' ? 'Request Details' : 'Response Details'
+    })
+
+    const currentDetailsContent = computed(() => {
+      return detailsType.value === 'request' ? formattedRequest.value : formattedResponse.value
+    })
+
+    const copyButtonText = computed(() => {
+      return copied.value ? 'Copied!' : 'Copy'
+    })
+
+    const showDetailsView = (type) => {
+      detailsType.value = type
+      showDetails.value = true
+      copied.value = false
+    }
+
+    const closeDetails = () => {
+      showDetails.value = false
+      copied.value = false
+    }
+
+    const copyToClipboard = async () => {
+      try {
+        await navigator.clipboard.writeText(currentDetailsContent.value)
+        copied.value = true
+        setTimeout(() => {
+          copied.value = false
+        }, 2000)
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error)
+        alert('Failed to copy to clipboard')
+      }
+    }
 
     const formatDate = (timestamp) => {
       const date = new Date(timestamp)
@@ -215,13 +308,23 @@ export default {
       imageUrl,
       showNavigation,
       hasSettings,
+      hasResponse,
       formatDate,
       isFavorite,
       isHidden,
       toggleFavorite,
       toggleHidden,
       isProtected,
-      handleUnlock
+      handleUnlock,
+      showDetails,
+      detailsType,
+      detailsTitle,
+      currentDetailsContent,
+      showDetailsView,
+      closeDetails,
+      copyToClipboard,
+      copied,
+      copyButtonText
     }
   }
 }
@@ -518,5 +621,113 @@ export default {
   background: #666;
   color: #fff;
   border-color: #666;
+}
+
+.btn-view-request {
+  background: #5856D6;
+  color: white;
+}
+
+.btn-view-request:hover {
+  background: #4745AC;
+}
+
+.btn-view-response {
+  background: #AF52DE;
+  color: white;
+}
+
+.btn-view-response:hover {
+  background: #8E44AD;
+}
+
+.request-details-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #1a1a1a;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+}
+
+.request-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.request-details-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-copy {
+  background: #007AFF;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-copy:hover {
+  background: #0051D5;
+}
+
+.btn-copy i.fa-check {
+  color: #34C759;
+}
+
+.btn-close-details {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.btn-close-details:hover {
+  color: #fff;
+}
+
+.request-details-body {
+  flex: 1;
+  overflow: auto;
+  background: #111;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.request-details-body pre {
+  margin: 0;
+  color: #0f0;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 </style>
