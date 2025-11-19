@@ -54,9 +54,6 @@
     <div class="header">
       <div class="header-content">
         <div class="header-left">
-          <button @click="toggleAlbumsPanel" class="btn-albums-toggle" title="Albums">
-            <i class="fa-solid fa-filter"></i>
-          </button>
           <h2>{{ galleryTitle }}</h2>
         </div>
 
@@ -94,6 +91,11 @@
               title="Show Favorites"
             >
               <i class="fa-solid fa-star"></i>
+            </button>
+
+            <!-- Albums Panel Toggle Button -->
+            <button @click="toggleAlbumsPanel" class="btn-albums-toggle" title="Albums">
+              <i class="fa-solid fa-filter"></i>
             </button>
 
             <!-- Overflow Menu -->
