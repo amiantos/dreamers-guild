@@ -812,9 +812,6 @@ export default {
       } else if (album.id === 'hidden') {
         // Check if user has access to hidden gallery
         if (checkHiddenAuth && !checkHiddenAuth()) {
-          // Close the albums panel first
-          isAlbumsPanelOpen.value = false
-
           // Request PIN access
           if (requestHiddenAccess) {
             requestHiddenAccess(() => {
@@ -844,9 +841,6 @@ export default {
         }
         // Keep current favorite/hidden filters intact for keyword searches
       }
-
-      // Close the albums panel
-      isAlbumsPanelOpen.value = false
 
       // Refresh images with new filters
       offset.value = 0
