@@ -1,11 +1,11 @@
 <template>
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
-    <!-- Albums Panel -->
-    <AlbumsPanel
-      :albums="albums"
-      :isOpen="isAlbumsPanelOpen"
-      @close="isAlbumsPanelOpen = false"
-      @select="selectAlbum"
+    <!-- Keywords Panel -->
+    <KeywordsPanel
+      :keywords="keywords"
+      :isOpen="isKeywordsPanelOpen"
+      @close="isKeywordsPanelOpen = false"
+      @select="selectKeyword"
     />
 
     <!-- Requests Panel -->
@@ -93,8 +93,8 @@
               <i class="fa-solid fa-star"></i>
             </button>
 
-            <!-- Albums Panel Toggle Button -->
-            <button @click="toggleAlbumsPanel" class="btn-albums-toggle" title="Albums">
+            <!-- Keywords Panel Toggle Button -->
+            <button @click="toggleKeywordsPanel" class="btn-keywords-toggle" title="Keywords">
               <i class="fa-solid fa-filter"></i>
             </button>
 
@@ -202,7 +202,7 @@ import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
-import AlbumsPanel from '../components/AlbumsPanel.vue'
+import KeywordsPanel from '../components/KeywordsPanel.vue'
 
 export default {
   name: 'LibraryView',
@@ -211,7 +211,7 @@ export default {
     RequestCard,
     DeleteRequestModal,
     DeleteAllRequestsModal,
-    AlbumsPanel
+    KeywordsPanel
   },
   props: {
     imageId: String // selected image ID from URL
@@ -245,9 +245,9 @@ export default {
     const requestToDelete = ref(null)
     let pollInterval = null
 
-    // Albums panel state
-    const isAlbumsPanelOpen = ref(false)
-    const albums = ref([])
+    // Keywords panel state
+    const isKeywordsPanelOpen = ref(false)
+    const keywords = ref([])
 
     // Menu state
     const showMenu = ref(false)
@@ -258,8 +258,8 @@ export default {
       filters,
       images,
       onNewImages: () => {
-        // Refresh albums when new images are added
-        fetchAlbums()
+        // Refresh keywords when new images are added
+        fetchKeywords()
       }
     })
 
@@ -468,7 +468,7 @@ export default {
               offset.value = 0
               hasMore.value = true
               fetchImages()
-              fetchAlbums()
+              fetchKeywords()
             })
           }
           return
@@ -488,7 +488,7 @@ export default {
       offset.value = 0
       hasMore.value = true
       fetchImages()
-      fetchAlbums()
+      fetchKeywords()
     }
 
     const navigateImage = (direction) => {
@@ -524,8 +524,8 @@ export default {
         await imagesApi.delete(imageId)
         images.value = images.value.filter(img => img.uuid !== imageId)
         selectedImage.value = null
-        // Refresh albums since counts and keywords may have changed
-        fetchAlbums()
+        // Refresh keywords since counts and keywords may have changed
+        fetchKeywords()
       } catch (error) {
         console.error('Error deleting image:', error)
       }
@@ -578,8 +578,8 @@ export default {
             }
           }
 
-          // Refresh albums if favorite or hidden status changed
-          fetchAlbums()
+          // Refresh keywords if favorite or hidden status changed
+          fetchKeywords()
         } else if ('is_favorite' in updates) {
           // Check if favorite status changed and image should be removed from current view
           const shouldRemove = (
@@ -613,8 +613,8 @@ export default {
             }
           }
 
-          // Refresh albums for favorite changes
-          fetchAlbums()
+          // Refresh keywords for favorite changes
+          fetchKeywords()
         }
       }
     }
@@ -737,17 +737,17 @@ export default {
       }
     }
 
-    // Albums panel functions
-    const toggleAlbumsPanel = () => {
-      isAlbumsPanelOpen.value = !isAlbumsPanelOpen.value
+    // Keywords panel functions
+    const toggleKeywordsPanel = () => {
+      isKeywordsPanelOpen.value = !isKeywordsPanelOpen.value
     }
 
-    const fetchAlbums = async () => {
+    const fetchKeywords = async () => {
       try {
         const response = await albumsApi.getAll(filters.value)
-        albums.value = response.data
+        keywords.value = response.data
       } catch (error) {
-        console.error('Error fetching albums:', error)
+        console.error('Error fetching keywords:', error)
       }
     }
 
@@ -797,52 +797,20 @@ export default {
       }
     }
 
-    const selectAlbum = (album) => {
-      // Update filters based on album selection
+    const selectKeyword = (keyword) => {
+      // Update filters based on keyword selection
       filters.value.requestId = null
 
-      if (album.id === 'all') {
-        filters.value.showFavoritesOnly = false
-        filters.value.showHidden = false
-        filters.value.keywords = []
-      } else if (album.id === 'favorites') {
-        filters.value.showFavoritesOnly = true
-        filters.value.showHidden = false
-        filters.value.keywords = []
-      } else if (album.id === 'hidden') {
-        // Check if user has access to hidden gallery
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          // Request PIN access
-          if (requestHiddenAccess) {
-            requestHiddenAccess(() => {
-              // After successful auth, toggle on hidden images
-              filters.value.showFavoritesOnly = false
-              filters.value.showHidden = true
-              filters.value.keywords = []
-              sessionStorage.setItem('showHidden', 'true')
-              offset.value = 0
-              hasMore.value = true
-              fetchImages()
-              fetchAlbums()
-            })
-          }
-          return
-        } else {
-          filters.value.showFavoritesOnly = false
-          filters.value.showHidden = true
-          filters.value.keywords = []
-          sessionStorage.setItem('showHidden', 'true')
-        }
-      } else if (album.id.startsWith('keyword:')) {
+      if (keyword.id.startsWith('keyword:')) {
         // Extract keyword from ID and toggle it
-        const keyword = album.id.replace('keyword:', '')
-        const index = filters.value.keywords.indexOf(keyword)
+        const keywordText = keyword.id.replace('keyword:', '')
+        const index = filters.value.keywords.indexOf(keywordText)
         if (index !== -1) {
           // Remove keyword if already present
           filters.value.keywords.splice(index, 1)
         } else {
           // Add keyword if not present
-          filters.value.keywords.push(keyword)
+          filters.value.keywords.push(keywordText)
         }
         // Keep current favorite/hidden filters intact for keyword searches
       }
@@ -865,11 +833,11 @@ export default {
       })
     }
 
-    // Watch for filter changes to refresh keyword albums
+    // Watch for filter changes to refresh keywords
     watch(
       () => ({ showFavoritesOnly: filters.value.showFavoritesOnly, showHidden: filters.value.showHidden }),
       () => {
-        fetchAlbums()
+        fetchKeywords()
       }
     )
 
@@ -908,7 +876,7 @@ export default {
       offset.value = 0
       hasMore.value = true
       fetchImages()
-      fetchAlbums()
+      fetchKeywords()
     })
 
     const handleClickOutside = (event) => {
@@ -926,8 +894,8 @@ export default {
       fetchRequests()
       fetchQueueStatus()
 
-      // Fetch albums
-      fetchAlbums()
+      // Fetch keywords
+      fetchKeywords()
 
       // Poll for updates every 2 seconds
       pollInterval = setInterval(() => {
@@ -983,11 +951,11 @@ export default {
       showDeleteAllModal,
       confirmDeleteAll,
       requestToDelete,
-      // Albums panel
-      isAlbumsPanelOpen,
-      toggleAlbumsPanel,
-      albums,
-      selectAlbum,
+      // Keywords panel
+      isKeywordsPanelOpen,
+      toggleKeywordsPanel,
+      keywords,
+      selectKeyword,
       // Menu and filters
       showMenu,
       menuContainer,
@@ -1044,7 +1012,7 @@ export default {
   margin: 0;
 }
 
-.btn-albums-toggle {
+.btn-keywords-toggle {
   width: 40px;
   height: 40px;
   border-radius: 6px;
@@ -1059,7 +1027,7 @@ export default {
   justify-content: center;
 }
 
-.btn-albums-toggle:hover {
+.btn-keywords-toggle:hover {
   background: #1a1a1a;
   border-color: #666;
   color: #fff;
