@@ -236,29 +236,32 @@ export function useLoraCache() {
 
 /**
  * Favorites Management
+ * Using singleton pattern to share state across components
  */
+// Shared state (singleton pattern)
+const favorites = ref([])
+const favoritesLoading = ref(false)
+const favoritesError = ref(null)
+
 export function useLoraFavorites() {
-  const favorites = ref([])
-  const loading = ref(false)
-  const error = ref(null)
 
   /**
    * Load favorites from settings API
    */
   const loadFavorites = async () => {
-    loading.value = true
-    error.value = null
+    favoritesLoading.value = true
+    favoritesError.value = null
 
     try {
       const settings = await settingsApi.get()
       const favoriteLoras = settings.favorite_loras || '[]'
       favorites.value = JSON.parse(favoriteLoras)
     } catch (err) {
-      error.value = err.message || 'Failed to load favorites'
+      favoritesError.value = err.message || 'Failed to load favorites'
       console.error('Error loading favorites:', err)
       favorites.value = []
     } finally {
-      loading.value = false
+      favoritesLoading.value = false
     }
   }
 
@@ -270,7 +273,7 @@ export function useLoraFavorites() {
       await settingsApi.update({ favoriteLoras: favoriteIds })
       favorites.value = favoriteIds
     } catch (err) {
-      error.value = err.message || 'Failed to save favorites'
+      favoritesError.value = err.message || 'Failed to save favorites'
       console.error('Error saving favorites:', err)
       throw err
     }
@@ -304,8 +307,8 @@ export function useLoraFavorites() {
 
   return {
     favorites,
-    loading,
-    error,
+    loading: favoritesLoading,
+    error: favoritesError,
     loadFavorites,
     saveFavorites,
     toggleFavorite,

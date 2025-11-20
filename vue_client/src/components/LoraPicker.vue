@@ -227,6 +227,7 @@ import LoraDetails from './LoraDetails.vue'
 import { useLoraCache, useLoraFavorites, useLoraRecent } from '../composables/useLoraCache'
 import { LORA_CONSTANTS } from '../models/Lora'
 import { useSettingsStore } from '../stores/settingsStore'
+import { getLoraById } from '../api/civitai'
 
 export default {
   name: 'LoraPicker',
@@ -415,9 +416,33 @@ export default {
     // Load favorites and recent data
     const loadFavoritesData = async () => {
       await loadFavorites()
-      // TODO: Fetch full embedding data for favorites
-      // For now, we'll need to implement a way to cache or fetch these
-      favoritesEmbeddings.value = []
+
+      // Fetch full embedding data for each favorite LoRA
+      const favoriteIds = favorites.value
+      if (!favoriteIds || favoriteIds.length === 0) {
+        favoritesEmbeddings.value = []
+        return
+      }
+
+      try {
+        const embeddings = await Promise.all(
+          favoriteIds.map(async (id) => {
+            try {
+              const lora = await getLoraById(id)
+              return lora
+            } catch (error) {
+              console.error(`Failed to fetch favorite LoRA ${id}:`, error)
+              return null
+            }
+          })
+        )
+
+        // Filter out any failed fetches
+        favoritesEmbeddings.value = embeddings.filter(e => e !== null)
+      } catch (error) {
+        console.error('Error loading favorites data:', error)
+        favoritesEmbeddings.value = []
+      }
     }
 
     const loadRecentData = async () => {
@@ -440,9 +465,12 @@ export default {
     })
 
     // Initialize
-    onMounted(() => {
+    onMounted(async () => {
       // Load initial browse results
       searchImmediate('')
+
+      // Load favorites
+      await loadFavorites()
 
       // Update NSFW from settings
       nsfwEnabled.value = nsfwEnabledComputed.value

@@ -545,8 +545,8 @@ export default {
     const saveLastUsedSettings = async () => {
       try {
         const settingsToSave = { ...form }
-        // Don't save loras in last used settings as they're style-specific
-        delete settingsToSave.loras
+        // Note: LoRAs are now saved in last used settings
+        // (Previously removed because they were style-specific, but users want them persisted)
         // Don't save worker preferences (they're now stored separately in settings)
 
         // Save to localStorage immediately for instant access

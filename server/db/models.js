@@ -410,6 +410,8 @@ export const UserSettings = {
     if (data.workerPreferences !== undefined) { fields.push('worker_preferences = ?'); values.push(JSON.stringify(data.workerPreferences)); }
     if (data.hiddenPinHash !== undefined) { fields.push('hidden_pin_hash = ?'); values.push(data.hiddenPinHash); }
     if (data.hiddenPinEnabled !== undefined) { fields.push('hidden_pin_enabled = ?'); values.push(data.hiddenPinEnabled); }
+    if (data.favoriteLoras !== undefined) { fields.push('favorite_loras = ?'); values.push(JSON.stringify(data.favoriteLoras)); }
+    if (data.recentLoras !== undefined) { fields.push('recent_loras = ?'); values.push(JSON.stringify(data.recentLoras)); }
 
     if (fields.length === 0) return this.get();
 
