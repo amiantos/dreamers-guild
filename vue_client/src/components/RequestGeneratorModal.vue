@@ -285,9 +285,9 @@
                 </div>
               </div>
 
-              <!-- Face Fix Section -->
-              <h4 class="section-title">Face Fix</h4>
-              <div class="face-fix-section">
+              <!-- Post-Processing Section -->
+              <h4 class="section-title">Post-Processing</h4>
+              <div class="post-processing-section">
                 <div class="form-group">
                   <label for="face_fix">Face Fix</label>
                   <select id="face_fix" v-model="form.faceFix">
@@ -295,64 +295,33 @@
                     <option value="GFPGAN">GFPGAN</option>
                     <option value="CodeFormers">CodeFormers</option>
                   </select>
-                </div>
-
-                <div v-if="form.faceFix !== 'none'" class="form-group">
-                  <label for="face_fix_strength">Strength</label>
-                  <div class="slider-group">
-                    <input
-                      type="range"
-                      id="face_fix_strength"
-                      v-model.number="form.faceFixStrength"
-                      :style="{ background: getSliderBackground(form.faceFixStrength, 0, 1) }"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                    />
-                    <span class="range-value">{{ form.faceFixStrength }}</span>
+                  <div v-if="form.faceFix !== 'none'" class="form-group-internal">
+                    <label for="face_fix_strength">Face Fix Strength</label>
+                    <div class="slider-group">
+                      <input
+                        type="range"
+                        id="face_fix_strength"
+                        v-model.number="form.faceFixStrength"
+                        :style="{ background: getSliderBackground(form.faceFixStrength, 0, 1) }"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                      />
+                      <span class="range-value">{{ form.faceFixStrength }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Upscalers Section -->
-              <h4 class="section-title">Upscalers</h4>
-              <div class="upscalers-section">
-                <div class="toggle-list">
-                  <div class="toggle-control">
-                    <span>4x AnimeSharp</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" value="4x_AnimeSharp" v-model="form.upscalers" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  <div class="toggle-control">
-                    <span>NMKD Siax</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" value="NMKD_Siax" v-model="form.upscalers" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  <div class="toggle-control">
-                    <span>RealESRGAN x2</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" value="RealESRGAN_x2plus" v-model="form.upscalers" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  <div class="toggle-control">
-                    <span>RealESRGAN x4 Anime</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" value="RealESRGAN_x4plus_anime_6B" v-model="form.upscalers" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
-                  <div class="toggle-control">
-                    <span>RealESRGAN x4</span>
-                    <label class="toggle-switch">
-                      <input type="checkbox" value="RealESRGAN_x4plus" v-model="form.upscalers" />
-                      <span class="toggle-slider"></span>
-                    </label>
-                  </div>
+                <div class="form-group">
+                  <label for="upscaler">Upscaler</label>
+                  <select id="upscaler" v-model="form.upscaler">
+                    <option value="none">None</option>
+                    <option value="RealESRGAN_x4plus">RealESRGAN x4</option>
+                    <option value="RealESRGAN_x4plus_anime_6B">RealESRGAN x4 Anime</option>
+                    <option value="RealESRGAN_x2plus">RealESRGAN x2</option>
+                    <option value="NMKD_Siax">NMKD Siax</option>
+                    <option value="4x_AnimeSharp">4x AnimeSharp</option>
+                  </select>
                 </div>
               </div>
 
@@ -483,7 +452,7 @@ export default {
       transparent: false,
       faceFix: 'none',
       faceFixStrength: 0.5,
-      upscalers: [],
+      upscaler: 'none',
       stripBackground: false,
       loras: []
     })
@@ -614,16 +583,17 @@ export default {
           // Load face fixer strength
           form.faceFixStrength = params.facefixer_strength !== undefined ? params.facefixer_strength : 0.5
 
-          // Check for upscalers
+          // Check for upscalers (only one can be selected)
           const upscalerOptions = ['4x_AnimeSharp', 'NMKD_Siax', 'RealESRGAN_x2plus', 'RealESRGAN_x4plus_anime_6B', 'RealESRGAN_x4plus']
-          form.upscalers = pp.filter(item => upscalerOptions.includes(item))
+          const foundUpscaler = pp.find(item => upscalerOptions.includes(item))
+          form.upscaler = foundUpscaler || 'none'
 
           // Check for strip_background
           form.stripBackground = pp.includes('strip_background')
         } else {
           form.faceFix = 'none'
           form.faceFixStrength = 0.5
-          form.upscalers = []
+          form.upscaler = 'none'
           form.stripBackground = false
         }
 
@@ -705,7 +675,7 @@ export default {
       // Clear post-processing options when style is applied
       form.faceFix = 'none'
       form.faceFixStrength = 0.5
-      form.upscalers = []
+      form.upscaler = 'none'
       form.stripBackground = false
 
       // Deselect the style
@@ -872,7 +842,7 @@ export default {
 
         // Build post-processing array in correct order:
         // 1. Face fixer (if selected)
-        // 2. Upscalers (all selected)
+        // 2. Upscaler (if selected)
         // 3. Strip background (if enabled, must be last)
         const postProcessing = []
 
@@ -883,9 +853,9 @@ export default {
           params.params.facefixer_strength = form.faceFixStrength
         }
 
-        // Add upscalers
-        if (form.upscalers && form.upscalers.length > 0) {
-          postProcessing.push(...form.upscalers)
+        // Add upscaler
+        if (form.upscaler && form.upscaler !== 'none') {
+          postProcessing.push(form.upscaler)
         }
 
         // Add strip_background last
@@ -1120,21 +1090,30 @@ export default {
   z-index: 1;
 }
 
-/* Face Fix Section */
-.face-fix-section {
+/* Post-Processing Section */
+.post-processing-section {
   padding: 1rem;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.2rem;
 }
 
-.face-fix-section .form-group:last-child {
+.post-processing-section .form-group {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-group-internal {
+  padding-top:1.5rem;
+}
+
+.post-processing-section .form-group:last-child {
   border-bottom: none;
   padding-bottom: 0;
   margin-bottom: 0;
 }
 
-.face-fix-section .form-group:last-child > *:last-child {
+.post-processing-section .form-group:last-child > *:last-child {
   margin-bottom: 0;
 }
 
@@ -1647,20 +1626,6 @@ export default {
 
 .btn-swap-dimensions:active {
   transform: scale(0.98);
-}
-
-/* Upscalers Section */
-.upscalers-section {
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-}
-
-.upscalers-section .toggle-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
 }
 
 /* Advanced Options Section */
