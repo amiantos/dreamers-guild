@@ -21,7 +21,9 @@
                 <label for="prompt">Prompt *</label>
                 <textarea
                   id="prompt"
+                  ref="promptTextarea"
                   v-model="form.prompt"
+                  @input="autoExpand"
                   placeholder="Describe the image you want to generate..."
                   rows="4"
                   required
@@ -32,7 +34,9 @@
                 <label for="negative_prompt">Negative Prompt</label>
                 <textarea
                   id="negative_prompt"
+                  ref="negativePromptTextarea"
                   v-model="form.negativePrompt"
+                  @input="autoExpand"
                   placeholder="Things to avoid in the image..."
                   rows="2"
                 ></textarea>
@@ -408,7 +412,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { requestsApi, imagesApi, settingsApi } from '../api/client.js'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomPreset } from '../config/presets.js'
@@ -734,6 +738,13 @@ export default {
       }
     }
 
+    // Auto-expand textarea to fit content
+    const autoExpand = (event) => {
+      const textarea = event.target
+      textarea.style.height = 'auto'
+      textarea.style.height = textarea.scrollHeight + 'px'
+    }
+
     const buildPromptWithStyle = () => {
       // If no style is selected or no style data, return prompts as-is
       if (selectedStyleName.value === 'None' || !selectedStyleData.value || !selectedStyleData.value.prompt) {
@@ -947,6 +958,24 @@ export default {
       }
     )
 
+    // Auto-expand textareas when content changes programmatically
+    watch(
+      () => [form.prompt, form.negativePrompt],
+      async () => {
+        await nextTick()
+        const promptEl = document.getElementById('prompt')
+        const negativePromptEl = document.getElementById('negative_prompt')
+        if (promptEl) {
+          promptEl.style.height = 'auto'
+          promptEl.style.height = promptEl.scrollHeight + 'px'
+        }
+        if (negativePromptEl) {
+          negativePromptEl.style.height = 'auto'
+          negativePromptEl.style.height = negativePromptEl.scrollHeight + 'px'
+        }
+      }
+    )
+
     onMounted(async () => {
       await fetchModels()
 
@@ -969,6 +998,19 @@ export default {
       // Only estimate if we have a model after loading
       if (form.model) {
         estimateKudos()
+      }
+
+      // Auto-expand textareas on initial load
+      await nextTick()
+      const promptEl = document.getElementById('prompt')
+      const negativePromptEl = document.getElementById('negative_prompt')
+      if (promptEl) {
+        promptEl.style.height = 'auto'
+        promptEl.style.height = promptEl.scrollHeight + 'px'
+      }
+      if (negativePromptEl) {
+        negativePromptEl.style.height = 'auto'
+        negativePromptEl.style.height = negativePromptEl.scrollHeight + 'px'
       }
     })
 
@@ -997,6 +1039,7 @@ export default {
       onAspectLockToggle,
       onDimensionChange,
       swapDimensions,
+      autoExpand,
       estimateKudos,
       loadSettings,
       loadRandomPreset,
@@ -1172,6 +1215,13 @@ export default {
 
 .form-group textarea {
   resize: vertical;
+  overflow-y: hidden;
+  min-height: 80px;
+  transition: height 0.1s ease;
+}
+
+#negative_prompt {
+  min-height: 50px;
 }
 
 .form-group input:focus,
