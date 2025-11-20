@@ -931,7 +931,26 @@ export default {
 
     // Auto-estimate kudos when key parameters change (debounced for sliders)
     watch(
-      () => [form.model, form.n, form.steps, form.width, form.height, selectedStyleName.value],
+      () => [
+        form.model,
+        form.n,
+        form.steps,
+        form.width,
+        form.height,
+        selectedStyleName.value,
+        form.cfgScale,
+        form.clipSkip,
+        form.sampler,
+        form.karras,
+        form.hiresFix,
+        form.hiresFixDenoisingStrength,
+        form.tiling,
+        form.transparent,
+        form.faceFix,
+        form.faceFixStrength,
+        form.upscaler,
+        form.stripBackground
+      ],
       () => {
         if (form.model) {
           estimateKudosDebounced()
