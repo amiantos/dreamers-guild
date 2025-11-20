@@ -1,7 +1,7 @@
 <template>
   <div class="modal-overlay">
     <div class="modal-content">
-      <div class="modal-wrapper" v-show="!showModelPicker && !showStylePicker">
+      <div class="modal-wrapper" v-show="!showModelPicker && !showStylePicker && !showLoraPicker">
         <div class="modal-header">
           <h2>New Image Request</h2>
           <div class="header-actions">
@@ -228,6 +228,33 @@
                   </div>
                 </div>
 
+                <!-- LoRAs -->
+                <div class="form-group">
+                  <label>LoRAs</label>
+                  <div class="selector-button" @click="showLoraPicker = true">
+                    <span class="selector-value">
+                      {{ form.loras.length > 0 ? `${form.loras.length} selected` : 'None' }}
+                    </span>
+                    <span class="selector-arrow">›</span>
+                  </div>
+
+                  <div v-if="form.loras.length > 0" class="loras-summary">
+                    <div
+                      v-for="(lora, idx) in form.loras"
+                      :key="`lora-${idx}`"
+                      class="lora-chip"
+                    >
+                      <span class="lora-name">{{ lora.name }}</span>
+                      <span class="lora-strength">M:{{ lora.strength }} C:{{ lora.clip }}</span>
+                      <button
+                        @click.stop="removeLora(idx)"
+                        class="chip-remove"
+                        title="Remove LoRA"
+                      >×</button>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="form-group">
                   <label>Seed</label>
                   <div class="seed-control-group">
@@ -388,6 +415,14 @@
         @select="onStyleSelect"
         @close="showStylePicker = false"
       />
+
+      <!-- LoRA Picker Slide-in -->
+      <LoraPicker
+        v-if="showLoraPicker"
+        :currentLoras="form.loras"
+        @update="onLorasUpdate"
+        @close="showLoraPicker = false"
+      />
     </div>
   </div>
 </template>
@@ -404,12 +439,16 @@ import { useSettingsStore } from '../stores/settingsStore.js'
 import axios from 'axios'
 import ModelPicker from './ModelPicker.vue'
 import StylePicker from './StylePicker.vue'
+import LoraPicker from './LoraPicker.vue'
+import { getLoraById } from '../api/civitai'
+import { SavedLora } from '../models/Lora'
 
 export default {
   name: 'RequestGeneratorModal',
   components: {
     ModelPicker,
-    StylePicker
+    StylePicker,
+    LoraPicker
   },
   props: {
     initialSettings: {
@@ -427,6 +466,7 @@ export default {
     const submitting = ref(false)
     const showModelPicker = ref(false)
     const showStylePicker = ref(false)
+    const showLoraPicker = ref(false)
     const aspectLocked = ref(false)
     const aspectRatio = ref(1)
     const selectedStyleName = ref('')
@@ -531,8 +571,106 @@ export default {
       selectedStyleData.value = style
     }
 
+    // LoRA handlers
+    const onLorasUpdate = async (loras) => {
+      form.loras = loras
+      estimateKudos()
+
+      // Update recent loras
+      try {
+        for (const lora of loras) {
+          const settings = await settingsApi.get()
+          let recent = []
+          if (settings.data && settings.data.recent_loras) {
+            recent = JSON.parse(settings.data.recent_loras)
+          }
+
+          // Remove if already exists
+          recent = recent.filter(r => r.versionId !== lora.versionId)
+
+          // Add to front
+          recent.unshift({
+            id: lora.id,
+            versionId: lora.versionId,
+            model: lora,
+            timestamp: Date.now()
+          })
+
+          // Keep last 20
+          recent = recent.slice(0, 20)
+
+          // Save
+          await settingsApi.update({ recentLoras: recent })
+        }
+      } catch (error) {
+        console.error('Failed to update recent LoRAs:', error)
+      }
+    }
+
+    const removeLora = (index) => {
+      form.loras.splice(index, 1)
+      estimateKudos()
+    }
+
+    // Helper to enrich minimal LoRA data with full CivitAI details
+    const enrichLoras = async (loras) => {
+      if (!loras || !Array.isArray(loras) || loras.length === 0) {
+        return []
+      }
+
+      const enrichedLoras = []
+
+      for (const lora of loras) {
+        // Check if this is a minimal LoRA (just name and is_version from AI Horde)
+        const isMinimal = lora.name && !lora.versionId && !lora.modelVersions
+
+        if (isMinimal) {
+          try {
+            // The 'name' field in AI Horde format is the CivitAI version ID
+            const versionId = lora.name
+
+            // Fetch full model details from CivitAI
+            // We need to get the model by version ID, but the API uses model ID
+            // So we'll need to search or use a different approach
+
+            // For now, create a minimal SavedLora with what we have
+            const savedLora = new SavedLora({
+              id: versionId,
+              versionId: versionId,
+              name: `LoRA ${versionId}`,
+              versionName: 'Unknown',
+              strength: lora.model || 1.0,
+              clip: lora.clip || 1.0,
+              isArtbotManualEntry: true, // Mark as manual since we don't have full data
+              modelVersions: []
+            })
+
+            enrichedLoras.push(savedLora)
+          } catch (error) {
+            console.error(`Failed to fetch LoRA details for ${lora.name}:`, error)
+            // Fallback: create minimal SavedLora
+            enrichedLoras.push(new SavedLora({
+              id: lora.name,
+              versionId: lora.name,
+              name: `LoRA ${lora.name}`,
+              versionName: 'Unknown',
+              strength: lora.model || 1.0,
+              clip: lora.clip || 1.0,
+              isArtbotManualEntry: true,
+              modelVersions: []
+            }))
+          }
+        } else {
+          // Already a full SavedLora object
+          enrichedLoras.push(lora)
+        }
+      }
+
+      return enrichedLoras
+    }
+
     // Load settings from an arbitrary settings object
-    const loadSettings = (settings, includeSeed = false) => {
+    const loadSettings = async (settings, includeSeed = false) => {
       // Split prompt on ### to separate positive and negative prompts
       if (settings.prompt) {
         const { positive, negative } = splitPrompt(settings.prompt)
@@ -564,7 +702,13 @@ export default {
         form.steps = params.steps !== undefined ? params.steps : 30
         form.n = params.n !== undefined ? params.n : 1
         form.tiling = params.tiling !== undefined ? params.tiling : false
-        form.loras = params.loras ? [...params.loras] : []
+
+        // Load and enrich LoRAs
+        if (params.loras && params.loras.length > 0) {
+          form.loras = await enrichLoras(params.loras)
+        } else {
+          form.loras = []
+        }
 
         // Load new post-processing structure
         // Parse post_processing array to extract face fixer, upscalers, and strip_background
@@ -620,9 +764,9 @@ export default {
       estimateKudos()
     }
 
-    const loadRandomPreset = () => {
+    const loadRandomPreset = async () => {
       const preset = getRandomPreset()
-      loadSettings(preset)
+      await loadSettings(preset)
     }
 
     const removeStyle = () => {
@@ -870,7 +1014,15 @@ export default {
 
         // Add loras if any
         if (form.loras && form.loras.length > 0) {
-          params.params.loras = form.loras
+          // Convert SavedLora objects to AI Horde format
+          params.params.loras = form.loras.map(lora => {
+            // If it's already a SavedLora instance, use toHordeFormat()
+            if (lora.toHordeFormat && typeof lora.toHordeFormat === 'function') {
+              return lora.toHordeFormat()
+            }
+            // Otherwise, assume it's already in the correct format
+            return lora
+          })
         }
       }
 
@@ -1003,7 +1155,7 @@ export default {
 
       // Then load initial settings from props if provided (this will override generation params but not worker prefs)
       if (props.initialSettings) {
-        loadSettings(props.initialSettings, props.includeSeed)
+        await loadSettings(props.initialSettings, props.includeSeed)
       }
 
       // Only estimate if we have a model after loading
@@ -1040,6 +1192,7 @@ export default {
       estimateError,
       showModelPicker,
       showStylePicker,
+      showLoraPicker,
       aspectLocked,
       aspectRatioText,
       selectedStyleName,
@@ -1047,6 +1200,8 @@ export default {
       submitRequest,
       onModelSelect,
       onStyleSelect,
+      onLorasUpdate,
+      removeLora,
       applyStyle,
       removeStyle,
       onAspectLockToggle,
@@ -1372,6 +1527,51 @@ export default {
   color: #999;
   font-size: 1.5rem;
   font-weight: 300;
+}
+
+/* LoRA Chips */
+.loras-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.lora-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #1d4d74;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: white;
+}
+
+.lora-name {
+  font-weight: 500;
+}
+
+.lora-strength {
+  opacity: 0.8;
+  font-size: 0.75rem;
+  font-family: monospace;
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0 0.25rem;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.chip-remove:hover {
+  opacity: 1;
 }
 
 .style-actions {

@@ -127,6 +127,30 @@ function initDatabase() {
     }
   }
 
+  // Migration: Add favorite_loras column if it doesn't exist
+  // Stores JSON array of favorite LoRA IDs from CivitAI
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN favorite_loras TEXT`);
+    console.log('Migration: Added favorite_loras column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
+  // Migration: Add recent_loras column if it doesn't exist
+  // Stores JSON array of recently used LoRAs with full metadata
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN recent_loras TEXT`);
+    console.log('Migration: Added recent_loras column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_images_date_created
