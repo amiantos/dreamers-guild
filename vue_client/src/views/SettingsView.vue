@@ -69,45 +69,60 @@
           </p>
 
           <div class="preferences-grid">
-            <label class="preference-item">
-              <input type="checkbox" v-model="settingsStore.workerPreferences.slowWorkers" @change="saveWorkerPrefs" />
+            <div class="preference-item">
               <div class="preference-label">
                 <span class="pref-title">Allow Slow Workers</span>
                 <span class="pref-desc">Include workers with slower processing times</span>
               </div>
-            </label>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settingsStore.workerPreferences.slowWorkers" @change="saveWorkerPrefs" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
 
-            <label class="preference-item">
-              <input type="checkbox" v-model="settingsStore.workerPreferences.trustedWorkers" @change="saveWorkerPrefs" />
+            <div class="preference-item">
               <div class="preference-label">
                 <span class="pref-title">Trusted Workers Only</span>
                 <span class="pref-desc">Only use workers marked as trusted</span>
               </div>
-            </label>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settingsStore.workerPreferences.trustedWorkers" @change="saveWorkerPrefs" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
 
-            <label class="preference-item">
-              <input type="checkbox" v-model="settingsStore.workerPreferences.nsfw" @change="saveWorkerPrefs" />
+            <div class="preference-item">
               <div class="preference-label">
                 <span class="pref-title">Allow NSFW</span>
                 <span class="pref-desc">Allow generation of NSFW content</span>
               </div>
-            </label>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settingsStore.workerPreferences.nsfw" @change="saveWorkerPrefs" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
 
-            <label class="preference-item">
-              <input type="checkbox" v-model="settingsStore.workerPreferences.allowDowngrade" @change="saveWorkerPrefs" />
+            <div class="preference-item">
               <div class="preference-label">
                 <span class="pref-title">Auto Downgrade</span>
                 <span class="pref-desc">Allow workers to automatically downgrade your request if needed</span>
               </div>
-            </label>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settingsStore.workerPreferences.allowDowngrade" @change="saveWorkerPrefs" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
 
-            <label class="preference-item">
-              <input type="checkbox" v-model="settingsStore.workerPreferences.replacementFilter" @change="saveWorkerPrefs" />
+            <div class="preference-item">
               <div class="preference-label">
                 <span class="pref-title">Automatic Prompt Filter</span>
                 <span class="pref-desc">Automatically filter and replace inappropriate terms in prompts</span>
               </div>
-            </label>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settingsStore.workerPreferences.replacementFilter" @change="saveWorkerPrefs" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
           </div>
 
           <div v-if="savingPrefs" class="saving-indicator">Saving...</div>
@@ -562,8 +577,8 @@ export default {
 .btn-back {
   padding: 0.75rem 1.5rem;
   background: transparent;
-  color: #587297;
-  border: 1px solid #587297;
+  color: #999;
+  border: 1px solid #333;
   border-radius: 6px;
   font-size: 1rem;
   font-weight: 500;
@@ -575,13 +590,15 @@ export default {
 }
 
 .btn-back:hover {
-  background: rgba(0, 122, 255, 0.1);
+  background: #2a2a2a;
+  color: #fff;
+  border-color: #587297;
 }
 
 .settings-content {
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 1.5rem;
 }
 
 .section {
@@ -596,6 +613,15 @@ export default {
   font-size: 1.5rem;
   color: #fff;
   font-weight: 600;
+}
+
+.section-title {
+  margin: 1.5rem 0 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.05em;
 }
 
 .help-text {
@@ -619,11 +645,19 @@ export default {
   gap: 0.75rem;
 }
 
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #999;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 .api-key-input {
   flex: 1;
   padding: 0.75rem;
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: #333;
+  border: 1px solid #444;
   border-radius: 6px;
   color: #fff;
   font-size: 1rem;
@@ -657,12 +691,14 @@ export default {
 
 .btn-secondary {
   background: transparent;
-  color: #587297;
-  border: 1px solid #587297;
+  color: #999;
+  border: 1px solid #333;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: rgba(0, 122, 255, 0.1);
+  background: #2a2a2a;
+  color: #fff;
+  border-color: #587297;
 }
 
 .btn:disabled {
@@ -677,10 +713,9 @@ export default {
 }
 
 .account-info {
-  background: #0f0f0f;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1rem;
   margin-bottom: 1.5rem;
 }
 
@@ -688,7 +723,7 @@ export default {
   display: flex;
   justify-content: space-between;
   padding: 0.75rem 0;
-  border-bottom: 1px solid #222;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .info-row:last-child {
@@ -720,34 +755,24 @@ export default {
 }
 
 .preferences-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1rem;
 }
 
 .preference-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem;
-  background: #0f0f0f;
-  border: 1px solid #333;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.preference-item:hover {
-  background: #1a1a1a;
-  border-color: #444;
-}
-
-.preference-item input[type="checkbox"] {
-  margin-top: 0.125rem;
-  cursor: pointer;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
+.preference-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 .preference-label {
@@ -769,6 +794,53 @@ export default {
   line-height: 1.5;
 }
 
+/* Toggle Switch Styling */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 51px;
+  height: 31px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #39393d;
+  transition: 0.3s;
+  border-radius: 31px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #587297;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
 .saving-indicator {
   text-align: center;
   padding: 0.75rem;
@@ -778,10 +850,9 @@ export default {
 }
 
 .pin-status {
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1rem;
 }
 
 .status-indicator {
@@ -883,8 +954,8 @@ export default {
 
 .pin-section label {
   font-weight: 500;
-  color: #fff;
-  font-size: 1rem;
+  color: #999;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 768px) {
