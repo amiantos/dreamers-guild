@@ -135,7 +135,7 @@
               </div>
 
               <!-- Generation Settings Section -->
-              <h4 class="section-title">Generation Settings</h4>
+              <h4 class="section-title">Advanced Generation Settings</h4>
               <div class="generation-settings-section">
                 <div class="form-group">
                   <label>Model</label>
@@ -1068,6 +1068,11 @@ export default {
 .face-fix-section .form-group:last-child {
   border-bottom: none;
   padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.face-fix-section .form-group:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 .modal-header h2 {
@@ -1146,12 +1151,23 @@ export default {
 .form-group select {
   width: 100%;
   padding: 0.75rem;
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: #333;
+  border: 1px solid #444;
   border-radius: 6px;
   color: #fff;
   font-size: 1rem;
   font-family: inherit;
+}
+
+.form-group select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
 }
 
 .form-group textarea {
@@ -1238,8 +1254,8 @@ export default {
   min-width: 50px;
   text-align: center;
   padding: 0.5rem;
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: #333;
+  border: 1px solid #444;
   border-radius: 6px;
   color: #fff;
   font-size: 0.875rem;
@@ -1248,8 +1264,8 @@ export default {
 .selector-button {
   width: 100%;
   padding: 0.75rem;
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: #333;
+  border: 1px solid #444;
   border-radius: 6px;
   color: #fff;
   font-size: 1rem;
@@ -1312,7 +1328,7 @@ export default {
 
 /* Section Title (outside boxes) */
 .section-title {
-  margin: 1.5rem 0 0.5rem 0;
+  margin: 1.5rem 0 1rem 0;
   font-size: 0.9rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -1340,6 +1356,11 @@ export default {
 .basic-settings-section .form-group:last-child {
   border-bottom: none;
   padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.basic-settings-section .form-group:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Generation Settings Section */
@@ -1358,6 +1379,11 @@ export default {
 .generation-settings-section .form-group:last-child {
   border-bottom: none;
   padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.generation-settings-section .form-group:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Seed Control Group */
@@ -1370,8 +1396,8 @@ export default {
 .seed-input {
   width: 100%;
   padding: 0.75rem;
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: #333;
+  border: 1px solid #444;
   border-radius: 6px;
   color: #fff;
   font-size: 1rem;
@@ -1433,6 +1459,11 @@ export default {
 .dimensions-section .form-group:last-child {
   border-bottom: none;
   padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.dimensions-section .form-group:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 .dimensions-section .btn-swap-dimensions {
@@ -1542,21 +1573,7 @@ export default {
 .upscalers-section .toggle-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
-}
-
-.upscalers-section .toggle-control {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.upscalers-section .toggle-control:first-child {
-  padding-top: 0;
-}
-
-.upscalers-section .toggle-control:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+  gap: 0.75rem;
 }
 
 /* Advanced Options Section */
@@ -1570,27 +1587,7 @@ export default {
 .advanced-options-section .toggle-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
-}
-
-.advanced-options-section .toggle-control {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.advanced-options-section .toggle-control:first-child {
-  padding-top: 0;
-}
-
-.advanced-options-section .toggle-control:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.full-parameters {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 2px solid #333;
+  gap: 0.75rem;
 }
 
 .checkbox-group {
