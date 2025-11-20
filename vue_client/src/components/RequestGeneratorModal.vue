@@ -74,27 +74,6 @@
 
             <!-- Full Parameters (Only Visible When NO Style is Selected) -->
             <div v-if="selectedStyleName === 'None'" class="full-parameters">
-              <!-- Model Selection -->
-              <div class="form-group">
-                <label>Model</label>
-                <div class="selector-button" @click="showModelPicker = true">
-                  <span class="selector-value">{{ form.model || 'Loading...' }}</span>
-                  <span class="selector-arrow">›</span>
-                </div>
-              </div>
-
-              <!-- Steps -->
-              <div class="form-group">
-                <label for="steps">Steps</label>
-                <input
-                  type="number"
-                  id="steps"
-                  v-model.number="form.steps"
-                  min="1"
-                  max="100"
-                />
-              </div>
-
               <!-- Dimensions Section -->
               <div class="dimensions-section">
                 <h4>Dimensions</h4>
@@ -155,10 +134,53 @@
                 </button>
               </div>
 
-              <!-- CFG Scale and Clip Skip -->
-              <div class="form-row">
+              <!-- Generation Settings Section -->
+              <div class="generation-settings-section">
+                <h4>Generation Settings</h4>
+
                 <div class="form-group">
-                  <label for="cfg_scale">CFG Scale</label>
+                  <label>Model</label>
+                  <div class="selector-button" @click="showModelPicker = true">
+                    <span class="selector-value">{{ form.model || 'Loading...' }}</span>
+                    <span class="selector-arrow">›</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Sampler</label>
+                  <select id="sampler" v-model="form.sampler">
+                    <option value="k_euler">Euler</option>
+                    <option value="k_euler_a">Euler a</option>
+                    <option value="k_dpm_2">DPM 2</option>
+                    <option value="k_dpm_2_a">DPM 2 a</option>
+                    <option value="k_heun">Heun</option>
+                    <option value="k_dpm_fast">DPM fast</option>
+                    <option value="k_dpm_adaptive">DPM adaptive</option>
+                    <option value="k_lms">LMS</option>
+                    <option value="ddim">DDIM</option>
+                    <option value="k_dpmpp_2m">DPM++ 2M</option>
+                    <option value="k_dpmpp_2s_a">DPM++ 2S a</option>
+                    <option value="k_dpmpp_sde">DPM++ SDE</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="steps">Steps</label>
+                  <div class="slider-group">
+                    <input
+                      type="range"
+                      id="steps"
+                      v-model.number="form.steps"
+                      min="1"
+                      max="150"
+                      step="1"
+                    />
+                    <span class="range-value">{{ form.steps }}</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="cfg_scale">Guidance</label>
                   <div class="slider-group">
                     <input
                       type="range"
@@ -173,76 +195,78 @@
                 </div>
 
                 <div class="form-group">
-                  <label for="clip_skip">Clip Skip</label>
-                  <input
-                    type="number"
-                    id="clip_skip"
-                    v-model.number="form.clipSkip"
-                    min="1"
-                    max="12"
-                  />
-                </div>
-              </div>
-
-              <!-- Sampler -->
-              <div class="form-group">
-                <label for="sampler">Sampler</label>
-                <select id="sampler" v-model="form.sampler">
-                  <option value="k_euler">Euler</option>
-                  <option value="k_euler_a">Euler a</option>
-                  <option value="k_dpm_2">DPM 2</option>
-                  <option value="k_dpm_2_a">DPM 2 a</option>
-                  <option value="k_heun">Heun</option>
-                  <option value="k_dpm_fast">DPM fast</option>
-                  <option value="k_dpm_adaptive">DPM adaptive</option>
-                  <option value="k_lms">LMS</option>
-                  <option value="ddim">DDIM</option>
-                  <option value="k_dpmpp_2m">DPM++ 2M</option>
-                  <option value="k_dpmpp_2s_a">DPM++ 2S a</option>
-                  <option value="k_dpmpp_sde">DPM++ SDE</option>
-                </select>
-              </div>
-
-              <!-- Seed -->
-              <div class="form-group">
-                <label for="seed">Seed</label>
-                <div class="seed-control">
-                  <label class="seed-toggle">
-                    <input type="checkbox" v-model="form.useRandomSeed" />
-                    <span>Random</span>
-                  </label>
-                  <input
-                    v-if="!form.useRandomSeed"
-                    type="text"
-                    id="seed"
-                    v-model="form.seed"
-                    placeholder="Enter seed number"
-                    class="seed-input"
-                  />
-                </div>
-              </div>
-
-              <!-- Hires Fix Section -->
-              <div class="form-group hires-fix-section">
-                <div class="hires-fix-header">
-                  <label class="toggle">
-                    <input type="checkbox" v-model="form.hiresFix" />
-                    <span>Hires Fix</span>
-                  </label>
-                </div>
-                
-                <div v-if="form.hiresFix" class="hires-fix-controls">
-                  <label for="hires_denoise">Denoising Strength</label>
+                  <label for="clip_skip">CLIP Skip</label>
                   <div class="slider-group">
                     <input
                       type="range"
-                      id="hires_denoise"
-                      v-model.number="form.hiresFixDenoisingStrength"
-                      min="0"
-                      max="1"
-                      step="0.05"
+                      id="clip_skip"
+                      v-model.number="form.clipSkip"
+                      min="1"
+                      max="12"
+                      step="1"
                     />
-                    <span class="range-value">{{ form.hiresFixDenoisingStrength }}</span>
+                    <span class="range-value">{{ form.clipSkip }}</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Seed</label>
+                  <div class="seed-control-group">
+                    <input
+                      v-if="!form.useRandomSeed"
+                      type="text"
+                      id="seed"
+                      v-model="form.seed"
+                      placeholder="Enter seed number"
+                      class="seed-input"
+                    />
+                    <div class="seed-randomize">
+                      <span>Randomize Seed</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" v-model="form.useRandomSeed" />
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Other Options</label>
+                </div>
+
+                <div class="form-group">
+                  <div class="toggle-control">
+                    <span>Karras</span>
+                    <label class="toggle-switch">
+                      <input type="checkbox" v-model="form.karras" />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="hires-fix-container">
+                    <div class="toggle-control">
+                      <span>Hires Fix</span>
+                      <label class="toggle-switch">
+                        <input type="checkbox" v-model="form.hiresFix" />
+                        <span class="toggle-slider"></span>
+                      </label>
+                    </div>
+                    <div v-if="form.hiresFix" class="hires-fix-controls">
+                      <label for="hires_denoise">Denoising Strength</label>
+                      <div class="slider-group">
+                        <input
+                          type="range"
+                          id="hires_denoise"
+                          v-model.number="form.hiresFixDenoisingStrength"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                        />
+                        <span class="range-value">{{ form.hiresFixDenoisingStrength }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -305,10 +329,6 @@
               <div class="toggles-section">
                 <h4>Advanced Options</h4>
                 <div class="toggle-grid">
-                  <label class="toggle">
-                    <input type="checkbox" v-model="form.karras" />
-                    <span>Karras</span>
-                  </label>
                   <label class="toggle">
                     <input type="checkbox" v-model="form.tiling" />
                     <span>Tiling</span>
@@ -898,6 +918,17 @@ export default {
       }
     )
 
+    // Generate random seed when toggling off random seed
+    watch(
+      () => form.useRandomSeed,
+      (newValue, oldValue) => {
+        // When switching from random (true) to fixed (false), generate a random seed
+        if (oldValue === true && newValue === false) {
+          form.seed = String(Math.floor(Math.random() * 100000000))
+        }
+      }
+    )
+
     onMounted(async () => {
       await fetchModels()
 
@@ -1277,6 +1308,80 @@ export default {
 
 .btn-remove-style:hover {
   background: #cc2e24;
+}
+
+/* Generation Settings Section */
+.generation-settings-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.generation-settings-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.05em;
+}
+
+/* Seed Control Group */
+.seed-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.seed-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.seed-input:focus {
+  outline: none;
+  border-color: #007AFF;
+}
+
+.seed-randomize {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.seed-randomize span {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+/* Toggle Control */
+.toggle-control {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-control span {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+/* Hires Fix Container */
+.hires-fix-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hires-fix-controls {
+  margin-top: 0.5rem;
 }
 
 /* Dimensions Section */
