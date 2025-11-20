@@ -1304,11 +1304,8 @@ export default {
   min-width: 50px;
   text-align: center;
   padding: 0.5rem;
-  background: #333;
-  border: 1px solid #444;
-  border-radius: 6px;
   color: #fff;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .selector-button {
