@@ -63,27 +63,27 @@
                   <span class="selector-value">{{ selectedStyleName || 'None' }}</span>
                   <span class="selector-arrow">›</span>
                 </div>
-              </div>
 
-              <!-- Apply/Remove Style Buttons (When Style is Selected) -->
-              <div v-if="selectedStyleName" class="style-actions">
-                <button
-                  type="button"
-                  @click="applyStyle"
-                  class="btn btn-apply-style"
-                >
-                  Apply Style
-                </button>
-                <button
-                  type="button"
-                  @click="removeStyle"
-                  class="btn btn-remove-style"
-                >
-                  Remove Style
-                </button>
-                <p class="style-info-text">
-                  While you have a style selected, all generation settings are controlled by the style. Remove or apply the style to access more generation settings.
-                </p>
+                <!-- Apply/Remove Style Buttons (When Style is Selected) -->
+                <div v-if="selectedStyleName" class="style-actions">
+                  <button
+                    type="button"
+                    @click="applyStyle"
+                    class="btn btn-apply-style"
+                  >
+                    Apply Style
+                  </button>
+                  <button
+                    type="button"
+                    @click="removeStyle"
+                    class="btn btn-remove-style"
+                  >
+                    Remove Style
+                  </button>
+                  <p class="style-info-text">
+                    While you have a style selected, all generation settings are controlled by the style. Remove or apply the style to access more generation settings.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -389,7 +389,7 @@
           <!-- Form Actions -->
           <div class="form-actions">
             <button type="submit" @click="submitRequest" class="btn btn-submit" :disabled="submitting">
-              <i class="fa-regular fa-paper-plane paper-plane-icon"></i> {{ submitting ? 'Submitting...' : 'Generate' }}
+              <i class="fa-regular fa-paper-plane paper-plane-icon"></i> {{ submitting ? 'Submitting...' : 'Send Request' }}
             </button>
           </div>
         </div>
@@ -1280,7 +1280,7 @@ export default {
   appearance: none;
   width: 24px;
   height: 24px;
-  background: #587297;
+  background: #eee;
   border-radius: 50%;
   cursor: pointer;
   margin-top: -10.5px;
@@ -1361,6 +1361,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding-top:1rem;
 }
 
 .btn-apply-style,
@@ -1395,13 +1396,10 @@ export default {
 
 .style-info-text {
   margin: 0;
-  padding: 0.75rem;
+  padding: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.5;
   color: #999;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Section Title (outside boxes) */
@@ -1601,7 +1599,7 @@ export default {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #34c759;
+  background-color: #587297;
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
