@@ -1105,7 +1105,7 @@ export default {
 
 .face-fix-section .form-group {
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .face-fix-section .form-group:last-child {
@@ -1254,14 +1254,16 @@ export default {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
+  border: none;
   outline: none;
   cursor: pointer;
+  padding: 0;
 }
 
 /* WebKit track */
 .slider-group input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
-  height: 3px;
+  height: 5px;
   background: #333;
   border-radius: 2px;
 }
@@ -1287,7 +1289,7 @@ export default {
 /* Firefox track */
 .slider-group input[type="range"]::-moz-range-track {
   width: 100%;
-  height: 3px;
+  height: 5px;
   background: #333;
   border-radius: 2px;
   border: none;
@@ -1407,7 +1409,7 @@ export default {
 
 .basic-settings-section .form-group {
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .basic-settings-section .form-group:last-child {
@@ -1430,7 +1432,7 @@ export default {
 
 .generation-settings-section .form-group {
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .generation-settings-section .form-group:last-child {
@@ -1510,7 +1512,7 @@ export default {
 
 .dimensions-section .form-group {
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .dimensions-section .form-group:last-child {
