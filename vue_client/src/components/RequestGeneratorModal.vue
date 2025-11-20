@@ -370,7 +370,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { requestsApi, imagesApi, settingsApi } from '../api/client.js'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomPreset } from '../config/presets.js'
@@ -854,6 +854,17 @@ export default {
       await estimateKudosComposable(params)
     }
 
+    // Debounced version for slider changes
+    let estimateKudosTimeout = null
+    const estimateKudosDebounced = () => {
+      if (estimateKudosTimeout) {
+        clearTimeout(estimateKudosTimeout)
+      }
+      estimateKudosTimeout = setTimeout(() => {
+        estimateKudos()
+      }, 500) // Wait 500ms after user stops moving slider
+    }
+
     const submitRequest = async () => {
       try {
         submitting.value = true
@@ -877,12 +888,12 @@ export default {
       }
     }
 
-    // Auto-estimate kudos when key parameters change
+    // Auto-estimate kudos when key parameters change (debounced for sliders)
     watch(
       () => [form.model, form.n, form.steps, form.width, form.height, selectedStyleName.value],
       () => {
         if (form.model) {
-          estimateKudos()
+          estimateKudosDebounced()
         }
       }
     )
@@ -909,6 +920,13 @@ export default {
       // Only estimate if we have a model after loading
       if (form.model) {
         estimateKudos()
+      }
+    })
+
+    onUnmounted(() => {
+      // Clean up debounce timeout
+      if (estimateKudosTimeout) {
+        clearTimeout(estimateKudosTimeout)
       }
     })
 
