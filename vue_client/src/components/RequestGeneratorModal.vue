@@ -38,14 +38,18 @@
 
             <!-- Number of Images (Always Visible) -->
             <div class="form-group">
-              <label for="n">Number of Images</label>
-              <input
-                type="number"
-                id="n"
-                v-model.number="form.n"
-                min="1"
-                max="10"
-              />
+              <label for="n">Images</label>
+              <div class="slider-group">
+                <input
+                  type="range"
+                  id="n"
+                  v-model.number="form.n"
+                  min="1"
+                  max="20"
+                  step="1"
+                />
+                <span class="range-value">{{ form.n }}</span>
+              </div>
             </div>
 
             <!-- Style Selection (Always Visible) -->
@@ -91,46 +95,64 @@
                 />
               </div>
 
-              <!-- Dimensions with Aspect Ratio Lock -->
-              <div class="form-row three-col">
-                <div class="form-group">
-                  <label for="width">Width</label>
-                  <input
-                    type="number"
-                    id="width"
-                    v-model.number="form.width"
-                    @input="onDimensionChange('width')"
-                    min="256"
-                    max="2048"
-                    step="64"
-                  />
-                </div>
+              <!-- Dimensions Section -->
+              <div class="dimensions-section">
+                <h4>Dimensions</h4>
 
                 <div class="form-group">
-                  <label>
-                    <button
-                      type="button"
-                      class="btn-aspect-lock"
-                      @click="toggleAspectLock"
-                      :title="aspectLocked ? 'Unlock aspect ratio' : 'Lock aspect ratio'"
-                    >
-                      {{ aspectLocked ? '🔒' : '🔓' }}
-                    </button>
-                  </label>
+                  <label for="width">Width</label>
+                  <div class="slider-group">
+                    <input
+                      type="range"
+                      id="width"
+                      v-model.number="form.width"
+                      @input="onDimensionChange('width')"
+                      min="64"
+                      max="3072"
+                      step="64"
+                    />
+                    <span class="range-value">{{ form.width }}</span>
+                  </div>
                 </div>
 
                 <div class="form-group">
                   <label for="height">Height</label>
-                  <input
-                    type="number"
-                    id="height"
-                    v-model.number="form.height"
-                    @input="onDimensionChange('height')"
-                    min="256"
-                    max="2048"
-                    step="64"
-                  />
+                  <div class="slider-group">
+                    <input
+                      type="range"
+                      id="height"
+                      v-model.number="form.height"
+                      @input="onDimensionChange('height')"
+                      min="64"
+                      max="3072"
+                      step="64"
+                    />
+                    <span class="range-value">{{ form.height }}</span>
+                  </div>
                 </div>
+
+                <div class="form-group">
+                  <label>Aspect Ratio</label>
+                  <div class="aspect-ratio-control">
+                    <span class="aspect-ratio-text">{{ aspectRatioText }}</span>
+                    <label class="toggle-switch">
+                      <input
+                        type="checkbox"
+                        v-model="aspectLocked"
+                        @change="onAspectLockToggle"
+                      />
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  class="btn-swap-dimensions"
+                  @click="swapDimensions"
+                >
+                  <span class="swap-icon">⇄</span> Swap Dimensions
+                </button>
               </div>
 
               <!-- CFG Scale and Clip Skip -->
@@ -348,7 +370,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { requestsApi, imagesApi, settingsApi } from '../api/client.js'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomPreset } from '../config/presets.js'
@@ -634,9 +656,22 @@ export default {
       estimateKudos()
     }
 
-    const toggleAspectLock = () => {
-      aspectLocked.value = !aspectLocked.value
+    // Calculate GCD for aspect ratio simplification
+    const gcd = (a, b) => {
+      return b === 0 ? a : gcd(b, a % b)
+    }
+
+    // Computed property for aspect ratio text
+    const aspectRatioText = computed(() => {
+      const divisor = gcd(form.width, form.height)
+      const widthRatio = form.width / divisor
+      const heightRatio = form.height / divisor
+      return `Lock to ${widthRatio}:${heightRatio}`
+    })
+
+    const onAspectLockToggle = () => {
       if (aspectLocked.value) {
+        // Just turned on the lock, save the current ratio
         aspectRatio.value = form.width / form.height
       }
     }
@@ -648,6 +683,16 @@ export default {
         form.height = Math.round(form.width / aspectRatio.value / 64) * 64
       } else {
         form.width = Math.round(form.height * aspectRatio.value / 64) * 64
+      }
+    }
+
+    const swapDimensions = () => {
+      const temp = form.width
+      form.width = form.height
+      form.height = temp
+      // Update aspect ratio if locked
+      if (aspectLocked.value) {
+        aspectRatio.value = form.width / form.height
       }
     }
 
@@ -875,14 +920,16 @@ export default {
       showModelPicker,
       showStylePicker,
       aspectLocked,
+      aspectRatioText,
       selectedStyleName,
       selectedStyleData,
       submitRequest,
       onModelSelect,
       onStyleSelect,
       applyStyle,
-      toggleAspectLock,
+      onAspectLockToggle,
       onDimensionChange,
+      swapDimensions,
       estimateKudos,
       loadSettings,
       loadRandomPreset,
@@ -1089,6 +1136,52 @@ export default {
 .slider-group input[type="range"] {
   flex: 1;
   width: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* WebKit browsers (Chrome, Safari, Edge) */
+.slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #007AFF;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.slider-group input[type="range"]::-webkit-slider-thumb:hover {
+  background: #0051D5;
+  transform: scale(1.1);
+}
+
+/* Firefox */
+.slider-group input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #007AFF;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.slider-group input[type="range"]::-moz-range-thumb:hover {
+  background: #0051D5;
+  transform: scale(1.1);
+}
+
+.slider-group input[type="range"]::-moz-range-track {
+  background: #333;
+  height: 6px;
+  border-radius: 3px;
 }
 
 .range-value {
@@ -1168,20 +1261,119 @@ export default {
   background: #cc2e24;
 }
 
-.btn-aspect-lock {
-  background: transparent;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 1.25rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 1.8rem;
+/* Dimensions Section */
+.dimensions-section {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
-.btn-aspect-lock:hover {
-  background: #252525;
-  border-color: #007AFF;
+.dimensions-section h4 {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.05em;
+}
+
+/* Aspect Ratio Control */
+.aspect-ratio-control {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #0f0f0f;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+.aspect-ratio-text {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+/* iOS-style Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 51px;
+  height: 31px;
+  margin: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #39393d;
+  transition: 0.3s;
+  border-radius: 31px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background-color: #34c759;
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+/* Swap Dimensions Button */
+.btn-swap-dimensions {
+  width: 100%;
+  padding: 0.75rem;
+  margin-top: 1rem;
+  background: linear-gradient(180deg, #5e5ce6 0%, #4a4acf 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-swap-dimensions:hover {
+  background: linear-gradient(180deg, #4a4acf 0%, #3838b8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(94, 92, 230, 0.3);
+}
+
+.btn-swap-dimensions:active {
+  transform: translateY(0);
+}
+
+.swap-icon {
+  font-size: 1.2rem;
+  font-weight: bold;
 }
 
 .toggles-section {
