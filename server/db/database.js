@@ -151,7 +151,23 @@ function initDatabase() {
     }
   }
 
+  // LoRA metadata cache table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lora_cache (
+      version_id TEXT PRIMARY KEY,
+      model_id TEXT NOT NULL,
+      full_metadata TEXT NOT NULL,
+      date_cached INTEGER NOT NULL,
+      last_accessed INTEGER NOT NULL
+    )
+  `);
+
   // Create indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lora_cache_version
+    ON lora_cache(version_id)
+  `);
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_images_date_created
     ON generated_images(date_created DESC)

@@ -228,6 +228,7 @@ import { useLoraCache, useLoraFavorites, useLoraRecent } from '../composables/us
 import { LORA_CONSTANTS } from '../models/Lora'
 import { useSettingsStore } from '../stores/settingsStore'
 import { getLoraById } from '../api/civitai'
+import { cacheLora } from '../composables/useLoraMetadataCache'
 
 export default {
   name: 'LoraPicker',
@@ -368,7 +369,7 @@ export default {
       showDetailsOverlay.value = true
     }
 
-    const onAddLora = (lora) => {
+    const onAddLora = async (lora) => {
       if (selectedLoras.value.length >= maxLoras) {
         alert(`Maximum ${maxLoras} LoRAs allowed`)
         return
@@ -382,6 +383,14 @@ export default {
 
       selectedLoras.value.push(lora)
       activeTab.value = 'selected'
+
+      // Cache the LoRA metadata for future use
+      try {
+        await cacheLora(lora)
+      } catch (error) {
+        console.error('Failed to cache LoRA:', error)
+        // Don't block the UI if caching fails
+      }
     }
 
     const updateLora = (index, updatedLora) => {

@@ -443,6 +443,7 @@ import LoraPicker from './LoraPicker.vue'
 import { getLoraById } from '../api/civitai'
 import { SavedLora } from '../models/Lora'
 import { useLoraRecent } from '../composables/useLoraCache'
+import { getCachedLoras, cacheMultipleLoras } from '../composables/useLoraMetadataCache'
 
 export default {
   name: 'RequestGeneratorModal',
@@ -501,7 +502,7 @@ export default {
     // Use composables
     const { models, fetchModels, getMostPopularModel } = useModelCache()
     const { kudosEstimate, estimating, estimateError, estimateKudos: estimateKudosComposable } = useKudosEstimation()
-    const { addToRecent } = useLoraRecent()
+    const { addToRecent, recent: recentLoras } = useLoraRecent()
 
     // Load worker preferences from settings store
     settingsStore.loadWorkerPreferences()
@@ -515,6 +516,10 @@ export default {
           try {
             const lastSettings = JSON.parse(cachedSettings)
             if (lastSettings && typeof lastSettings === 'object') {
+              // Convert plain lora objects to SavedLora instances
+              if (lastSettings.loras && Array.isArray(lastSettings.loras)) {
+                lastSettings.loras = lastSettings.loras.map(lora => new SavedLora(lora))
+              }
               Object.assign(form, lastSettings)
               return // Success, no need to fetch from server
             }
@@ -530,6 +535,10 @@ export default {
           try {
             const lastSettings = JSON.parse(response.data.last_used_settings)
             if (lastSettings && typeof lastSettings === 'object') {
+              // Convert plain lora objects to SavedLora instances
+              if (lastSettings.loras && Array.isArray(lastSettings.loras)) {
+                lastSettings.loras = lastSettings.loras.map(lora => new SavedLora(lora))
+              }
               Object.assign(form, lastSettings)
               // Cache the settings locally for next time
               localStorage.setItem('lastUsedSettings', JSON.stringify(lastSettings))
@@ -591,40 +600,69 @@ export default {
       }
 
       const enrichedLoras = []
+      const minimalLoras = []
+      const minimalIndices = []
 
-      for (const lora of loras) {
+      // First pass: separate minimal from full LoRAs
+      for (let i = 0; i < loras.length; i++) {
+        const lora = loras[i]
         // Check if this is a minimal LoRA (just name and is_version from AI Horde)
         const isMinimal = lora.name && !lora.versionId && !lora.modelVersions
 
         if (isMinimal) {
-          try {
-            // The 'name' field in AI Horde format is the CivitAI version ID
-            const versionId = lora.name
+          minimalLoras.push(lora)
+          minimalIndices.push(i)
+        }
+      }
 
-            // Fetch full model details from CivitAI
-            // We need to get the model by version ID, but the API uses model ID
-            // So we'll need to search or use a different approach
+      // If we have minimal LoRAs, try to enrich them with batch operations
+      let enrichmentMap = {}
+      if (minimalLoras.length > 0) {
+        const versionIds = minimalLoras.map(lora => lora.name)
 
-            // For now, create a minimal SavedLora with what we have
-            const savedLora = new SavedLora({
+        // 1. Try cache first (batch lookup)
+        try {
+          const cachedMap = await getCachedLoras(versionIds)
+          enrichmentMap = { ...cachedMap }
+        } catch (error) {
+          console.error('Error fetching from cache:', error)
+        }
+
+        // 2. Try recent LoRAs for any not found in cache
+        for (const lora of minimalLoras) {
+          const versionId = lora.name
+          if (!enrichmentMap[versionId] && recentLoras.value) {
+            const recentMatch = recentLoras.value.find(r => String(r.versionId) === String(versionId))
+            if (recentMatch?.model) {
+              enrichmentMap[versionId] = recentMatch.model
+            }
+          }
+        }
+      }
+
+      // Second pass: reconstruct enriched array
+      for (let i = 0; i < loras.length; i++) {
+        const lora = loras[i]
+        const isMinimal = lora.name && !lora.versionId && !lora.modelVersions
+
+        if (isMinimal) {
+          const versionId = lora.name
+          const cached = enrichmentMap[versionId]
+
+          if (cached) {
+            // Found in cache or recent - use it and restore strengths from request
+            const enrichedLora = new SavedLora({
+              ...cached,
+              strength: lora.model || 1.0,
+              clip: lora.clip || 1.0
+            })
+            enrichedLoras.push(enrichedLora)
+          } else {
+            // Not found anywhere - create stub
+            enrichedLoras.push(new SavedLora({
               id: versionId,
               versionId: versionId,
               name: `LoRA ${versionId}`,
-              versionName: 'Unknown',
-              strength: lora.model || 1.0,
-              clip: lora.clip || 1.0,
-              isArtbotManualEntry: true, // Mark as manual since we don't have full data
-              modelVersions: []
-            })
-
-            enrichedLoras.push(savedLora)
-          } catch (error) {
-            console.error(`Failed to fetch LoRA details for ${lora.name}:`, error)
-            // Fallback: create minimal SavedLora
-            enrichedLoras.push(new SavedLora({
-              id: lora.name,
-              versionId: lora.name,
-              name: `LoRA ${lora.name}`,
               versionName: 'Unknown',
               strength: lora.model || 1.0,
               clip: lora.clip || 1.0,
@@ -678,6 +716,16 @@ export default {
         // Load and enrich LoRAs
         if (params.loras && params.loras.length > 0) {
           form.loras = await enrichLoras(params.loras)
+
+          // Cache any LoRAs that have full metadata (not stubs)
+          try {
+            const fullLoras = form.loras.filter(lora => !lora.isArtbotManualEntry)
+            if (fullLoras.length > 0) {
+              await cacheMultipleLoras(fullLoras)
+            }
+          } catch (error) {
+            console.error('Failed to cache LoRAs:', error)
+          }
         } else {
           form.loras = []
         }
@@ -910,6 +958,7 @@ export default {
 
       // Apply user preferences (AI Horde settings) from settings store
       params.nsfw = settingsStore.workerPreferences.nsfw
+      params.censor_nsfw = !settingsStore.workerPreferences.nsfw
       params.trusted_workers = settingsStore.workerPreferences.trustedWorkers
       params.slow_workers = settingsStore.workerPreferences.slowWorkers
       params.allow_downgrade = settingsStore.workerPreferences.allowDowngrade
@@ -988,12 +1037,19 @@ export default {
         if (form.loras && form.loras.length > 0) {
           // Convert SavedLora objects to AI Horde format
           params.params.loras = form.loras.map(lora => {
-            // If it's already a SavedLora instance, use toHordeFormat()
+            // If it's a SavedLora instance, use toHordeFormat()
             if (lora.toHordeFormat && typeof lora.toHordeFormat === 'function') {
               return lora.toHordeFormat()
             }
-            // Otherwise, assume it's already in the correct format
-            return lora
+            // Fallback: manually create minimal format from plain object
+            // This shouldn't happen if everything is working correctly,
+            // but provides safety against sending full objects
+            return {
+              name: String(lora.versionId || lora.name),
+              model: Number(lora.strength || lora.model || 1.0),
+              clip: Number(lora.clip || 1.0),
+              is_version: true
+            }
           })
         }
       }
@@ -1044,9 +1100,13 @@ export default {
         // Save settings for next time
         await saveLastUsedSettings()
 
-        // Add LoRAs to recent (after successful submission)
+        // Cache and add LoRAs to recent (after successful submission)
         if (form.loras && form.loras.length > 0) {
           try {
+            // Cache all LoRAs for future enrichment
+            await cacheMultipleLoras(form.loras)
+
+            // Add to recent list
             for (const lora of form.loras) {
               await addToRecent(lora)
             }

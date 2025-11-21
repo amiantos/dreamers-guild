@@ -10,6 +10,7 @@ import imagesRouter from './routes/images.js';
 import settingsRouter from './routes/settings.js';
 import stylesRouter from './routes/styles.js';
 import albumsRouter from './routes/albums.js';
+import loraCacheRouter from './routes/loraCache.js';
 
 // Import services
 import queueManager from './services/queueManager.js';
@@ -33,6 +34,7 @@ app.use('/api/images', imagesRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/styles', stylesRouter);
 app.use('/api/albums', albumsRouter);
+app.use('/api/lora-cache', loraCacheRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

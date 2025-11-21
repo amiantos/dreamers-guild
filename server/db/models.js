@@ -424,3 +424,99 @@ export const UserSettings = {
     return this.get();
   }
 };
+
+// LoraCache model
+export const LoraCache = {
+  get(versionId) {
+    const stmt = db.prepare('SELECT * FROM lora_cache WHERE version_id = ?');
+    const cached = stmt.get(versionId);
+
+    if (cached) {
+      // Update last accessed timestamp
+      const updateStmt = db.prepare('UPDATE lora_cache SET last_accessed = ? WHERE version_id = ?');
+      updateStmt.run(Date.now(), versionId);
+
+      return {
+        ...cached,
+        full_metadata: JSON.parse(cached.full_metadata)
+      };
+    }
+
+    return null;
+  },
+
+  getMultiple(versionIds) {
+    if (!versionIds || versionIds.length === 0) return [];
+
+    const placeholders = versionIds.map(() => '?').join(',');
+    const stmt = db.prepare(`SELECT * FROM lora_cache WHERE version_id IN (${placeholders})`);
+    const results = stmt.all(...versionIds);
+
+    // Update last accessed for all found items
+    const now = Date.now();
+    const updateStmt = db.prepare('UPDATE lora_cache SET last_accessed = ? WHERE version_id = ?');
+
+    return results.map(cached => {
+      updateStmt.run(now, cached.version_id);
+      return {
+        ...cached,
+        full_metadata: JSON.parse(cached.full_metadata)
+      };
+    });
+  },
+
+  set(versionId, modelId, metadata) {
+    const now = Date.now();
+
+    // Check if exists
+    const existing = db.prepare('SELECT version_id FROM lora_cache WHERE version_id = ?').get(versionId);
+
+    if (existing) {
+      // Update existing
+      const stmt = db.prepare(`
+        UPDATE lora_cache
+        SET model_id = ?, full_metadata = ?, last_accessed = ?
+        WHERE version_id = ?
+      `);
+      stmt.run(modelId, JSON.stringify(metadata), now, versionId);
+    } else {
+      // Insert new
+      const stmt = db.prepare(`
+        INSERT INTO lora_cache (version_id, model_id, full_metadata, date_cached, last_accessed)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      stmt.run(versionId, modelId, JSON.stringify(metadata), now, now);
+    }
+
+    return this.get(versionId);
+  },
+
+  setMultiple(loras) {
+    const now = Date.now();
+    const insertStmt = db.prepare(`
+      INSERT OR REPLACE INTO lora_cache (version_id, model_id, full_metadata, date_cached, last_accessed)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    for (const lora of loras) {
+      if (lora.versionId && lora.id) {
+        insertStmt.run(
+          String(lora.versionId),
+          String(lora.id),
+          JSON.stringify(lora),
+          now,
+          now
+        );
+      }
+    }
+
+    return loras.length;
+  },
+
+  cleanup(maxAgeMs = 90 * 24 * 60 * 60 * 1000) { // Default: 90 days
+    const cutoff = Date.now() - maxAgeMs;
+    const stmt = db.prepare('DELETE FROM lora_cache WHERE last_accessed < ?');
+    const result = stmt.run(cutoff);
+    return result.changes;
+  }
+};
