@@ -228,34 +228,6 @@
                   </div>
                 </div>
 
-                <!-- LoRAs -->
-                <div class="form-group">
-                  <label>LoRAs</label>
-                  <div class="selector-button" @click="showLoraPicker = true">
-                    <span class="selector-value">
-                      {{ form.loras.length > 0 ? `${form.loras.length} selected` : 'None' }}
-                    </span>
-                    <span class="selector-arrow">›</span>
-                  </div>
-
-                  <div v-if="form.loras.length > 0" class="loras-summary">
-                    <div
-                      v-for="(lora, idx) in form.loras"
-                      :key="`lora-${idx}`"
-                      class="lora-chip"
-                    >
-                      <span class="lora-name">{{ lora.name }}</span>
-                      <span class="lora-strength">M:{{ lora.strength }} C:{{ lora.clip }}</span>
-                      <button
-                        type="button"
-                        @click.stop="removeLora(idx)"
-                        class="chip-remove"
-                        title="Remove LoRA"
-                      >×</button>
-                    </div>
-                  </div>
-                </div>
-
                 <div class="form-group">
                   <label>Seed</label>
                   <div class="seed-control-group">
@@ -308,6 +280,38 @@
                         />
                         <span class="range-value">{{ form.hiresFixDenoisingStrength }}</span>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Loras Section -->
+              <h4 class="section-title">LoRAs</h4>
+              <div class="loras-section">
+                <!-- LoRAs -->
+                <div class="form-group">
+                  <label>LoRAs</label>
+                  <div class="selector-button" @click="showLoraPicker = true">
+                    <span class="selector-value">
+                      {{ form.loras.length > 0 ? `${form.loras.length} selected` : 'None' }}
+                    </span>
+                    <span class="selector-arrow">›</span>
+                  </div>
+
+                  <div v-if="form.loras.length > 0" class="loras-summary">
+                    <div
+                      v-for="(lora, idx) in form.loras"
+                      :key="`lora-${idx}`"
+                      class="lora-chip"
+                    >
+                      <span class="lora-name">{{ lora.name }}</span>
+                      <span class="lora-strength">M:{{ lora.strength }} C:{{ lora.clip }}</span>
+                      <button
+                        type="button"
+                        @click.stop="removeLora(idx)"
+                        class="chip-remove"
+                        title="Remove LoRA"
+                      >×</button>
                     </div>
                   </div>
                 </div>
@@ -1307,6 +1311,33 @@ export default {
   flex-shrink: 0;
   background: var(--color-surface);
   z-index: 1;
+}
+
+/* Loras Section */
+.loras-section {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 1.2rem;
+}
+
+.loras-section .form-group {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-group-internal {
+  padding-top:1.5rem;
+}
+
+.loras-section .form-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.loras-section .form-group:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Post-Processing Section */
