@@ -961,7 +961,7 @@ export default {
       selectedStyleData.value = null
     }
 
-    const applyStyle = () => {
+    const applyStyle = async () => {
       if (!selectedStyleData.value) {
         return
       }
@@ -998,7 +998,7 @@ export default {
       if (style.tiling !== undefined) form.tiling = style.tiling
       if (style.clip_skip !== undefined) form.clipSkip = style.clip_skip
       if (style.loras && Array.isArray(style.loras)) {
-        form.loras = [...style.loras]
+        form.loras = await enrichLoras(style.loras)
       } else {
         form.loras = []
       }
