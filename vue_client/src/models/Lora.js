@@ -58,7 +58,7 @@ export class SavedLora extends Embedding {
     this._civitAiType = 'LORA'
     this.versionId = params.versionId || params.id
     this.versionName = params.versionName || ''
-    this.isArtbotManualEntry = params.isArtbotManualEntry || false
+    this.isManualEntry = params.isManualEntry || false
     this.strength = params.strength !== undefined ? params.strength : 1.0
     this.clip = params.clip !== undefined ? params.clip : 1.0
   }

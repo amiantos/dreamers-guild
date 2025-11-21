@@ -315,7 +315,7 @@
                             class="btn-icon-small"
                             @click="showLoraInfo(lora)"
                             title="Show LoRA details"
-                            :disabled="lora.isArtbotManualEntry"
+                            :disabled="lora.isManualEntry"
                           >
                             <i class="fas fa-info-circle"></i>
                           </button>
@@ -833,7 +833,7 @@ export default {
               versionName: 'Unknown',
               strength: lora.model || 1.0,
               clip: lora.clip || 1.0,
-              isArtbotManualEntry: true,
+              isManualEntry: true,
               modelVersions: []
             }))
           }
@@ -886,7 +886,7 @@ export default {
 
           // Cache any LoRAs that have full metadata (not stubs)
           try {
-            const fullLoras = form.loras.filter(lora => !lora.isArtbotManualEntry)
+            const fullLoras = form.loras.filter(lora => !lora.isManualEntry)
             if (fullLoras.length > 0) {
               await cacheMultipleLoras(fullLoras)
             }
