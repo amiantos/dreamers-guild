@@ -166,6 +166,8 @@
       :image="selectedImage"
       :images="images"
       :currentIndex="currentImageIndex"
+      :canNavigatePrev="canNavigatePrev"
+      :canNavigateNext="canNavigateNext"
       @close="closeImage"
       @delete="deleteImage"
       @navigate="navigateImage"
@@ -281,6 +283,14 @@ export default {
       return images.value.findIndex(img => img.uuid === selectedImage.value.uuid)
     })
 
+    const canNavigatePrev = computed(() => {
+      return currentImageIndex.value > 0
+    })
+
+    const canNavigateNext = computed(() => {
+      return currentImageIndex.value >= 0 && currentImageIndex.value < images.value.length - 1
+    })
+
     const galleryTitle = computed(() => {
       const count = totalCount.value
       return `${count} Image${count !== 1 ? 's' : ''}`
@@ -374,6 +384,9 @@ export default {
       selectedImage.value = image
       // Update URL for bookmarking, but don't trigger route watcher
       router.replace(`/image/${image.uuid}`)
+
+      // Scroll to the image in the grid
+      scrollToCurrentImage(image.uuid)
     }
 
     const closeImage = () => {
@@ -495,16 +508,38 @@ export default {
       const currentIndex = currentImageIndex.value
       let newIndex = currentIndex + direction
 
-      // Wrap around
-      if (newIndex < 0) newIndex = images.value.length - 1
-      if (newIndex >= images.value.length) newIndex = 0
+      // Don't wrap around - clamp to valid range
+      if (newIndex < 0) return
+      if (newIndex >= images.value.length) return
 
       const newImage = images.value[newIndex]
       if (newImage) {
         selectedImage.value = newImage
         // Update URL for bookmarking, but don't trigger route watcher
         router.replace(`/image/${newImage.uuid}`)
+
+        // Scroll the grid to show the current image
+        scrollToCurrentImage(newImage.uuid)
       }
+    }
+
+    const scrollToCurrentImage = (imageUuid) => {
+      // Use nextTick to ensure the DOM has updated
+      setTimeout(() => {
+        if (!gridContainer.value) return
+
+        // Find the image element in the grid
+        const imageElements = gridContainer.value.querySelectorAll('.image-item')
+        const imageIndex = images.value.findIndex(img => img.uuid === imageUuid)
+
+        if (imageIndex !== -1 && imageElements[imageIndex]) {
+          imageElements[imageIndex].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          })
+        }
+      }, 50)
     }
 
     const updateImageUrl = (imageId) => {
@@ -921,6 +956,8 @@ export default {
       loading,
       selectedImage,
       currentImageIndex,
+      canNavigatePrev,
+      canNavigateNext,
       galleryTitle,
       gridContainer,
       filters,

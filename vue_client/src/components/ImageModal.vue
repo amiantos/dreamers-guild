@@ -4,7 +4,7 @@
       <button class="btn-close" @click="$emit('close')">×</button>
 
       <button
-        v-if="showNavigation && !isProtected"
+        v-if="showNavigation && !isProtected && canNavigatePrev"
         class="btn-nav btn-prev"
         @click="$emit('navigate', -1)"
         title="Previous image (←)"
@@ -13,7 +13,7 @@
       </button>
 
       <button
-        v-if="showNavigation && !isProtected"
+        v-if="showNavigation && !isProtected && canNavigateNext"
         class="btn-nav btn-next"
         @click="$emit('navigate', 1)"
         title="Next image (→)"
@@ -144,6 +144,14 @@ export default {
     currentIndex: {
       type: Number,
       default: -1
+    },
+    canNavigatePrev: {
+      type: Boolean,
+      default: true
+    },
+    canNavigateNext: {
+      type: Boolean,
+      default: true
     }
   },
   emits: ['close', 'delete', 'navigate', 'load-settings', 'update'],
@@ -273,11 +281,11 @@ export default {
       if (e.key === 'Escape') {
         emit('close')
       } else if (e.key === 'ArrowLeft') {
-        if (showNavigation.value) {
+        if (showNavigation.value && props.canNavigatePrev) {
           emit('navigate', -1)
         }
       } else if (e.key === 'ArrowRight') {
-        if (showNavigation.value) {
+        if (showNavigation.value && props.canNavigateNext) {
           emit('navigate', 1)
         }
       }
