@@ -263,8 +263,57 @@ export async function getLoraById(modelId, signal = null) {
   }
 }
 
+/**
+ * Get a LoRA model by version ID (two-step process)
+ * 1. Fetch version data to get model ID
+ * 2. Fetch full model data using model ID
+ * @param {string|number} versionId - CivitAI version ID
+ * @param {AbortSignal} signal - Abort signal for cancellation
+ * @returns {Promise<Object>} Model data with all versions
+ */
+export async function getLoraByVersionId(versionId, signal = null) {
+  try {
+    // Check cache first (try to find by version ID in our cache)
+    const versionCacheKey = `${CACHE_PREFIX}version_${versionId}`
+    const cached = getCachedData(versionCacheKey)
+    if (cached) {
+      return { ...cached, cached: true }
+    }
+
+    // Step 1: Fetch version data to get model ID
+    const versionResponse = await fetch(
+      `${API_BASE_URL}/model-versions/${versionId}`,
+      { signal }
+    )
+
+    if (!versionResponse.ok) {
+      throw new Error(`HTTP error! status: ${versionResponse.status}`)
+    }
+
+    const versionData = await versionResponse.json()
+    const modelId = versionData.modelId
+
+    // Step 2: Fetch full model data using model ID
+    const modelData = await getLoraById(modelId, signal)
+
+    // Cache the result under version ID for future lookups
+    setCachedData(versionCacheKey, modelData)
+
+    return { ...modelData, cached: false }
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      console.log('Request was aborted')
+      throw error
+    }
+
+    console.error('Error fetching LoRA by version ID:', error)
+    throw error
+  }
+}
+
 export default {
   searchLoras,
   getLoraById,
+  getLoraByVersionId,
   clearCivitaiCache
 }

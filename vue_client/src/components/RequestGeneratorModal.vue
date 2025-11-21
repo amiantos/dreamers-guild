@@ -521,7 +521,7 @@ import ModelPicker from './ModelPicker.vue'
 import StylePicker from './StylePicker.vue'
 import LoraPicker from './LoraPicker.vue'
 import LoraDetails from './LoraDetails.vue'
-import { getLoraById } from '../api/civitai'
+import { getLoraById, getLoraByVersionId } from '../api/civitai'
 import { SavedLora } from '../models/Lora'
 import { useLoraRecent } from '../composables/useLoraCache'
 import { getCachedLoras, cacheMultipleLoras } from '../composables/useLoraMetadataCache'
@@ -785,6 +785,23 @@ export default {
             const recentMatch = recentLoras.value.find(r => String(r.versionId) === String(versionId))
             if (recentMatch?.model) {
               enrichmentMap[versionId] = recentMatch.model
+            }
+          }
+        }
+
+        // 3. Try fetching from CivitAI API for any still not found
+        for (const lora of minimalLoras) {
+          const versionId = lora.name
+          if (!enrichmentMap[versionId]) {
+            try {
+              console.log(`Fetching LoRA from CivitAI API for version ${versionId}`)
+              const modelData = await getLoraByVersionId(versionId)
+              if (modelData) {
+                enrichmentMap[versionId] = modelData
+              }
+            } catch (error) {
+              console.warn(`Could not fetch LoRA version ${versionId} from API:`, error)
+              // Will fall through to stub creation
             }
           }
         }
