@@ -179,7 +179,7 @@ export default {
   height: 100px;
   border-radius: 8px;
   overflow: hidden;
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
 }
 
 .thumbnail img {
@@ -192,15 +192,15 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0f0f0f;
-  border: 1px solid #333;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
 }
 
 .spinner {
   width: 30px;
   height: 30px;
-  border: 3px solid #333;
-  border-top-color: #587297;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -231,23 +231,23 @@ export default {
   font-size: 1.1rem;
   font-weight: 500;
   margin: 0 0 0.5rem 0;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .meta {
   display: flex;
   gap: 0.5rem;
   font-size: 0.85rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   flex-wrap: wrap;
 }
 
 .divider {
-  color: #555;
+  color: var(--color-border-lighter);
 }
 
 .status-message {
-  color: #aaa;
+  color: var(--color-text-secondary);
 }
 
 .request-status {
@@ -262,23 +262,23 @@ export default {
 }
 
 .status-pending {
-  background-color: rgba(128, 128, 128, 0.2);
-  color: #aaa;
+  background-color: var(--color-pending-bg);
+  color: var(--color-text-secondary);
 }
 
 .status-processing {
-  background-color: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background-color: var(--color-info-bg);
+  color: var(--color-info-tailwind);
 }
 
 .status-completed {
-  background-color: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  background-color: var(--color-success-bg);
+  color: var(--color-success-tailwind);
 }
 
 .status-failed {
-  background-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background-color: var(--color-danger-bg);
+  color: var(--color-danger-tailwind);
 }
 
 .request-actions {
@@ -306,23 +306,23 @@ export default {
 }
 
 .btn-primary {
-  background: #587297;
-  color: white;
+  background: var(--color-btn-primary-bg);
+  color: var(--color-btn-primary-text);
 }
 
 .btn-primary:hover {
-  background: #6989b5;
+  background: var(--color-btn-primary-hover);
 }
 
 .btn-delete {
   background: transparent;
-  color: #999;
-  border: 1px solid #333;
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border);
 }
 
 .btn-delete:hover {
-  background: #2a2a2a;
-  color: #fff;
-  border-color: #444;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
 }
 </style>

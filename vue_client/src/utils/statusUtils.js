@@ -48,15 +48,15 @@ export function getStatusIcon(status) {
 /**
  * Get the color for a status
  * @param {string} status - The request status
- * @returns {string} The color hex code or CSS color
+ * @returns {string} The CSS variable reference for the color
  */
 export function getStatusColor(status) {
-  if (status === 'completed') return '#4ade80' // Green
-  if (status === 'failed') return '#f87171' // Red
+  if (status === 'completed') return 'var(--color-success-tailwind)' // Green
+  if (status === 'failed') return 'var(--color-danger-tailwind)' // Red
   if (status === 'submitting' || status === 'processing' || status === 'downloading') {
-    return '#60a5fa' // Blue
+    return 'var(--color-info-tailwind)' // Blue
   }
-  return '#aaa' // Gray
+  return 'var(--color-text-secondary)' // Gray
 }
 
 /**

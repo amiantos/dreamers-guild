@@ -543,7 +543,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -565,7 +565,7 @@ export default {
   justify-content: space-between;
   padding: 16px;
   border-bottom: 1px solid #333;
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .picker-header h3 {
@@ -598,7 +598,7 @@ export default {
 }
 
 .filter-panel {
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
   padding: 16px;
   border-bottom: 1px solid #333;
 }
@@ -632,14 +632,14 @@ export default {
 .tabs {
   display: flex;
   border-bottom: 1px solid #333;
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .tab {
   flex: 1;
   background: none;
   border: none;
-  color: #999;
+  color: var(--color-text-tertiary);
   padding: 12px 16px;
   font-size: 14px;
   cursor: pointer;
@@ -661,14 +661,14 @@ export default {
 .search-container {
   position: relative;
   padding: 16px;
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-bottom: 1px solid #333;
 }
 
 .search-input {
   width: 100%;
   padding: 10px 40px 10px 12px;
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
   border: 1px solid #444;
   border-radius: 4px;
   color: white;
@@ -687,7 +687,7 @@ export default {
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #999;
+  color: var(--color-text-tertiary);
   cursor: pointer;
   padding: 4px 8px;
 }
@@ -734,7 +734,7 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .loading-state i,
@@ -742,7 +742,7 @@ export default {
 .empty-state i {
   font-size: 48px;
   margin-bottom: 16px;
-  color: #666;
+  color: var(--color-text-disabled);
 }
 
 .spinner {
@@ -831,7 +831,7 @@ export default {
 .picker-footer {
   padding: 16px;
   border-top: 1px solid #333;
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .btn-apply {

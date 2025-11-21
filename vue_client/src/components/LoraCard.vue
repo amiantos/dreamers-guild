@@ -151,7 +151,7 @@ export default {
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
 }
 
 .lora-card:hover {
@@ -195,7 +195,7 @@ export default {
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
   color: white;
   font-size: 12px;
   font-weight: bold;
@@ -249,8 +249,8 @@ export default {
   height: 32px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #ffd700;
+  background: var(--overlay-medium-dark);
+  color: var(--color-warning-gold);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -261,7 +261,7 @@ export default {
 
 .favorite-button:hover {
   transform: scale(1.1);
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-darker);
 }
 
 .favorite-button i {

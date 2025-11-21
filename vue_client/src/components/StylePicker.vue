@@ -346,7 +346,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -374,7 +374,7 @@ export default {
 .btn-back {
   background: transparent;
   border: none;
-  color: #587297;
+  color: var(--color-primary);
   font-size: 1rem;
   cursor: pointer;
   display: flex;
@@ -401,7 +401,7 @@ export default {
 .btn-menu {
   background: transparent;
   border: none;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.75rem;
   cursor: pointer;
   padding: 0.25rem 0.5rem;
@@ -410,11 +410,11 @@ export default {
 }
 
 .btn-menu:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .options-menu {
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   border-bottom: 1px solid #333;
   padding: 1rem 1.5rem;
   flex-shrink: 0;
@@ -431,7 +431,7 @@ export default {
 .menu-section h4 {
   margin: 0 0 0.5rem 0;
   font-size: 0.875rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -448,7 +448,7 @@ export default {
 }
 
 .menu-option:hover {
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .menu-option input[type="radio"] {
@@ -457,7 +457,7 @@ export default {
 }
 
 .menu-option span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -470,16 +470,16 @@ export default {
 .search-input {
   width: 100%;
   padding: 0.75rem;
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   border: 1px solid #333;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .style-grid-container {
@@ -492,11 +492,11 @@ export default {
 .error {
   padding: 2rem;
   text-align: center;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .error {
-  color: #ff3b30;
+  color: var(--color-danger-ios);
 }
 
 .style-grid {
@@ -516,18 +516,18 @@ export default {
   cursor: pointer;
   border-radius: 8px;
   overflow: hidden;
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   border: 2px solid #333;
   transition: all 0.2s;
 }
 
 .style-card:hover {
-  border-color: #444;
+  border-color: var(--color-border-light);
   transform: translateY(-2px);
 }
 
 .style-card.selected {
-  border-color: #587297;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 1px #587297;
 }
 
@@ -543,7 +543,7 @@ export default {
 
 .style-preview.preview-fit {
   background-size: contain !important;
-  background-color: #0a0a0a;
+  background-color: var(--color-bg-quaternary);
 }
 
 .no-preview {
@@ -556,7 +556,7 @@ export default {
 }
 
 .no-preview-text {
-  color: #666;
+  color: var(--color-text-disabled);
   font-size: 0.875rem;
   font-weight: 500;
   text-align: center;
@@ -567,9 +567,9 @@ export default {
   padding: 0.75rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--color-text-primary);
   text-align: center;
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -586,7 +586,7 @@ export default {
 .section-title {
   margin: 0 0 0.75rem 0;
   font-size: 0.875rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -597,10 +597,10 @@ export default {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-medium-dark);
   backdrop-filter: blur(4px);
   border: none;
-  color: #666;
+  color: var(--color-text-disabled);
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0.5rem;
@@ -616,17 +616,17 @@ export default {
 }
 
 .btn-favorite:hover {
-  background: rgba(0, 0, 0, 0.8);
-  color: #FFD700;
+  background: var(--overlay-darker);
+  color: var(--color-warning-gold);
   transform: scale(1.1);
 }
 
 .btn-favorite.active {
-  color: #FFD700;
-  background: rgba(0, 0, 0, 0.7);
+  color: var(--color-warning-gold);
+  background: var(--overlay-dark);
 }
 
 .btn-favorite.active:hover {
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
 }
 </style>

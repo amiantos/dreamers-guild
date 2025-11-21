@@ -76,7 +76,7 @@ export default {
   left: 0;
   bottom: 0;
   width: 300px;
-  background: #171717;
+  background: var(--color-bg-tertiary);
   border-right: 1px solid #333;
   z-index: 100;
   transform: translateX(-100%);
@@ -110,7 +110,7 @@ export default {
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.2rem;
   cursor: pointer;
   transition: color 0.2s;
@@ -120,7 +120,7 @@ export default {
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .panel-content {
@@ -132,7 +132,7 @@ export default {
 .empty-state {
   text-align: center;
   padding: 2rem 1rem;
-  color: #666;
+  color: var(--color-text-disabled);
 }
 
 .keywords-list {
@@ -142,7 +142,7 @@ export default {
 }
 
 .keyword-card {
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   border: 1px solid #333;
   border-radius: 8px;
   padding: 0.75rem;
@@ -154,8 +154,8 @@ export default {
 }
 
 .keyword-card:hover {
-  background: #1a1a1a;
-  border-color: #444;
+  background: var(--color-surface);
+  border-color: var(--color-border-light);
   transform: translateX(4px);
 }
 
@@ -164,7 +164,7 @@ export default {
   height: 48px;
   border-radius: 6px;
   overflow: hidden;
-  background: #1a1a1a;
+  background: var(--color-surface);
   flex-shrink: 0;
 }
 
@@ -195,12 +195,12 @@ export default {
 .keyword-name {
   font-size: 0.95rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--color-text-primary);
   margin-bottom: 0.25rem;
 }
 
 .keyword-count {
   font-size: 0.85rem;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 </style>

@@ -90,7 +90,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -99,7 +99,7 @@ export default {
 }
 
 .modal-content {
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 12px;
   max-width: 500px;
   width: 100%;
@@ -123,7 +123,7 @@ export default {
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
@@ -131,7 +131,7 @@ export default {
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -140,7 +140,7 @@ export default {
 
 .modal-body p {
   margin: 0 0 1.5rem 0;
-  color: #ccc;
+  color: var(--color-gray-300);
   font-size: 1rem;
 }
 
@@ -154,16 +154,16 @@ export default {
   padding: 1rem 1.25rem;
   border: 1px solid #333;
   border-radius: 8px;
-  background: #0f0f0f;
-  color: #fff;
+  background: var(--color-bg-elevated);
+  color: var(--color-text-primary);
   cursor: pointer;
   transition: all 0.2s;
   text-align: left;
 }
 
 .btn:hover {
-  background: #2a2a2a;
-  border-color: #444;
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-light);
 }
 
 .btn-title {
@@ -174,42 +174,42 @@ export default {
 
 .btn-description {
   font-size: 0.85rem;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .btn-prune:hover {
-  border-color: #ff6b6b;
+  border-color: var(--color-danger-hover);
 }
 
 .btn-prune:hover .btn-title {
-  color: #ff6b6b;
+  color: var(--color-danger-hover);
 }
 
 .btn-hide:hover {
-  border-color: #FFD60A;
+  border-color: var(--color-warning);
 }
 
 .btn-hide:hover .btn-title {
-  color: #FFD60A;
+  color: var(--color-warning);
 }
 
 .btn-keep:hover {
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .btn-keep:hover .btn-title {
-  color: #587297;
+  color: var(--color-primary);
 }
 
 .btn-cancel:hover {
-  border-color: #666;
+  border-color: var(--color-text-disabled);
 }
 
 .btn-confirm:hover {
-  border-color: #ff6b6b;
+  border-color: var(--color-danger-hover);
 }
 
 .btn-confirm:hover .btn-title {
-  color: #ff6b6b;
+  color: var(--color-danger-hover);
 }
 </style>

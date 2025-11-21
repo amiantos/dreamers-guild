@@ -261,7 +261,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-darker);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -276,7 +276,7 @@ export default {
 }
 
 .lora-details-container {
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 8px;
   max-width: 1200px;
   width: 100%;
@@ -323,7 +323,7 @@ export default {
 }
 
 .btn-favorite i {
-  color: #ffd700;
+  color: var(--color-warning-gold);
   font-size: 18px;
 }
 
@@ -358,7 +358,7 @@ export default {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -379,14 +379,14 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .image-counter {
   position: absolute;
   bottom: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-dark);
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
@@ -397,7 +397,7 @@ export default {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-dark);
   border: none;
   border-radius: 50%;
   color: white;
@@ -409,7 +409,7 @@ export default {
 }
 
 .carousel-btn:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
 }
 
 .carousel-btn:disabled {
@@ -470,7 +470,7 @@ export default {
 }
 
 .base-model-display {
-  background: #555;
+  background: var(--color-border-lighter);
   color: white;
 }
 
@@ -510,7 +510,7 @@ export default {
   padding: 8px;
   border: 1px solid #444;
   border-radius: 4px;
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
   color: white;
   font-size: 14px;
 }
@@ -546,7 +546,7 @@ export default {
 .model-description :deep(p) {
   font-size: 14px;
   line-height: 1.6;
-  color: #ccc;
+  color: var(--color-gray-300);
 }
 
 .details-footer {
@@ -569,12 +569,12 @@ export default {
 }
 
 .btn-cancel {
-  background: #555;
+  background: var(--color-border-lighter);
   color: white;
 }
 
 .btn-cancel:hover {
-  background: #666;
+  background: var(--color-text-disabled);
 }
 
 .btn-add-lora-footer {

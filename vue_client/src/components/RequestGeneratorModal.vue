@@ -1270,7 +1270,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1279,7 +1279,7 @@ export default {
 }
 
 .modal-content {
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 12px;
   max-width: 700px;
   width: 100%;
@@ -1305,7 +1305,7 @@ export default {
   padding: 1.5rem;
   border-bottom: 1px solid #333;
   flex-shrink: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   z-index: 1;
 }
 
@@ -1352,7 +1352,7 @@ export default {
   background: transparent;
   border: 1px solid #333;
   border-radius: 6px;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -1360,9 +1360,9 @@ export default {
 }
 
 .btn-reset:hover {
-  background: #2a2a2a;
-  color: #fff;
-  border-color: #587297;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
 }
 
 .btn-close {
@@ -1370,7 +1370,7 @@ export default {
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
@@ -1378,7 +1378,7 @@ export default {
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -1395,7 +1395,7 @@ export default {
   padding-right: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid #333;
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .form-group {
@@ -1405,7 +1405,7 @@ export default {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -1415,10 +1415,10 @@ export default {
 .form-group select {
   width: 100%;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   font-family: inherit;
 }
@@ -1449,7 +1449,7 @@ export default {
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .form-row {
@@ -1475,7 +1475,7 @@ export default {
   height: 5px;
   -webkit-appearance: none;
   appearance: none;
-  background: #333;
+  background: var(--color-border);
   border: none;
   outline: none;
   cursor: pointer;
@@ -1505,7 +1505,7 @@ export default {
 }
 
 .slider-group input[type="range"]::-webkit-slider-thumb:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
   transform: scale(1.1);
 }
 
@@ -1530,7 +1530,7 @@ export default {
 }
 
 .slider-group input[type="range"]::-moz-range-thumb:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
   transform: scale(1.1);
 }
 
@@ -1539,17 +1539,17 @@ export default {
   min-width: 50px;
   text-align: center;
   padding: 0.5rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
 }
 
 .selector-button {
   width: 100%;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   display: flex;
   justify-content: space-between;
@@ -1560,7 +1560,7 @@ export default {
 
 .selector-button:hover {
   background: #252525;
-  border-color: #444;
+  border-color: var(--color-border-light);
 }
 
 .selector-value {
@@ -1569,7 +1569,7 @@ export default {
 }
 
 .selector-arrow {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.5rem;
   font-weight: 300;
 }
@@ -1639,21 +1639,21 @@ export default {
 }
 
 .btn-apply-style {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-apply-style:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-remove-style {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-remove-style:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .style-info-text {
@@ -1661,7 +1661,7 @@ export default {
   padding: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 /* Section Title (outside boxes) */
@@ -1670,7 +1670,7 @@ export default {
   font-size: 0.9rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: #999;
+  color: var(--color-text-tertiary);
   letter-spacing: 0.05em;
 }
 
@@ -1734,17 +1734,17 @@ export default {
 .seed-input {
   width: 100%;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   font-family: inherit;
 }
 
 .seed-input:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .seed-randomize {
@@ -1754,7 +1754,7 @@ export default {
 }
 
 .seed-randomize span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1766,7 +1766,7 @@ export default {
 }
 
 .toggle-control span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1816,7 +1816,7 @@ export default {
 }
 
 .aspect-ratio-text {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1861,7 +1861,7 @@ export default {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #587297;
+  background-color: var(--color-primary);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -1873,7 +1873,7 @@ export default {
   width: 100%;
   padding: 0.75rem 1.5rem;
   margin-top: 1rem;
-  background: #587297;
+  background: var(--color-primary);
   border: none;
   color: white;
   cursor: pointer;
@@ -1885,7 +1885,7 @@ export default {
 }
 
 .btn-swap-dimensions:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-swap-dimensions:active {
@@ -1922,11 +1922,11 @@ export default {
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #587297;
+  accent-color: var(--color-primary);
 }
 
 .checkbox-item span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1939,12 +1939,12 @@ export default {
 }
 
 .kudos-label {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
 }
 
 .kudos-error {
-  color: #ff6b6b;
+  color: var(--color-danger-hover);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -1953,7 +1953,7 @@ export default {
   background: transparent;
   border: 1px solid rgba(0, 122, 255, 0.3);
   border-radius: 6px;
-  color: #587297;
+  color: var(--color-primary);
   font-size: 1.25rem;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
@@ -1987,17 +1987,17 @@ export default {
 
 .btn-cancel {
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   border: 1px solid #333;
 }
 
 .btn-cancel:hover {
-  background: #2a2a2a;
-  color: #fff;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 
 .btn-submit {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -2011,7 +2011,7 @@ export default {
 }
 
 .btn-submit:hover:not(:disabled) {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-submit:disabled {
