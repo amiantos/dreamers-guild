@@ -630,7 +630,7 @@ export default {
 
 .sort-select:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--color-primary);
 }
 
 .sort-select option {
@@ -682,8 +682,8 @@ export default {
 
 .tab.active {
   color: white;
-  border-bottom-color: #4fc3f7;
-  background: rgba(79, 195, 247, 0.1);
+  border-bottom-color: var(--color-primary);
+  background: rgba(88, 114, 151, 0.1);
 }
 
 .search-container {
@@ -705,7 +705,7 @@ export default {
 
 .search-input:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--color-primary);
 }
 
 .btn-clear-search {
@@ -771,7 +771,7 @@ export default {
   width: 48px;
   height: 48px;
   border: 4px solid #333;
-  border-top-color: #4fc3f7;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -787,7 +787,7 @@ export default {
 
 .btn-retry {
   margin-top: 16px;
-  background: #4fc3f7;
+  background: var(--color-primary);
   border: none;
   border-radius: 4px;
   color: white;
