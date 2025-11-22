@@ -131,7 +131,63 @@ function setCachedData(cacheKey, data) {
     }
     localStorage.setItem(cacheKey, JSON.stringify(cacheEntry))
   } catch (error) {
-    console.error('Error writing cache:', error)
+    if (error.name === 'QuotaExceededError') {
+      // Storage quota exceeded - evict old cache entries
+      console.warn('LocalStorage quota exceeded, evicting old CivitAI cache entries...')
+      evictOldCacheEntries()
+
+      // Try again after eviction
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(cacheEntry))
+      } catch (retryError) {
+        // If it still fails, clear all cache and try once more
+        console.warn('Still exceeding quota, clearing all CivitAI cache...')
+        clearCivitaiCache()
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(cacheEntry))
+        } catch (finalError) {
+          console.error('Unable to cache data even after clearing:', finalError)
+        }
+      }
+    } else {
+      console.error('Error writing cache:', error)
+    }
+  }
+}
+
+/**
+ * Evict old cache entries (remove oldest 50%)
+ */
+function evictOldCacheEntries() {
+  try {
+    const keys = Object.keys(localStorage)
+    const cacheKeys = keys.filter(key => key.startsWith(CACHE_PREFIX))
+
+    // Get all cache entries with timestamps
+    const entries = cacheKeys.map(key => {
+      try {
+        const cached = JSON.parse(localStorage.getItem(key))
+        return {
+          key,
+          timestamp: cached.timestamp || 0
+        }
+      } catch {
+        return { key, timestamp: 0 }
+      }
+    })
+
+    // Sort by timestamp (oldest first)
+    entries.sort((a, b) => a.timestamp - b.timestamp)
+
+    // Remove oldest 50%
+    const toRemove = Math.ceil(entries.length / 2)
+    for (let i = 0; i < toRemove; i++) {
+      localStorage.removeItem(entries[i].key)
+    }
+
+    console.log(`Evicted ${toRemove} old cache entries`)
+  } catch (error) {
+    console.error('Error evicting cache entries:', error)
   }
 }
 

@@ -276,29 +276,9 @@ export default {
 
     isAlreadyAdded() {
       // Check if the currently selected version is in the currentLoras list
-      console.log('[LoraDetails] Debug isAlreadyAdded:')
-      console.log('  Viewing LoRA:', this.lora.name, '(ID:', this.lora.id, ')')
-      console.log('  Selected version:', this.selectedVersion?.name, '(Version ID:', this.selectedVersionId, typeof this.selectedVersionId, ')')
-      console.log('  All versions of this LoRA:', this.lora.modelVersions?.map(v => ({
-        name: v.name,
-        id: v.id,
-        type: typeof v.id
-      })))
-      console.log('  Current loras in request:', this.currentLoras.map(l => ({
-        loraName: l.name,
-        loraId: l.id,
-        versionId: l.versionId,
-        versionIdType: typeof l.versionId
-      })))
-
-      const found = this.currentLoras.some(lora => {
-        const match = lora.versionId === this.selectedVersionId
-        console.log(`  Comparing: ${lora.versionId} (${typeof lora.versionId}) === ${this.selectedVersionId} (${typeof this.selectedVersionId}) = ${match}`)
-        return match
-      })
-
-      console.log('  Result:', found)
-      return found
+      return this.currentLoras.some(lora =>
+        lora.versionId === this.selectedVersionId
+      )
     }
   },
   methods: {
