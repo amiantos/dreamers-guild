@@ -74,14 +74,20 @@ function buildMeilisearchQuery({ query = '', page = 1, limit = 100, baseModelFil
     filterArray.push(baseModelFilterParts);
   }
 
-  // Add common filters as a string
-  filterArray.push('(poi != true) AND (minor != true) AND (availability != Private) AND (NOT (nsfwLevel IN [4, 8, 16, 32] AND version.baseModel IN [\'SD 3\', \'SD 3.5\', \'SD 3.5 Medium\', \'SD 3.5 Large\', \'SD 3.5 Large Turbo\', \'SDXL Turbo\', \'SVD\', \'SVD XT\', \'Stable Cascade\'])) AND (' + nsfwLevels + ')');
+  // Add common filters as a string, including LORA type filter
+  filterArray.push('type=LORA AND (poi != true) AND (minor != true) AND (availability != Private) AND (NOT (nsfwLevel IN [4, 8, 16, 32] AND version.baseModel IN [\'SD 3\', \'SD 3.5\', \'SD 3.5 Medium\', \'SD 3.5 Large\', \'SD 3.5 Large Turbo\', \'SDXL Turbo\', \'SVD\', \'SVD XT\', \'Stable Cascade\'])) AND (' + nsfwLevels + ')');
 
   const filter = filterArray;
 
   // Map sort options to Meilisearch format
-  // Note: Meilisearch handles sorting differently, we'll need to investigate available sort options
-  // For now, we'll rely on the default relevance sorting
+  // Meilisearch uses 'sort' parameter with field:direction format
+  const sortMapping = {
+    'Highest Rated': ['metrics.thumbsUpCount:desc'],
+    'Most Downloaded': ['metrics.downloadCount:desc'],
+    'Newest': ['createdAt:desc']
+  };
+
+  const sortArray = sortMapping[sort] || ['metrics.thumbsUpCount:desc'];
 
   return {
     queries: [
@@ -94,7 +100,8 @@ function buildMeilisearchQuery({ query = '', page = 1, limit = 100, baseModelFil
         highlightPostTag: '__/ais-highlight__',
         limit: limit,
         offset: offset,
-        filter: filter
+        filter: filter,
+        sort: sortArray
       }
     ]
   };
@@ -133,24 +140,116 @@ function cacheModelVersions(modelData) {
 }
 
 /**
+ * Transform image URL from Meilisearch format to full CivitAI URL
+ */
+function transformImageUrl(image) {
+  if (!image || !image.url) return image;
+
+  // If URL is just a UUID, convert to full CivitAI image URL
+  if (!image.url.startsWith('http')) {
+    return {
+      ...image,
+      url: `https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/${image.url}/width=450/${image.name || 'image.jpeg'}`
+    };
+  }
+
+  return image;
+}
+
+/**
+ * Fetch additional version details from CivitAI API if needed
+ * The Meilisearch API doesn't include file info or full descriptions
+ */
+async function enrichVersionData(version) {
+  // If we already have files, no need to fetch
+  if (version.files && version.files.length > 0) {
+    return version;
+  }
+
+  try {
+    // Fetch full version data from CivitAI API
+    const response = await fetch(`${API_BASE_URL}/model-versions/${version.id}`);
+    if (!response.ok) {
+      console.warn(`[CivitAI] Failed to fetch version details for ${version.id}`);
+      return version;
+    }
+
+    const versionData = await response.json();
+
+    return {
+      ...version,
+      files: versionData.files || [],
+      description: versionData.description || version.description,
+      downloadUrl: versionData.downloadUrl || version.downloadUrl
+    };
+  } catch (error) {
+    console.warn(`[CivitAI] Error enriching version ${version.id}:`, error);
+    return version;
+  }
+}
+
+/**
  * Transform Meilisearch hit to CivitAI model format
  */
 function transformMeilisearchHit(hit) {
   // Meilisearch returns a different structure, we need to transform it
   // to match the expected CivitAI API format
+
+  // Transform images to have full URLs
+  const transformedImages = (hit.images || []).map(transformImageUrl);
+
+  // Build modelVersions array from Meilisearch structure
+  const modelVersions = [];
+
+  // Meilisearch has a 'version' field with the current version
+  // and a 'versions' array with all versions
+  if (hit.version) {
+    // Add images to the version if they're at the top level
+    const versionWithImages = {
+      ...hit.version,
+      images: transformedImages.length > 0 ? transformedImages : (hit.version.images || []).map(transformImageUrl),
+      // Ensure description is included
+      description: hit.version.description || ''
+    };
+    modelVersions.push(versionWithImages);
+  }
+
+  // Add other versions if available
+  if (hit.versions && Array.isArray(hit.versions)) {
+    hit.versions.forEach(v => {
+      // Don't duplicate the main version
+      if (!hit.version || v.id !== hit.version.id) {
+        // For additional versions, we may need to fetch their images separately
+        // since Meilisearch only includes images for the primary version
+        modelVersions.push({
+          ...v,
+          images: (v.images || []).map(transformImageUrl),
+          description: v.description || ''
+        });
+      }
+    });
+  }
+
   return {
     id: hit.id,
     name: hit.name,
-    description: hit.description,
+    // Meilisearch doesn't have a top-level description field
+    // It's typically in the version descriptions
+    description: hit.description || '',
     type: hit.type,
     nsfw: hit.nsfw,
     nsfwLevel: hit.nsfwLevel,
     tags: hit.tags,
     creator: hit.user,
-    stats: hit.stats,
-    modelVersions: hit.modelVersions || (hit.version ? [hit.version] : []),
-    // Preserve any other fields that might be useful
-    ...hit
+    stats: hit.metrics || hit.stats,
+    modelVersions: modelVersions,
+    // Preserve other useful fields
+    mode: hit.mode,
+    poi: hit.poi,
+    minor: hit.minor,
+    allowNoCredit: hit.permissions?.allowNoCredit,
+    allowCommercialUse: hit.permissions?.allowCommercialUse,
+    allowDerivatives: hit.permissions?.allowDerivatives
   };
 }
 

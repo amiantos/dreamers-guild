@@ -347,9 +347,18 @@ export default {
       updateFilters(modelFilters, nsfw)
     }
 
-    const showDetails = (lora) => {
-      selectedLoraForDetails.value = lora
-      showDetailsOverlay.value = true
+    const showDetails = async (lora) => {
+      // Fetch full model data to get complete metadata, file info, and all versions
+      try {
+        const fullModelData = await getLoraById(lora.id)
+        selectedLoraForDetails.value = fullModelData
+        showDetailsOverlay.value = true
+      } catch (error) {
+        console.error('Error fetching full model data:', error)
+        // Fallback to using the partial data from search
+        selectedLoraForDetails.value = lora
+        showDetailsOverlay.value = true
+      }
     }
 
     const onAddLora = async (lora) => {
