@@ -90,31 +90,6 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   /**
-   * Save last used settings to both localStorage and server
-   * @param {Object} settings - The settings to save
-   * @returns {Promise<void>}
-   */
-  const saveLastUsedSettings = async (settings) => {
-    try {
-      const settingsToSave = { ...settings }
-      // Don't save loras in last used settings as they're style-specific
-      delete settingsToSave.loras
-
-      lastUsedSettings.value = { ...lastUsedSettings.value, ...settingsToSave }
-
-      // Save to localStorage immediately for instant access
-      localStorage.setItem('lastUsedSettings', JSON.stringify(settingsToSave))
-
-      // Also save to server (async, don't wait)
-      settingsApi.update({ lastUsedSettings: settingsToSave }).catch(error => {
-        console.error('Error saving settings to server:', error)
-      })
-    } catch (error) {
-      console.error('Error saving last used settings:', error)
-    }
-  }
-
-  /**
    * Load worker preferences from localStorage
    * @returns {Object} Worker preferences
    */
@@ -214,7 +189,6 @@ export const useSettingsStore = defineStore('settings', () => {
     loadingWorkerPrefs,
     // Actions
     loadLastUsedSettings,
-    saveLastUsedSettings,
     loadWorkerPreferences,
     saveWorkerPreferences,
     updateSetting,

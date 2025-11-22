@@ -80,17 +80,17 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--color-modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-index-modal);
   padding: 2rem;
 }
 
 .modal-content {
   position: relative;
-  background: #1a1a1a;
+  background: var(--color-modal-content);
   border-radius: 12px;
   width: 100%;
   max-height: 90vh;
@@ -127,15 +127,15 @@ export default {
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
   transition: color 0.2s;
-  z-index: 10;
+  z-index: var(--z-index-modal-close);
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 </style>

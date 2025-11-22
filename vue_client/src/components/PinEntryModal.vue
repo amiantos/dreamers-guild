@@ -78,7 +78,7 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: var(--overlay-dark);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -86,7 +86,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background-color: #1a1a1a;
+  background-color: var(--color-surface);
   border-radius: 8px;
   max-width: 500px;
   width: 90%;
@@ -109,7 +109,7 @@ onMounted(() => {
 .modal-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .btn-close {
@@ -117,7 +117,7 @@ onMounted(() => {
   border: none;
   font-size: 32px;
   cursor: pointer;
-  color: #999;
+  color: var(--color-text-tertiary);
   padding: 0;
   width: 32px;
   height: 32px;
@@ -128,7 +128,7 @@ onMounted(() => {
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -136,7 +136,7 @@ onMounted(() => {
 }
 
 .help-text {
-  color: #999;
+  color: var(--color-text-tertiary);
   line-height: 1.5;
   margin-bottom: 32px;
   text-align: center;
@@ -151,7 +151,7 @@ onMounted(() => {
 }
 
 .error-message {
-  color: #dc3545;
+  color: var(--color-danger-bootstrap);
   margin: 0;
   font-size: 14px;
   text-align: center;

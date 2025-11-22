@@ -1,0 +1,201 @@
+/* Color System - Centralized color definitions with theme support */
+
+/* Base color definitions - these are applied globally and can be overridden per theme */
+:root {
+  /* Primary/Accent Colors */
+  --color-primary: #587297;
+  --color-primary-hover: #6989b5;
+
+  /* Background Colors */
+  --color-bg-base: #000;
+  --color-bg-elevated: #0f0f0f;
+  --color-bg-secondary: #1a1a1a;
+  --color-bg-tertiary: #171717;
+  --color-bg-quaternary: #0a0a0a;
+
+  /* Surface Colors (for cards, panels, modals) */
+  --color-surface: #1a1a1a;
+  --color-surface-hover: #2a2a2a;
+
+  /* Border Colors */
+  --color-border: #333;
+  --color-border-light: #444;
+  --color-border-lighter: #555;
+
+  /* Text Colors */
+  --color-text-primary: #fff;
+  --color-text-secondary: #aaa;
+  --color-text-tertiary: #999;
+  --color-text-quaternary: #777;
+  --color-text-disabled: #666;
+
+  /* Status Colors - Success */
+  --color-success: #34C759;
+  --color-success-hover: #248A3D;
+  --color-success-light: #30D158;
+  --color-success-light-hover: #1F8B3C;
+  --color-success-bg: rgba(34, 197, 94, 0.2);
+  --color-success-tailwind: #4ade80;
+
+  /* Status Colors - Info/Processing */
+  --color-info: #007bff;
+  --color-info-hover: #0056b3;
+  --color-info-light: #5856D6;
+  --color-info-light-hover: #4745AC;
+  --color-info-bg: rgba(59, 130, 246, 0.2);
+  --color-info-tailwind: #60a5fa;
+
+  /* Status Colors - Warning */
+  --color-warning: #FFD60A;
+  --color-warning-hover: #ffcc00;
+  --color-warning-gold: #FFD700;
+
+  /* Status Colors - Error/Danger */
+  --color-danger: #ff4a4a;
+  --color-danger-hover: #ff6b6b;
+  --color-danger-ios: #ff3b30;
+  --color-danger-bootstrap: #dc3545;
+  --color-danger-bg: rgba(239, 68, 68, 0.2);
+  --color-danger-tailwind: #f87171;
+
+  /* Status Colors - Purple/Alternative */
+  --color-purple: #AF52DE;
+  --color-purple-hover: #8E44AD;
+
+  /* Pending/Neutral Status */
+  --color-pending-bg: rgba(128, 128, 128, 0.2);
+
+  /* Gray Scale */
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0a0a0a;
+
+  /* Overlay Colors */
+  --overlay-light: rgba(0, 0, 0, 0.2);
+  --overlay-medium-light: rgba(0, 0, 0, 0.3);
+  --overlay-medium: rgba(0, 0, 0, 0.5);
+  --overlay-medium-dark: rgba(0, 0, 0, 0.6);
+  --overlay-dark: rgba(0, 0, 0, 0.7);
+  --overlay-darker: rgba(0, 0, 0, 0.8);
+  --overlay-darkest: rgba(0, 0, 0, 0.9);
+  --overlay-modal: rgba(0, 0, 0, 0.95);
+
+  /* Semantic Colors - These use the colors above but provide semantic naming */
+  --color-btn-primary-bg: var(--color-primary);
+  --color-btn-primary-hover: var(--color-primary-hover);
+  --color-btn-primary-text: var(--color-text-primary);
+
+  --color-btn-success-bg: var(--color-success);
+  --color-btn-success-hover: var(--color-success-hover);
+  --color-btn-success-text: var(--color-text-primary);
+
+  --color-btn-danger-bg: transparent;
+  --color-btn-danger-hover: #3a1a1a;
+  --color-btn-danger-text: var(--color-danger);
+  --color-btn-danger-border: #3a1a1a;
+  --color-btn-danger-border-hover: var(--color-danger);
+
+  --color-modal-overlay: var(--overlay-darkest);
+  --color-modal-content: var(--color-surface);
+
+  --color-card-bg: var(--color-surface);
+  --color-card-hover: var(--color-surface-hover);
+
+  /* Z-index Scale */
+  --z-index-dropdown: 40;
+  --z-index-sticky: 50;
+  --z-index-panel: 55;
+  --z-index-panel-tab: 60;
+  --z-index-modal: 1000;
+  --z-index-modal-close: 10;
+}
+
+/* Dark Theme (Default) */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* All colors are already defined in :root for dark theme */
+  /* This selector exists for explicit dark theme overrides if needed */
+}
+
+/* Light Theme (Future Implementation) */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Primary/Accent Colors - slightly adjusted for light mode */
+  --color-primary: #587297;
+  --color-primary-hover: #4a6280;
+
+  /* Background Colors */
+  --color-bg-base: #ffffff;
+  --color-bg-elevated: #f5f5f5;
+  --color-bg-secondary: #fafafa;
+  --color-bg-tertiary: #f0f0f0;
+  --color-bg-quaternary: #f8f8f8;
+
+  /* Surface Colors */
+  --color-surface: #ffffff;
+  --color-surface-hover: #f5f5f5;
+
+  /* Border Colors */
+  --color-border: #e5e5e5;
+  --color-border-light: #d4d4d4;
+  --color-border-lighter: #c4c4c4;
+
+  /* Text Colors */
+  --color-text-primary: #000;
+  --color-text-secondary: #525252;
+  --color-text-tertiary: #737373;
+  --color-text-quaternary: #a3a3a3;
+  --color-text-disabled: #d4d4d4;
+
+  /* Status colors remain mostly the same but with adjusted backgrounds */
+  --color-success-bg: rgba(34, 197, 94, 0.1);
+  --color-info-bg: rgba(59, 130, 246, 0.1);
+  --color-danger-bg: rgba(239, 68, 68, 0.1);
+  --color-pending-bg: rgba(128, 128, 128, 0.1);
+
+  /* Overlay Colors - lighter for light theme */
+  --overlay-light: rgba(0, 0, 0, 0.05);
+  --overlay-medium-light: rgba(0, 0, 0, 0.1);
+  --overlay-medium: rgba(0, 0, 0, 0.2);
+  --overlay-medium-dark: rgba(0, 0, 0, 0.3);
+  --overlay-dark: rgba(0, 0, 0, 0.4);
+  --overlay-darker: rgba(0, 0, 0, 0.5);
+  --overlay-darkest: rgba(0, 0, 0, 0.6);
+  --overlay-modal: rgba(0, 0, 0, 0.7);
+
+  /* Modal adjustments */
+  --color-modal-overlay: rgba(0, 0, 0, 0.5);
+  --color-modal-content: var(--color-surface);
+
+  /* Button danger adjustments for light mode */
+  --color-btn-danger-hover: #ffe5e5;
+  --color-btn-danger-border: #ffd4d4;
+}
+
+/* Apply dark theme by default to html element */
+html {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* Set default theme attribute on html */
+html:not([data-theme]) {
+  /* Default to dark theme if no theme attribute is set */
+}
+
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
+}

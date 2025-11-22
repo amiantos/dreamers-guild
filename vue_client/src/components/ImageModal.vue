@@ -4,7 +4,7 @@
       <button class="btn-close" @click="$emit('close')">×</button>
 
       <button
-        v-if="showNavigation && !isProtected"
+        v-if="showNavigation && !isProtected && canNavigatePrev"
         class="btn-nav btn-prev"
         @click="$emit('navigate', -1)"
         title="Previous image (←)"
@@ -13,7 +13,7 @@
       </button>
 
       <button
-        v-if="showNavigation && !isProtected"
+        v-if="showNavigation && !isProtected && canNavigateNext"
         class="btn-nav btn-next"
         @click="$emit('navigate', 1)"
         title="Next image (→)"
@@ -144,6 +144,14 @@ export default {
     currentIndex: {
       type: Number,
       default: -1
+    },
+    canNavigatePrev: {
+      type: Boolean,
+      default: true
+    },
+    canNavigateNext: {
+      type: Boolean,
+      default: true
     }
   },
   emits: ['close', 'delete', 'navigate', 'load-settings', 'update'],
@@ -273,11 +281,11 @@ export default {
       if (e.key === 'Escape') {
         emit('close')
       } else if (e.key === 'ArrowLeft') {
-        if (showNavigation.value) {
+        if (showNavigation.value && props.canNavigatePrev) {
           emit('navigate', -1)
         }
       } else if (e.key === 'ArrowRight') {
-        if (showNavigation.value) {
+        if (showNavigation.value && props.canNavigateNext) {
           emit('navigate', 1)
         }
       }
@@ -337,7 +345,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
+  background: var(--overlay-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -350,7 +358,7 @@ export default {
   max-width: 1200px;
   width: 100%;
   max-height: 90vh;
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 12px;
   overflow: hidden;
   display: flex;
@@ -364,7 +372,7 @@ export default {
   width: 40px;
   height: 40px;
   border: none;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-darker);
   color: white;
   font-size: 2rem;
   line-height: 1;
@@ -375,7 +383,7 @@ export default {
 }
 
 .btn-close:hover {
-  background: rgba(0, 0, 0, 0.95);
+  background: var(--overlay-modal);
 }
 
 .btn-nav {
@@ -385,7 +393,7 @@ export default {
   width: 50px;
   height: 50px;
   border: none;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-darker);
   color: white;
   font-size: 3rem;
   line-height: 1;
@@ -399,7 +407,7 @@ export default {
 }
 
 .btn-nav:hover {
-  background: rgba(0, 0, 0, 0.95);
+  background: var(--overlay-modal);
   transform: translateY(-50%) scale(1.1);
 }
 
@@ -415,7 +423,7 @@ export default {
   flex: 1;
   display: flex;
   justify-content: center;
-  background: #000;
+  background: var(--color-bg-base);
   overflow: hidden;
   min-height: 0;
   position: relative;
@@ -439,7 +447,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-darker);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -448,14 +456,14 @@ export default {
 
 .protection-content {
   text-align: center;
-  color: #fff;
+  color: var(--color-text-primary);
   padding: 2rem;
   max-width: 400px;
 }
 
 .protection-content i.fa-lock {
   font-size: 4rem;
-  color: #007bff;
+  color: var(--color-info);
   margin-bottom: 1.5rem;
 }
 
@@ -467,13 +475,13 @@ export default {
 
 .protection-content p {
   margin: 0 0 2rem 0;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.1rem;
   line-height: 1.5;
 }
 
 .btn-unlock {
-  background: #007bff;
+  background: var(--color-info);
   color: white;
   border: none;
   padding: 12px 32px;
@@ -488,7 +496,7 @@ export default {
 }
 
 .btn-unlock:hover {
-  background: #0056b3;
+  background: var(--color-info-hover);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
@@ -499,7 +507,7 @@ export default {
 
 .image-details {
   padding: 1.5rem;
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-top: 1px solid #333;
 }
 
@@ -513,13 +521,13 @@ export default {
 
 .detail-row strong {
   display: block;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.85rem;
   margin-bottom: 0.25rem;
 }
 
 .detail-row p {
-  color: #fff;
+  color: var(--color-text-primary);
   margin: 0;
   word-break: break-word;
 }
@@ -552,93 +560,93 @@ export default {
 }
 
 .btn-load-settings {
-  background: #34C759;
+  background: var(--color-success);
   color: white;
 }
 
 .btn-load-settings:hover {
-  background: #248A3D;
+  background: var(--color-success-hover);
 }
 
 .btn-load-settings-seed {
-  background: #30D158;
+  background: var(--color-success-light);
   color: white;
 }
 
 .btn-load-settings-seed:hover {
-  background: #1F8B3C;
+  background: var(--color-success-light-hover);
 }
 
 .btn-download {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-download:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-delete {
   background: transparent;
-  color: #ff4a4a;
+  color: var(--color-danger);
   border: 1px solid #3a1a1a;
 }
 
 .btn-delete:hover {
   background: #3a1a1a;
-  border-color: #ff4a4a;
+  border-color: var(--color-danger);
 }
 
 .btn-favorite {
   background: transparent;
-  color: #FFD60A;
+  color: var(--color-warning);
   border: 1px solid #3a3a1a;
 }
 
 .btn-favorite:hover {
   background: #3a3a1a;
-  border-color: #FFD60A;
+  border-color: var(--color-warning);
 }
 
 .btn-favorite.active {
-  background: #FFD60A;
-  color: #000;
-  border-color: #FFD60A;
+  background: var(--color-warning);
+  color: var(--color-bg-base);
+  border-color: var(--color-warning);
 }
 
 .btn-hidden {
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   border: 1px solid #2a2a2a;
 }
 
 .btn-hidden:hover {
-  background: #2a2a2a;
-  border-color: #999;
+  background: var(--color-surface-hover);
+  border-color: var(--color-text-tertiary);
 }
 
 .btn-hidden.active {
-  background: #666;
-  color: #fff;
-  border-color: #666;
+  background: var(--color-text-disabled);
+  color: var(--color-text-primary);
+  border-color: var(--color-text-disabled);
 }
 
 .btn-view-request {
-  background: #5856D6;
+  background: var(--color-info-light);
   color: white;
 }
 
 .btn-view-request:hover {
-  background: #4745AC;
+  background: var(--color-info-light-hover);
 }
 
 .btn-view-response {
-  background: #AF52DE;
+  background: var(--color-purple);
   color: white;
 }
 
 .btn-view-response:hover {
-  background: #8E44AD;
+  background: var(--color-purple-hover);
 }
 
 .request-details-overlay {
@@ -647,7 +655,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -665,7 +673,7 @@ export default {
 
 .request-details-header h3 {
   margin: 0;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1.2rem;
 }
 
@@ -676,7 +684,7 @@ export default {
 }
 
 .btn-copy {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 0.5rem 1rem;
@@ -691,17 +699,17 @@ export default {
 }
 
 .btn-copy:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-copy i.fa-check {
-  color: #34C759;
+  color: var(--color-success);
 }
 
 .btn-close-details {
   background: none;
   border: none;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 2rem;
   cursor: pointer;
   padding: 0;
@@ -710,7 +718,7 @@ export default {
 }
 
 .btn-close-details:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .request-details-body {

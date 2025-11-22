@@ -206,7 +206,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -233,7 +233,7 @@ export default {
 .btn-back {
   background: transparent;
   border: none;
-  color: #587297;
+  color: var(--color-primary);
   font-size: 1rem;
   cursor: pointer;
   display: flex;
@@ -260,7 +260,7 @@ export default {
 .btn-refresh {
   background: transparent;
   border: 1px solid #333;
-  color: #587297;
+  color: var(--color-primary);
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0.5rem 0.75rem;
@@ -270,8 +270,8 @@ export default {
 }
 
 .btn-refresh:hover:not(:disabled) {
-  background: #2a2a2a;
-  border-color: #587297;
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
 }
 
 .btn-refresh:disabled {
@@ -287,16 +287,16 @@ export default {
 .search-input {
   width: 100%;
   padding: 0.75rem;
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   border: 1px solid #333;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .model-list {
@@ -309,7 +309,7 @@ export default {
 .no-results {
   padding: 2rem;
   text-align: center;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .model-section {
@@ -321,13 +321,13 @@ export default {
   font-size: 0.875rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: #999;
+  color: var(--color-text-tertiary);
   letter-spacing: 0.05em;
 }
 
 .model-item {
   padding: 1rem;
-  background: #0f0f0f;
+  background: var(--color-bg-elevated);
   border: 1px solid #333;
   border-radius: 6px;
   margin-bottom: 0.5rem;
@@ -337,12 +337,12 @@ export default {
 
 .model-item:hover {
   background: #252525;
-  border-color: #444;
+  border-color: var(--color-border-light);
 }
 
 .model-item.selected {
   background: rgba(0, 122, 255, 0.1);
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .model-header {
@@ -354,13 +354,13 @@ export default {
 
 .model-name {
   font-weight: 500;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .btn-favorite {
   background: transparent;
   border: none;
-  color: #666;
+  color: var(--color-text-disabled);
   font-size: 1.25rem;
   cursor: pointer;
   padding: 0.25rem;
@@ -369,18 +369,18 @@ export default {
 }
 
 .btn-favorite:hover {
-  color: #FFD700;
+  color: var(--color-warning-gold);
 }
 
 .btn-favorite.active {
-  color: #FFD700;
+  color: var(--color-warning-gold);
 }
 
 .model-info {
   display: flex;
   gap: 1rem;
   font-size: 0.875rem;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .model-info span {

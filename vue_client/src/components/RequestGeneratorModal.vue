@@ -1,7 +1,7 @@
 <template>
   <div class="modal-overlay">
     <div class="modal-content">
-      <div class="modal-wrapper" v-show="!showModelPicker && !showStylePicker">
+      <div class="modal-wrapper" v-show="!showModelPicker && !showStylePicker && !showLoraPicker">
         <div class="modal-header">
           <h2>New Image Request</h2>
           <div class="header-actions">
@@ -285,6 +285,106 @@
                 </div>
               </div>
 
+              <!-- Loras Section -->
+              <h4 class="section-title">LoRAs</h4>
+              <div class="loras-section">
+                <!-- LoRAs -->
+                <div class="form-group">
+                  <button
+                    type="button"
+                    class="btn btn-browse-loras"
+                    @click="showLoraPicker = true"
+                  >
+                    Browse LoRAs
+                  </button>
+                  <div v-if="form.loras.length > 0" class="loras-list">
+                    <div
+                      v-for="(lora, idx) in form.loras"
+                      :key="`lora-${idx}`"
+                      class="lora-card"
+                    >
+                      <!-- Lora Header -->
+                      <div class="lora-header">
+                        <div class="lora-title-section">
+                          <span class="lora-title">{{ lora.name }}</span>
+                          <span v-if="currentLoraVersion(lora)" class="lora-version">{{ currentLoraVersion(lora).name }}</span>
+                        </div>
+                        <div class="lora-actions">
+                          <button
+                            type="button"
+                            class="btn-icon-small"
+                            @click="showLoraInfo(lora)"
+                            title="Show LoRA details"
+                            :disabled="lora.isManualEntry"
+                          >
+                            <i class="fas fa-info-circle"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="btn-icon-small btn-danger"
+                            @click="removeLora(idx)"
+                            title="Remove LoRA"
+                          >
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Model Strength -->
+                      <div class="lora-control-group">
+                        <label class="lora-control-label">Model Strength</label>
+                        <div class="slider-group">
+                          <input
+                            type="range"
+                            v-model.number="lora.strength"
+                            :style="{ background: getSliderBackground(lora.strength, -5, 5) }"
+                            @input="onLoraStrengthChange(idx)"
+                            min="-5"
+                            max="5"
+                            step="0.05"
+                          />
+                          <span class="range-value">{{ lora.strength }}</span>
+                        </div>
+                      </div>
+
+                      <!-- CLIP Strength -->
+                      <div class="lora-control-group">
+                        <label class="lora-control-label">CLIP Strength</label>
+                        <div class="slider-group">
+                          <input
+                            type="range"
+                            v-model.number="lora.clip"
+                            :style="{ background: getSliderBackground(lora.clip, -5, 5) }"
+                            @input="onLoraClipChange(idx)"
+                            min="-5"
+                            max="5"
+                            step="0.05"
+                          />
+                          <span class="range-value">{{ lora.clip }}</span>
+                        </div>
+                      </div>
+
+                      <!-- Trigger Words -->
+                      <div v-if="loraTrainedWords(lora).length > 0" class="lora-trigger-words">
+                        <span class="trigger-label">Trigger words:</span>
+                        <div class="trigger-chips">
+                          <button
+                            type="button"
+                            v-for="word in loraTrainedWords(lora)"
+                            :key="word"
+                            class="trigger-chip"
+                            @click="addTriggerWord(word)"
+                            :title="`Add '${word}' to prompt`"
+                          >
+                            {{ word }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Post-Processing Section -->
               <h4 class="section-title">Post-Processing</h4>
               <div class="post-processing-section">
@@ -388,6 +488,23 @@
         @select="onStyleSelect"
         @close="showStylePicker = false"
       />
+
+      <!-- LoRA Picker Slide-in -->
+      <LoraPicker
+        v-if="showLoraPicker"
+        :currentLoras="form.loras"
+        @add="addLora"
+        @close="showLoraPicker = false"
+      />
+
+      <!-- LoRA Details Overlay -->
+      <LoraDetails
+        v-if="showLoraDetails"
+        :lora="selectedLoraForDetails"
+        :currentLoras="form.loras"
+        @close="showLoraDetails = false"
+        @removeLora="removeLoraFromDetails"
+      />
     </div>
   </div>
 </template>
@@ -404,12 +521,19 @@ import { useSettingsStore } from '../stores/settingsStore.js'
 import axios from 'axios'
 import ModelPicker from './ModelPicker.vue'
 import StylePicker from './StylePicker.vue'
+import LoraPicker from './LoraPicker.vue'
+import LoraDetails from './LoraDetails.vue'
+import { getLoraById, getLoraByVersionId } from '../api/civitai'
+import { SavedLora } from '../models/Lora'
+import { useLoraRecent } from '../composables/useLoraCache'
 
 export default {
   name: 'RequestGeneratorModal',
   components: {
     ModelPicker,
-    StylePicker
+    StylePicker,
+    LoraPicker,
+    LoraDetails
   },
   props: {
     initialSettings: {
@@ -427,6 +551,9 @@ export default {
     const submitting = ref(false)
     const showModelPicker = ref(false)
     const showStylePicker = ref(false)
+    const showLoraPicker = ref(false)
+    const showLoraDetails = ref(false)
+    const selectedLoraForDetails = ref(null)
     const aspectLocked = ref(false)
     const aspectRatio = ref(1)
     const selectedStyleName = ref('')
@@ -460,11 +587,13 @@ export default {
     // Use composables
     const { models, fetchModels, getMostPopularModel } = useModelCache()
     const { kudosEstimate, estimating, estimateError, estimateKudos: estimateKudosComposable } = useKudosEstimation()
+    const { addToRecent } = useLoraRecent()
 
     // Load worker preferences from settings store
     settingsStore.loadWorkerPreferences()
 
     // Load last used settings (from localStorage for speed, fallback to server)
+    // Now loads the actual Horde request and uses loadSettings() for enrichment
     const loadLastUsedSettings = async () => {
       try {
         // Try localStorage first for instant loading
@@ -473,7 +602,9 @@ export default {
           try {
             const lastSettings = JSON.parse(cachedSettings)
             if (lastSettings && typeof lastSettings === 'object') {
-              Object.assign(form, lastSettings)
+              // Use the standard loadSettings function (same as historical requests)
+              // This will enrich minimal LoRA data from cache
+              await loadSettings(lastSettings, false)
               return // Success, no need to fetch from server
             }
           } catch (parseError) {
@@ -488,7 +619,8 @@ export default {
           try {
             const lastSettings = JSON.parse(response.data.last_used_settings)
             if (lastSettings && typeof lastSettings === 'object') {
-              Object.assign(form, lastSettings)
+              // Use the standard loadSettings function
+              await loadSettings(lastSettings, false)
               // Cache the settings locally for next time
               localStorage.setItem('lastUsedSettings', JSON.stringify(lastSettings))
             }
@@ -502,12 +634,17 @@ export default {
     }
 
     // Save last used settings (to both localStorage and server)
-    const saveLastUsedSettings = async () => {
+    // Now saves the actual Horde request params, not form state
+    // This way loading uses the same enrichment logic as historical requests
+    const saveLastUsedSettings = async (requestParams) => {
       try {
-        const settingsToSave = { ...form }
-        // Don't save loras in last used settings as they're style-specific
-        delete settingsToSave.loras
-        // Don't save worker preferences (they're now stored separately in settings)
+        // Save the actual request that was sent to Horde
+        // This includes minimal LoRA data that will be enriched on load
+        const settingsToSave = {
+          prompt: requestParams.prompt,
+          models: requestParams.models,
+          params: requestParams.params
+        }
 
         // Save to localStorage immediately for instant access
         localStorage.setItem('lastUsedSettings', JSON.stringify(settingsToSave))
@@ -531,8 +668,176 @@ export default {
       selectedStyleData.value = style
     }
 
+    // LoRA handlers
+    const addLora = (lora) => {
+      form.loras.push(lora)
+      estimateKudos()
+    }
+
+    const removeLora = (index) => {
+      form.loras.splice(index, 1)
+      estimateKudos()
+    }
+
+    const onLoraStrengthChange = (index) => {
+      // Round to nearest 0.05
+      const rounded = Math.round(form.loras[index].strength * 20) / 20
+      form.loras[index].strength = parseFloat(rounded.toFixed(2))
+      estimateKudosDebounced()
+    }
+
+    const onLoraClipChange = (index) => {
+      // Round to nearest 0.05
+      const rounded = Math.round(form.loras[index].clip * 20) / 20
+      form.loras[index].clip = parseFloat(rounded.toFixed(2))
+      estimateKudosDebounced()
+    }
+
+    const currentLoraVersion = (lora) => {
+      if (!lora.modelVersions || lora.modelVersions.length === 0) {
+        return null
+      }
+      return lora.modelVersions.find(v => v.id === lora.versionId) || lora.modelVersions[0]
+    }
+
+    const loraTrainedWords = (lora) => {
+      const version = currentLoraVersion(lora)
+      if (!version || !version.trainedWords) {
+        return []
+      }
+      return version.trainedWords
+    }
+
+    const addTriggerWord = (word) => {
+      const textarea = document.getElementById('prompt')
+      if (!textarea) {
+        // Fallback: just append to the end
+        form.prompt = form.prompt ? `${form.prompt} ${word}` : word
+        return
+      }
+
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const currentPrompt = form.prompt || ''
+
+      // Insert the word at cursor position with appropriate spacing
+      const beforeCursor = currentPrompt.substring(0, start)
+      const afterCursor = currentPrompt.substring(end)
+
+      // Add space before word if needed
+      const needsSpaceBefore = beforeCursor.length > 0 && !beforeCursor.endsWith(' ')
+      const needsSpaceAfter = afterCursor.length > 0 && !afterCursor.startsWith(' ')
+
+      const wordToInsert = (needsSpaceBefore ? ' ' : '') + word + (needsSpaceAfter ? ' ' : '')
+      form.prompt = beforeCursor + wordToInsert + afterCursor
+
+      // Move cursor to after the inserted word
+      nextTick(() => {
+        const newCursorPos = start + wordToInsert.length
+        textarea.setSelectionRange(newCursorPos, newCursorPos)
+        textarea.focus()
+      })
+    }
+
+    const showLoraInfo = (lora) => {
+      selectedLoraForDetails.value = lora
+      showLoraDetails.value = true
+    }
+
+    const removeLoraFromDetails = (versionId) => {
+      // Find and remove the lora with the specific version ID
+      const index = form.loras.findIndex(lora =>
+        lora.versionId === versionId
+      )
+      if (index !== -1) {
+        removeLora(index)
+      }
+    }
+
+    // Helper to enrich minimal LoRA data with full CivitAI details
+    const enrichLoras = async (loras) => {
+      if (!loras || !Array.isArray(loras) || loras.length === 0) {
+        return []
+      }
+
+      const enrichedLoras = []
+      const minimalLoras = []
+      const minimalIndices = []
+
+      // First pass: separate minimal from full LoRAs
+      for (let i = 0; i < loras.length; i++) {
+        const lora = loras[i]
+        // Check if this is a minimal LoRA (just name and is_version from AI Horde)
+        const isMinimal = lora.name && !lora.versionId && !lora.modelVersions
+
+        if (isMinimal) {
+          minimalLoras.push(lora)
+          minimalIndices.push(i)
+        }
+      }
+
+      // If we have minimal LoRAs, enrich them from server
+      // Server automatically checks: LoraCache → CivitaiSearchCache → CivitAI API
+      let enrichmentMap = {}
+      if (minimalLoras.length > 0) {
+        for (const lora of minimalLoras) {
+          const versionId = lora.name
+          try {
+            const modelData = await getLoraByVersionId(versionId)
+            if (modelData) {
+              enrichmentMap[versionId] = modelData
+            }
+          } catch (error) {
+            console.warn(`Could not fetch LoRA version ${versionId}:`, error)
+            // Will fall through to stub creation
+          }
+        }
+      }
+
+      // Second pass: reconstruct enriched array
+      for (let i = 0; i < loras.length; i++) {
+        const lora = loras[i]
+        const isMinimal = lora.name && !lora.versionId && !lora.modelVersions
+
+        if (isMinimal) {
+          const versionId = lora.name
+          const cached = enrichmentMap[versionId]
+
+          if (cached) {
+            // Found in cache or recent - use it and restore strengths from request
+            // IMPORTANT: Explicitly set versionId to preserve the specific version that was selected
+            // Convert to number to match the type in modelVersions (CivitAI uses numeric IDs)
+            const enrichedLora = new SavedLora({
+              ...cached,
+              versionId: Number(versionId),  // Convert to number to match modelVersions[].id type
+              strength: lora.model || 1.0,
+              clip: lora.clip || 1.0
+            })
+            enrichedLoras.push(enrichedLora)
+          } else {
+            // Not found anywhere - create stub
+            enrichedLoras.push(new SavedLora({
+              id: Number(versionId),
+              versionId: Number(versionId),
+              name: `LoRA ${versionId}`,
+              versionName: 'Unknown',
+              strength: lora.model || 1.0,
+              clip: lora.clip || 1.0,
+              isManualEntry: true,
+              modelVersions: []
+            }))
+          }
+        } else {
+          // Already a full SavedLora object
+          enrichedLoras.push(lora)
+        }
+      }
+
+      return enrichedLoras
+    }
+
     // Load settings from an arbitrary settings object
-    const loadSettings = (settings, includeSeed = false) => {
+    const loadSettings = async (settings, includeSeed = false) => {
       // Split prompt on ### to separate positive and negative prompts
       if (settings.prompt) {
         const { positive, negative } = splitPrompt(settings.prompt)
@@ -564,7 +869,14 @@ export default {
         form.steps = params.steps !== undefined ? params.steps : 30
         form.n = params.n !== undefined ? params.n : 1
         form.tiling = params.tiling !== undefined ? params.tiling : false
-        form.loras = params.loras ? [...params.loras] : []
+
+        // Load and enrich LoRAs
+        if (params.loras && params.loras.length > 0) {
+          form.loras = await enrichLoras(params.loras)
+          // Note: Cache is automatically populated by server when enriching via CivitAI API
+        } else {
+          form.loras = []
+        }
 
         // Load new post-processing structure
         // Parse post_processing array to extract face fixer, upscalers, and strip_background
@@ -620,9 +932,9 @@ export default {
       estimateKudos()
     }
 
-    const loadRandomPreset = () => {
+    const loadRandomPreset = async () => {
       const preset = getRandomPreset()
-      loadSettings(preset)
+      await loadSettings(preset)
     }
 
     const removeStyle = () => {
@@ -630,7 +942,7 @@ export default {
       selectedStyleData.value = null
     }
 
-    const applyStyle = () => {
+    const applyStyle = async () => {
       if (!selectedStyleData.value) {
         return
       }
@@ -667,7 +979,7 @@ export default {
       if (style.tiling !== undefined) form.tiling = style.tiling
       if (style.clip_skip !== undefined) form.clipSkip = style.clip_skip
       if (style.loras && Array.isArray(style.loras)) {
-        form.loras = [...style.loras]
+        form.loras = await enrichLoras(style.loras)
       } else {
         form.loras = []
       }
@@ -794,6 +1106,7 @@ export default {
 
       // Apply user preferences (AI Horde settings) from settings store
       params.nsfw = settingsStore.workerPreferences.nsfw
+      params.censor_nsfw = !settingsStore.workerPreferences.nsfw
       params.trusted_workers = settingsStore.workerPreferences.trustedWorkers
       params.slow_workers = settingsStore.workerPreferences.slowWorkers
       params.allow_downgrade = settingsStore.workerPreferences.allowDowngrade
@@ -870,7 +1183,22 @@ export default {
 
         // Add loras if any
         if (form.loras && form.loras.length > 0) {
-          params.params.loras = form.loras
+          // Convert SavedLora objects to AI Horde format
+          params.params.loras = form.loras.map(lora => {
+            // If it's a SavedLora instance, use toHordeFormat()
+            if (lora.toHordeFormat && typeof lora.toHordeFormat === 'function') {
+              return lora.toHordeFormat()
+            }
+            // Fallback: manually create minimal format from plain object
+            // This shouldn't happen if everything is working correctly,
+            // but provides safety against sending full objects
+            return {
+              name: String(lora.versionId || lora.name),
+              model: Number(lora.strength || lora.model || 1.0),
+              clip: Number(lora.clip || 1.0),
+              is_version: true
+            }
+          })
         }
       }
 
@@ -917,8 +1245,20 @@ export default {
           params
         })
 
-        // Save settings for next time
-        await saveLastUsedSettings()
+        // Save settings for next time (save the actual request, not form state)
+        await saveLastUsedSettings(params)
+
+        // Add LoRAs to recent list (after successful submission)
+        // Note: Cache is automatically populated by server when fetching via CivitAI API
+        if (form.loras && form.loras.length > 0) {
+          try {
+            for (const lora of form.loras) {
+              await addToRecent(lora)
+            }
+          } catch (error) {
+            console.error('Failed to update recent LoRAs:', error)
+          }
+        }
 
         emit('submit')
       } catch (error) {
@@ -1003,7 +1343,7 @@ export default {
 
       // Then load initial settings from props if provided (this will override generation params but not worker prefs)
       if (props.initialSettings) {
-        loadSettings(props.initialSettings, props.includeSeed)
+        await loadSettings(props.initialSettings, props.includeSeed)
       }
 
       // Only estimate if we have a model after loading
@@ -1040,6 +1380,9 @@ export default {
       estimateError,
       showModelPicker,
       showStylePicker,
+      showLoraPicker,
+      showLoraDetails,
+      selectedLoraForDetails,
       aspectLocked,
       aspectRatioText,
       selectedStyleName,
@@ -1047,6 +1390,15 @@ export default {
       submitRequest,
       onModelSelect,
       onStyleSelect,
+      addLora,
+      removeLora,
+      onLoraStrengthChange,
+      onLoraClipChange,
+      currentLoraVersion,
+      loraTrainedWords,
+      addTriggerWord,
+      showLoraInfo,
+      removeLoraFromDetails,
       applyStyle,
       removeStyle,
       onAspectLockToggle,
@@ -1070,7 +1422,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1079,7 +1431,7 @@ export default {
 }
 
 .modal-content {
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 12px;
   max-width: 700px;
   width: 100%;
@@ -1105,8 +1457,35 @@ export default {
   padding: 1.5rem;
   border-bottom: 1px solid #333;
   flex-shrink: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   z-index: 1;
+}
+
+/* Loras Section */
+.loras-section {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 1.2rem;
+}
+
+.loras-section .form-group {
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-group-internal {
+  padding-top:1.5rem;
+}
+
+.loras-section .form-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.loras-section .form-group:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Post-Processing Section */
@@ -1152,7 +1531,7 @@ export default {
   background: transparent;
   border: 1px solid #333;
   border-radius: 6px;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -1160,9 +1539,9 @@ export default {
 }
 
 .btn-reset:hover {
-  background: #2a2a2a;
-  color: #fff;
-  border-color: #587297;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
 }
 
 .btn-close {
@@ -1170,7 +1549,7 @@ export default {
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
@@ -1178,7 +1557,7 @@ export default {
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -1195,7 +1574,7 @@ export default {
   padding-right: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid #333;
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .form-group {
@@ -1205,7 +1584,7 @@ export default {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -1215,10 +1594,10 @@ export default {
 .form-group select {
   width: 100%;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   font-family: inherit;
 }
@@ -1249,7 +1628,7 @@ export default {
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .form-row {
@@ -1275,7 +1654,7 @@ export default {
   height: 5px;
   -webkit-appearance: none;
   appearance: none;
-  background: #333;
+  background: var(--color-border);
   border: none;
   outline: none;
   cursor: pointer;
@@ -1305,7 +1684,7 @@ export default {
 }
 
 .slider-group input[type="range"]::-webkit-slider-thumb:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
   transform: scale(1.1);
 }
 
@@ -1330,7 +1709,7 @@ export default {
 }
 
 .slider-group input[type="range"]::-moz-range-thumb:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
   transform: scale(1.1);
 }
 
@@ -1339,17 +1718,17 @@ export default {
   min-width: 50px;
   text-align: center;
   padding: 0.5rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
 }
 
 .selector-button {
   width: 100%;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   display: flex;
   justify-content: space-between;
@@ -1360,7 +1739,7 @@ export default {
 
 .selector-button:hover {
   background: #252525;
-  border-color: #444;
+  border-color: var(--color-border-light);
 }
 
 .selector-value {
@@ -1369,9 +1748,152 @@ export default {
 }
 
 .selector-arrow {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.5rem;
   font-weight: 300;
+}
+
+/* LoRA Browse Button */
+.btn-browse-loras {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-browse-loras:hover {
+  background: var(--color-primary-hover);
+}
+
+/* LoRA Controls List */
+.loras-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.lora-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.lora-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lora-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.lora-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+}
+
+.lora-version {
+  font-size: 0.85rem;
+  color: var(--color-text-tertiary);
+}
+
+.lora-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-icon-small {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.btn-icon-small:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--color-text-primary);
+}
+
+.btn-icon-small:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-icon-small.btn-danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.2);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+
+.lora-control-group {
+  margin-bottom: 1rem;
+}
+
+.lora-control-group:last-of-type {
+  margin-bottom: 0;
+}
+
+.lora-control-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  margin-bottom: 0.5rem;
+}
+
+.lora-trigger-words {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.trigger-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+  margin-bottom: 0.5rem;
+}
+
+.trigger-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trigger-chip {
+  background: var(--color-primary);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.trigger-chip:hover {
+  background: var(--color-primary-hover);
 }
 
 .style-actions {
@@ -1394,21 +1916,21 @@ export default {
 }
 
 .btn-apply-style {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-apply-style:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-remove-style {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-remove-style:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .style-info-text {
@@ -1416,7 +1938,7 @@ export default {
   padding: 0.5rem;
   font-size: 0.875rem;
   line-height: 1.5;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 /* Section Title (outside boxes) */
@@ -1425,7 +1947,7 @@ export default {
   font-size: 0.9rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: #999;
+  color: var(--color-text-tertiary);
   letter-spacing: 0.05em;
 }
 
@@ -1489,17 +2011,17 @@ export default {
 .seed-input {
   width: 100%;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   font-family: inherit;
 }
 
 .seed-input:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .seed-randomize {
@@ -1509,7 +2031,7 @@ export default {
 }
 
 .seed-randomize span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1521,7 +2043,7 @@ export default {
 }
 
 .toggle-control span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1571,7 +2093,7 @@ export default {
 }
 
 .aspect-ratio-text {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1616,7 +2138,7 @@ export default {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #587297;
+  background-color: var(--color-primary);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -1628,7 +2150,7 @@ export default {
   width: 100%;
   padding: 0.75rem 1.5rem;
   margin-top: 1rem;
-  background: #587297;
+  background: var(--color-primary);
   border: none;
   color: white;
   cursor: pointer;
@@ -1640,7 +2162,7 @@ export default {
 }
 
 .btn-swap-dimensions:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-swap-dimensions:active {
@@ -1677,11 +2199,11 @@ export default {
   width: 18px;
   height: 18px;
   cursor: pointer;
-  accent-color: #587297;
+  accent-color: var(--color-primary);
 }
 
 .checkbox-item span {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
 }
 
@@ -1694,12 +2216,12 @@ export default {
 }
 
 .kudos-label {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
 }
 
 .kudos-error {
-  color: #ff6b6b;
+  color: var(--color-danger-hover);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -1708,7 +2230,7 @@ export default {
   background: transparent;
   border: 1px solid rgba(0, 122, 255, 0.3);
   border-radius: 6px;
-  color: #587297;
+  color: var(--color-primary);
   font-size: 1.25rem;
   padding: 0.25rem 0.5rem;
   cursor: pointer;
@@ -1742,17 +2264,17 @@ export default {
 
 .btn-cancel {
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   border: 1px solid #333;
 }
 
 .btn-cancel:hover {
-  background: #2a2a2a;
-  color: #fff;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 
 .btn-submit {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -1766,7 +2288,7 @@ export default {
 }
 
 .btn-submit:hover:not(:disabled) {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-submit:disabled {

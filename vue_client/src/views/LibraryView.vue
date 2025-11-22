@@ -166,6 +166,8 @@
       :image="selectedImage"
       :images="images"
       :currentIndex="currentImageIndex"
+      :canNavigatePrev="canNavigatePrev"
+      :canNavigateNext="canNavigateNext"
       @close="closeImage"
       @delete="deleteImage"
       @navigate="navigateImage"
@@ -281,6 +283,14 @@ export default {
       return images.value.findIndex(img => img.uuid === selectedImage.value.uuid)
     })
 
+    const canNavigatePrev = computed(() => {
+      return currentImageIndex.value > 0
+    })
+
+    const canNavigateNext = computed(() => {
+      return currentImageIndex.value >= 0 && currentImageIndex.value < images.value.length - 1
+    })
+
     const galleryTitle = computed(() => {
       const count = totalCount.value
       return `${count} Image${count !== 1 ? 's' : ''}`
@@ -374,6 +384,9 @@ export default {
       selectedImage.value = image
       // Update URL for bookmarking, but don't trigger route watcher
       router.replace(`/image/${image.uuid}`)
+
+      // Scroll to the image in the grid
+      scrollToCurrentImage(image.uuid)
     }
 
     const closeImage = () => {
@@ -495,16 +508,38 @@ export default {
       const currentIndex = currentImageIndex.value
       let newIndex = currentIndex + direction
 
-      // Wrap around
-      if (newIndex < 0) newIndex = images.value.length - 1
-      if (newIndex >= images.value.length) newIndex = 0
+      // Don't wrap around - clamp to valid range
+      if (newIndex < 0) return
+      if (newIndex >= images.value.length) return
 
       const newImage = images.value[newIndex]
       if (newImage) {
         selectedImage.value = newImage
         // Update URL for bookmarking, but don't trigger route watcher
         router.replace(`/image/${newImage.uuid}`)
+
+        // Scroll the grid to show the current image
+        scrollToCurrentImage(newImage.uuid)
       }
+    }
+
+    const scrollToCurrentImage = (imageUuid) => {
+      // Use nextTick to ensure the DOM has updated
+      setTimeout(() => {
+        if (!gridContainer.value) return
+
+        // Find the image element in the grid
+        const imageElements = gridContainer.value.querySelectorAll('.image-item')
+        const imageIndex = images.value.findIndex(img => img.uuid === imageUuid)
+
+        if (imageIndex !== -1 && imageElements[imageIndex]) {
+          imageElements[imageIndex].scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest'
+          })
+        }
+      }, 50)
     }
 
     const updateImageUrl = (imageId) => {
@@ -921,6 +956,8 @@ export default {
       loading,
       selectedImage,
       currentImageIndex,
+      canNavigatePrev,
+      canNavigateNext,
       galleryTitle,
       gridContainer,
       filters,
@@ -982,7 +1019,7 @@ export default {
 .header {
   position: sticky;
   top: 0;
-  background: #000;
+  background: var(--color-bg-base);
   z-index: 50;
   transition: top 0.3s ease-out;
 }
@@ -1018,7 +1055,7 @@ export default {
   border-radius: 6px;
   background: transparent;
   border: 1px solid #333;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -1028,9 +1065,9 @@ export default {
 }
 
 .btn-keywords-toggle:hover {
-  background: #1a1a1a;
-  border-color: #666;
-  color: #fff;
+  background: var(--color-surface);
+  border-color: var(--color-text-disabled);
+  color: var(--color-text-primary);
 }
 
 
@@ -1060,17 +1097,17 @@ export default {
   align-items: center;
   gap: 0.5rem;
   padding: 0.4rem 0.75rem;
-  background: #1a1a1a;
+  background: var(--color-surface);
   border: 1px solid #333;
   border-radius: 16px;
   font-size: 0.875rem;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .chip-remove {
   background: transparent;
   border: none;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.25rem;
   line-height: 1;
   cursor: pointer;
@@ -1080,7 +1117,7 @@ export default {
 }
 
 .chip-remove:hover {
-  color: #ff4a4a;
+  color: var(--color-danger);
 }
 
 .search-bar {
@@ -1090,10 +1127,10 @@ export default {
 
 .search-input {
   padding: 0.5rem 1rem;
-  background: #1a1a1a;
+  background: var(--color-surface);
   border: 1px solid #333;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.9rem;
   width: 250px;
   transition: border-color 0.2s;
@@ -1101,16 +1138,16 @@ export default {
 
 .search-input:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .search-input::placeholder {
-  color: #666;
+  color: var(--color-text-disabled);
 }
 
 .btn-search {
   padding: 0.5rem 1rem;
-  background: #587297;
+  background: var(--color-primary);
   border: none;
   border-radius: 6px;
   color: white;
@@ -1122,7 +1159,7 @@ export default {
 }
 
 .btn-search:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-favorites-toggle {
@@ -1131,7 +1168,7 @@ export default {
   border-radius: 6px;
   background: transparent;
   border: 1px solid #333;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -1141,15 +1178,15 @@ export default {
 }
 
 .btn-favorites-toggle:hover {
-  background: #1a1a1a;
-  border-color: #666;
-  color: #FFD60A;
+  background: var(--color-surface);
+  border-color: var(--color-text-disabled);
+  color: var(--color-warning);
 }
 
 .btn-favorites-toggle.active {
-  background: #1a1a1a;
-  border-color: #FFD60A;
-  color: #FFD60A;
+  background: var(--color-surface);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }
 
 .menu-container {
@@ -1162,7 +1199,7 @@ export default {
   border-radius: 6px;
   background: transparent;
   border: 1px solid #333;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1.1rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -1172,16 +1209,16 @@ export default {
 }
 
 .btn-menu:hover {
-  background: #1a1a1a;
-  border-color: #666;
-  color: #fff;
+  background: var(--color-surface);
+  border-color: var(--color-text-disabled);
+  color: var(--color-text-primary);
 }
 
 .menu-dropdown {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  background: #1a1a1a;
+  background: var(--color-surface);
   border: 1px solid #333;
   border-radius: 8px;
   min-width: 183px;
@@ -1195,26 +1232,26 @@ export default {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.95rem;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .menu-item:hover {
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
 }
 
 .menu-item i {
   width: 20px;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .loading,
 .loading-more {
   text-align: center;
   padding: 3rem 2rem;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .loading-more {
@@ -1224,7 +1261,7 @@ export default {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #666;
+  color: var(--color-text-disabled);
 }
 
 .empty-state p {
@@ -1233,14 +1270,14 @@ export default {
 
 .empty-state .hint {
   font-size: 0.9rem;
-  color: #555;
+  color: var(--color-border-lighter);
 }
 
 .image-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 4px;
-  background: #000;
+  background: var(--color-bg-base);
 }
 
 .image-item {
@@ -1248,7 +1285,7 @@ export default {
   aspect-ratio: 1;
   overflow: hidden;
   cursor: pointer;
-  background: #1a1a1a;
+  background: var(--color-surface);
 }
 
 .image-item img {
@@ -1266,8 +1303,8 @@ export default {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: #FFD60A;
+  background: var(--overlay-darker);
+  color: var(--color-warning);
   font-size: 1rem;
   width: 2rem;
   height: 2rem;
@@ -1283,8 +1320,8 @@ export default {
   position: absolute;
   top: 0.5rem;
   left: 0.5rem;
-  background: rgba(0, 0, 0, 0.8);
-  color: #999;
+  background: var(--overlay-darker);
+  color: var(--color-text-tertiary);
   font-size: 1rem;
   width: 2rem;
   height: 2rem;
@@ -1303,8 +1340,8 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.9);
-  color: #999;
+  background: var(--overlay-darkest);
+  color: var(--color-text-tertiary);
   gap: 0.5rem;
 }
 
@@ -1322,8 +1359,8 @@ export default {
 }
 
 .hidden-locked:hover .locked-placeholder {
-  background: rgba(0, 0, 0, 0.95);
-  color: #bbb;
+  background: var(--overlay-modal);
+  color: var(--color-gray-300);
 }
 
 .image-overlay {
@@ -1342,7 +1379,7 @@ export default {
 }
 
 .image-info {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 0.85rem;
 }
 
@@ -1357,7 +1394,7 @@ export default {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #587297;
+  background: var(--color-primary);
   color: white;
   border: none;
   font-size: 2.5rem;
@@ -1379,17 +1416,17 @@ export default {
 
 .fab-settings {
   left: 2rem;
-  background: #555;
+  background: var(--color-border-lighter);
 }
 
 .fab:hover {
-  background: #6989b5;
+  background: var(--color-primary-hover);
   transform: scale(1.05);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
 }
 
 .fab-settings:hover {
-  background: #777;
+  background: var(--color-text-quaternary);
 }
 
 .fab:active {
@@ -1425,7 +1462,7 @@ export default {
 }
 
 .panel-tab .tab-content {
-  background: #171717;
+  background: var(--color-bg-tertiary);
   border-radius: 12px 12px 0 0;
   border-bottom: none;
   box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
@@ -1458,12 +1495,12 @@ export default {
 }
 
 .status-dot.active {
-  background: #ffcc00;
+  background: var(--color-warning-hover);
   animation: pulse 2s infinite;
 }
 
 .status-dot.error {
-  background: #ff3b30;
+  background: var(--color-danger-ios);
   animation: pulse 2s infinite;
 }
 
@@ -1474,7 +1511,7 @@ export default {
 
 .tab-text {
   font-size: 0.95rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 
@@ -1485,7 +1522,7 @@ export default {
   top: auto;
   left: 0;
   right: 0;
-  background: #171717;
+  background: var(--color-bg-tertiary);
   max-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1505,17 +1542,17 @@ export default {
 
 .panel-content {
   padding: 1.5rem 2rem;
-  background: #171717;
+  background: var(--color-bg-tertiary);
   position: relative;
 }
 
 .btn-clear-history {
   width: 100%;
   padding: 1rem;
-  background: #2a2a2a;
+  background: var(--color-surface-hover);
   border: 1px solid #444;
   border-radius: 8px;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
@@ -1528,8 +1565,8 @@ export default {
 
 .btn-clear-history:hover {
   background: #3a3a3a;
-  border-color: #ff6b6b;
-  color: #ff6b6b;
+  border-color: var(--color-danger-hover);
+  color: var(--color-danger-hover);
 }
 
 .btn-clear-history:active {
@@ -1539,7 +1576,7 @@ export default {
 .panel-empty-state {
   text-align: center;
   padding: 3rem 2rem;
-  color: #666;
+  color: var(--color-text-disabled);
 }
 
 .panel-empty-state p {
@@ -1548,7 +1585,7 @@ export default {
 
 .panel-empty-state .hint {
   font-size: 0.9rem;
-  color: #555;
+  color: var(--color-border-lighter);
 }
 
 .requests-grid {

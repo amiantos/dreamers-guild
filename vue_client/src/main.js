@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import LibraryView from './views/LibraryView.vue'
 import SettingsView from './views/SettingsView.vue'
+import './assets/colors.css'
 
 const router = createRouter({
   history: createWebHistory(),

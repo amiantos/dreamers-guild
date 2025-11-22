@@ -58,6 +58,7 @@ export const HordeRequest = {
     if (data.queuePosition !== undefined) { fields.push('queue_position = ?'); values.push(data.queuePosition); }
     if (data.waitTime !== undefined) { fields.push('wait_time = ?'); values.push(data.waitTime); }
     if (data.totalKudosCost !== undefined) { fields.push('total_kudos_cost = ?'); values.push(data.totalKudosCost); }
+    if (data.hordeId !== undefined) { fields.push('horde_id = ?'); values.push(data.hordeId); }
 
     if (fields.length === 0) return this.findById(uuid);
 
@@ -331,9 +332,19 @@ export const HordePendingDownload = {
     return stmt.all();
   },
 
+  findByRequestId(requestId) {
+    const stmt = db.prepare('SELECT * FROM horde_pending_downloads WHERE request_id = ?');
+    return stmt.all(requestId);
+  },
+
   delete(uuid) {
     const stmt = db.prepare('DELETE FROM horde_pending_downloads WHERE uuid = ?');
     return stmt.run(uuid);
+  },
+
+  deleteByRequestId(requestId) {
+    const stmt = db.prepare('DELETE FROM horde_pending_downloads WHERE request_id = ?');
+    return stmt.run(requestId);
   }
 };
 
@@ -410,6 +421,8 @@ export const UserSettings = {
     if (data.workerPreferences !== undefined) { fields.push('worker_preferences = ?'); values.push(JSON.stringify(data.workerPreferences)); }
     if (data.hiddenPinHash !== undefined) { fields.push('hidden_pin_hash = ?'); values.push(data.hiddenPinHash); }
     if (data.hiddenPinEnabled !== undefined) { fields.push('hidden_pin_enabled = ?'); values.push(data.hiddenPinEnabled); }
+    if (data.favoriteLoras !== undefined) { fields.push('favorite_loras = ?'); values.push(JSON.stringify(data.favoriteLoras)); }
+    if (data.recentLoras !== undefined) { fields.push('recent_loras = ?'); values.push(JSON.stringify(data.recentLoras)); }
 
     if (fields.length === 0) return this.get();
 
@@ -420,5 +433,129 @@ export const UserSettings = {
     stmt.run(...values);
 
     return this.get();
+  }
+};
+
+// LoraCache model
+export const LoraCache = {
+  get(versionId) {
+    const stmt = db.prepare('SELECT * FROM lora_cache WHERE version_id = ?');
+    const cached = stmt.get(versionId);
+
+    if (cached) {
+      // Update last accessed timestamp
+      const updateStmt = db.prepare('UPDATE lora_cache SET last_accessed = ? WHERE version_id = ?');
+      updateStmt.run(Date.now(), versionId);
+
+      return {
+        ...cached,
+        full_metadata: JSON.parse(cached.full_metadata)
+      };
+    }
+
+    return null;
+  },
+
+  getMultiple(versionIds) {
+    if (!versionIds || versionIds.length === 0) return [];
+
+    const placeholders = versionIds.map(() => '?').join(',');
+    const stmt = db.prepare(`SELECT * FROM lora_cache WHERE version_id IN (${placeholders})`);
+    const results = stmt.all(...versionIds);
+
+    // Update last accessed for all found items
+    const now = Date.now();
+    const updateStmt = db.prepare('UPDATE lora_cache SET last_accessed = ? WHERE version_id = ?');
+
+    return results.map(cached => {
+      updateStmt.run(now, cached.version_id);
+      return {
+        ...cached,
+        full_metadata: JSON.parse(cached.full_metadata)
+      };
+    });
+  },
+
+  set(versionId, modelId, metadata) {
+    const now = Date.now();
+
+    // Check if exists
+    const existing = db.prepare('SELECT version_id FROM lora_cache WHERE version_id = ?').get(versionId);
+
+    if (existing) {
+      // Update existing
+      const stmt = db.prepare(`
+        UPDATE lora_cache
+        SET model_id = ?, full_metadata = ?, last_accessed = ?
+        WHERE version_id = ?
+      `);
+      stmt.run(modelId, JSON.stringify(metadata), now, versionId);
+    } else {
+      // Insert new
+      const stmt = db.prepare(`
+        INSERT INTO lora_cache (version_id, model_id, full_metadata, date_cached, last_accessed)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      stmt.run(versionId, modelId, JSON.stringify(metadata), now, now);
+    }
+
+    return this.get(versionId);
+  },
+
+  cleanup(maxAgeMs = 90 * 24 * 60 * 60 * 1000) { // Default: 90 days
+    const cutoff = Date.now() - maxAgeMs;
+    const stmt = db.prepare('DELETE FROM lora_cache WHERE last_accessed < ?');
+    const result = stmt.run(cutoff);
+    return result.changes;
+  }
+};
+
+// CivitAI Search Cache model
+export const CivitaiSearchCache = {
+  get(cacheKey) {
+    const stmt = db.prepare('SELECT * FROM civitai_search_cache WHERE cache_key = ?');
+    const cached = stmt.get(cacheKey);
+
+    if (cached) {
+      return {
+        ...cached,
+        result_data: JSON.parse(cached.result_data)
+      };
+    }
+
+    return null;
+  },
+
+  set(cacheKey, resultData) {
+    const now = Date.now();
+
+    // Check if exists
+    const existing = db.prepare('SELECT cache_key FROM civitai_search_cache WHERE cache_key = ?').get(cacheKey);
+
+    if (existing) {
+      // Update existing
+      const stmt = db.prepare(`
+        UPDATE civitai_search_cache
+        SET result_data = ?, cached_at = ?
+        WHERE cache_key = ?
+      `);
+      stmt.run(JSON.stringify(resultData), now, cacheKey);
+    } else {
+      // Insert new
+      const stmt = db.prepare(`
+        INSERT INTO civitai_search_cache (cache_key, result_data, cached_at)
+        VALUES (?, ?, ?)
+      `);
+      stmt.run(cacheKey, JSON.stringify(resultData), now);
+    }
+
+    return this.get(cacheKey);
+  },
+
+  cleanup(maxAgeMs = 7 * 24 * 60 * 60 * 1000) { // Default: 7 days
+    const cutoff = Date.now() - maxAgeMs;
+    const stmt = db.prepare('DELETE FROM civitai_search_cache WHERE cached_at < ?');
+    const result = stmt.run(cutoff);
+    return result.changes;
   }
 };

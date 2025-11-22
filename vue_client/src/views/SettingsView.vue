@@ -129,6 +129,26 @@
         </div>
 
         <div class="section">
+          <h2>Appearance</h2>
+          <p class="help-text">
+            Customize the app's appearance.
+          </p>
+
+          <div class="preferences-grid">
+            <div class="preference-item">
+              <div class="preference-label">
+                <span class="pref-title">Theme</span>
+                <span class="pref-desc">{{ currentTheme === 'dark' ? 'Dark' : 'Light' }} mode</span>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" :checked="currentTheme === 'light'" @change="handleThemeToggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
           <h2>Hidden Gallery Protection</h2>
           <p class="help-text">
             Protect your hidden images with a 4-digit PIN.
@@ -229,6 +249,7 @@ import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { settingsApi } from '../api/client.js'
 import { useSettingsStore } from '../stores/settingsStore.js'
+import { useTheme } from '../composables/useTheme.js'
 import PinInput from '../components/PinInput.vue'
 
 export default {
@@ -237,6 +258,7 @@ export default {
   setup() {
     const router = useRouter()
     const settingsStore = useSettingsStore()
+    const { currentTheme, toggleTheme } = useTheme()
     const settings = ref({})
     const apiKey = ref('')
     const saving = ref(false)
@@ -359,6 +381,11 @@ export default {
       } finally {
         savingPrefs.value = false
       }
+    }
+
+    // Theme toggle handler
+    const handleThemeToggle = () => {
+      toggleTheme()
     }
 
     // PIN management methods
@@ -518,6 +545,9 @@ export default {
       refreshUserInfo,
       saveWorkerPrefs,
       goBack,
+      // Theme
+      currentTheme,
+      handleThemeToggle,
       // PIN management
       changePinModalOpen,
       removePinModalOpen,
@@ -549,8 +579,8 @@ export default {
 <style scoped>
 .settings-view {
   min-height: 100vh;
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--color-bg-quaternary);
+  color: var(--color-text-primary);
 }
 
 .settings-container {
@@ -577,7 +607,7 @@ export default {
 .btn-back {
   padding: 0.75rem 1.5rem;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   border: 1px solid #333;
   border-radius: 6px;
   font-size: 1rem;
@@ -590,9 +620,9 @@ export default {
 }
 
 .btn-back:hover {
-  background: #2a2a2a;
-  color: #fff;
-  border-color: #587297;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
 }
 
 .settings-content {
@@ -602,7 +632,7 @@ export default {
 }
 
 .section {
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 12px;
   padding: 2rem;
   border: 1px solid #333;
@@ -611,7 +641,7 @@ export default {
 .section h2 {
   margin: 0 0 0.75rem 0;
   font-size: 1.5rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 
@@ -620,19 +650,19 @@ export default {
   font-size: 0.9rem;
   font-weight: 600;
   text-transform: uppercase;
-  color: #999;
+  color: var(--color-text-tertiary);
   letter-spacing: 0.05em;
 }
 
 .help-text {
   margin: 0 0 1.5rem 0;
   font-size: 0.95rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   line-height: 1.6;
 }
 
 .help-text a {
-  color: #587297;
+  color: var(--color-primary);
   text-decoration: none;
 }
 
@@ -648,7 +678,7 @@ export default {
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
   font-weight: 500;
 }
@@ -656,17 +686,17 @@ export default {
 .api-key-input {
   flex: 1;
   padding: 0.75rem;
-  background: #333;
+  background: var(--color-border);
   border: 1px solid #444;
   border-radius: 6px;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
   font-family: monospace;
 }
 
 .api-key-input:focus {
   outline: none;
-  border-color: #587297;
+  border-color: var(--color-primary);
 }
 
 .btn {
@@ -681,24 +711,24 @@ export default {
 }
 
 .btn-primary {
-  background: #587297;
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #6989b5;
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   border: 1px solid #333;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #2a2a2a;
-  color: #fff;
-  border-color: #587297;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
 }
 
 .btn:disabled {
@@ -709,7 +739,7 @@ export default {
 .loading {
   padding: 1.5rem;
   text-align: center;
-  color: #999;
+  color: var(--color-text-tertiary);
 }
 
 .account-info {
@@ -731,17 +761,17 @@ export default {
 }
 
 .info-row .label {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.95rem;
 }
 
 .info-row .value {
-  color: #fff;
+  color: var(--color-text-primary);
   font-weight: 500;
 }
 
 .info-row .value.kudos {
-  color: #587297;
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -750,7 +780,7 @@ export default {
   background: rgba(255, 59, 48, 0.1);
   border: 1px solid rgba(255, 59, 48, 0.3);
   border-radius: 6px;
-  color: #ff3b30;
+  color: var(--color-danger-ios);
   margin-bottom: 1rem;
 }
 
@@ -783,13 +813,13 @@ export default {
 }
 
 .pref-title {
-  color: #fff;
+  color: var(--color-text-primary);
   font-weight: 500;
   font-size: 1rem;
 }
 
 .pref-desc {
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
   line-height: 1.5;
 }
@@ -834,7 +864,7 @@ export default {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: #587297;
+  background-color: var(--color-primary);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -844,7 +874,7 @@ export default {
 .saving-indicator {
   text-align: center;
   padding: 0.75rem;
-  color: #587297;
+  color: var(--color-primary);
   font-size: 0.95rem;
   margin-top: 1rem;
 }
@@ -860,7 +890,7 @@ export default {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 1rem;
 }
 
@@ -875,7 +905,7 @@ export default {
 }
 
 .btn-danger {
-  background: #ff3b30;
+  background: var(--color-danger-ios);
   color: white;
 }
 
@@ -890,7 +920,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.9);
+  background: var(--overlay-darkest);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -899,7 +929,7 @@ export default {
 }
 
 .modal-content {
-  background: #1a1a1a;
+  background: var(--color-surface);
   border-radius: 12px;
   max-width: 600px;
   width: 100%;
@@ -925,7 +955,7 @@ export default {
   height: 32px;
   border: none;
   background: transparent;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
@@ -933,7 +963,7 @@ export default {
 }
 
 .btn-close:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -954,7 +984,7 @@ export default {
 
 .pin-section label {
   font-weight: 500;
-  color: #999;
+  color: var(--color-text-tertiary);
   font-size: 0.9rem;
 }
 

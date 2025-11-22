@@ -111,13 +111,14 @@ router.delete('/:id', async (req, res) => {
     // Cancel the request on AI Horde if it's still active
     await queueManager.cancelRequest(requestId);
 
-    // Delete any pending downloads for this request
-    const pendingDownloads = HordePendingDownload.findAll().filter(d => d.request_id === requestId);
-    pendingDownloads.forEach(d => HordePendingDownload.delete(d.uuid));
+    // Delete any pending downloads for this request (to avoid foreign key constraint)
+    HordePendingDownload.deleteByRequestId(requestId);
+
+    // Handle images based on the action
+    const images = GeneratedImage.findByRequestId(requestId);
 
     if (imageAction === 'prune') {
       // Delete all non-favorited and non-hidden images
-      const images = GeneratedImage.findByRequestId(requestId);
       images.forEach(img => {
         if (!img.is_favorite && !img.is_hidden) {
           GeneratedImage.delete(img.uuid);
@@ -128,15 +129,18 @@ router.delete('/:id', async (req, res) => {
       });
     } else if (imageAction === 'hide') {
       // Mark all images as hidden and remove the request_id reference
-      const images = GeneratedImage.findByRequestId(requestId);
       images.forEach(img => {
         GeneratedImage.update(img.uuid, { isHidden: true, requestId: null });
       });
     } else if (imageAction === 'keep') {
       // Keep all images by removing the request_id reference
-      const images = GeneratedImage.findByRequestId(requestId);
       images.forEach(img => {
         GeneratedImage.update(img.uuid, { requestId: null });
+      });
+    } else {
+      // Default: delete all images (handles 'delete' and any other values)
+      images.forEach(img => {
+        GeneratedImage.delete(img.uuid);
       });
     }
 

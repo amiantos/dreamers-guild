@@ -31,6 +31,9 @@ class QueueManager {
     this.isProcessing = true;
     console.log('Queue Manager started');
 
+    // Recover any processing requests from database (in case of server restart)
+    this.recoverProcessingRequests();
+
     // Check for pending requests every 3 seconds
     this.statusCheckInterval = setInterval(() => {
       this.processQueue();
@@ -43,6 +46,47 @@ class QueueManager {
 
     // Initial run
     this.processQueue();
+  }
+
+  /**
+   * Recover processing requests after server restart
+   */
+  recoverProcessingRequests() {
+    try {
+      const allProcessing = HordeRequest.findPending()
+        .filter(req => req.status === 'processing' || req.status === 'waiting');
+
+      // Separate into recoverable (with horde_id) and orphaned (without horde_id)
+      const recoverable = allProcessing.filter(req => req.horde_id);
+      const orphaned = allProcessing.filter(req => !req.horde_id);
+
+      if (recoverable.length > 0) {
+        console.log(`[Recovery] Found ${recoverable.length} processing requests to recover`);
+
+        recoverable.forEach(req => {
+          // Re-add to active requests Map
+          this.activeRequests.set(req.uuid, req.horde_id);
+          console.log(`[Recovery] ✓ Recovered request ${req.uuid.substring(0, 8)}... (Horde ID: ${req.horde_id})`);
+        });
+      } else {
+        console.log('[Recovery] No processing requests to recover');
+      }
+
+      // Handle orphaned requests (no horde_id - can't track them)
+      if (orphaned.length > 0) {
+        console.log(`[Recovery] Found ${orphaned.length} orphaned processing requests (no Horde ID)`);
+
+        orphaned.forEach(req => {
+          console.log(`[Recovery] ✗ Marking orphaned request ${req.uuid.substring(0, 8)}... as failed`);
+          HordeRequest.update(req.uuid, {
+            status: 'failed',
+            message: 'Lost tracking after server restart (no Horde ID saved)'
+          });
+        });
+      }
+    } catch (error) {
+      console.error('[Recovery] Error recovering processing requests:', error);
+    }
   }
 
   /**
@@ -128,7 +172,8 @@ class QueueManager {
 
           HordeRequest.update(request.uuid, {
             status: 'processing',
-            message: `Submitted to AI Horde (ID: ${response.id})`
+            message: `Submitted to AI Horde (ID: ${response.id})`,
+            hordeId: response.id
           });
 
           console.log(`[Submit] ✓ Submitted request ${request.uuid.substring(0, 8)}... to Horde (${response.id})`);

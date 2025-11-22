@@ -32,6 +32,7 @@ import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import { settingsApi } from './api/client.js'
+import { useTheme } from './composables/useTheme.js'
 
 export default {
   name: 'App',
@@ -41,6 +42,10 @@ export default {
     PinEntryModal
   },
   setup() {
+    // Initialize theme
+    const { initializeTheme } = useTheme()
+    initializeTheme()
+
     const showRequestModal = ref(false)
     const requestModalRef = ref(null)
     const modalInitialSettings = ref(null)

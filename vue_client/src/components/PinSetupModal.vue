@@ -136,7 +136,7 @@ const handleBackdropClick = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: var(--overlay-dark);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -144,7 +144,7 @@ const handleBackdropClick = () => {
 }
 
 .modal-content {
-  background-color: #1a1a1a;
+  background-color: var(--color-surface);
   border-radius: 8px;
   max-width: 500px;
   width: 90%;
@@ -165,7 +165,7 @@ const handleBackdropClick = () => {
 .modal-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
@@ -173,7 +173,7 @@ const handleBackdropClick = () => {
 }
 
 .help-text {
-  color: #999;
+  color: var(--color-text-tertiary);
   line-height: 1.5;
   margin-bottom: 32px;
 }
@@ -188,12 +188,12 @@ const handleBackdropClick = () => {
 
 .pin-section label {
   font-weight: 500;
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: 16px;
 }
 
 .error-message {
-  color: #dc3545;
+  color: var(--color-danger-bootstrap);
   margin: 0;
   font-size: 14px;
   text-align: center;
@@ -221,12 +221,12 @@ const handleBackdropClick = () => {
 }
 
 .btn-primary {
-  background-color: #007bff;
+  background-color: var(--color-info);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: var(--color-info-hover);
 }
 
 .btn-secondary {

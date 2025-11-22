@@ -127,7 +127,68 @@ function initDatabase() {
     }
   }
 
+  // Migration: Add favorite_loras column if it doesn't exist
+  // Stores JSON array of favorite LoRA IDs from CivitAI
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN favorite_loras TEXT`);
+    console.log('Migration: Added favorite_loras column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
+  // Migration: Add recent_loras column if it doesn't exist
+  // Stores JSON array of recently used LoRAs with full metadata
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN recent_loras TEXT`);
+    console.log('Migration: Added recent_loras column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
+  // Migration: Add horde_id column to horde_requests table
+  // Stores the AI Horde request ID for status checking and recovery
+  try {
+    db.exec(`ALTER TABLE horde_requests ADD COLUMN horde_id TEXT`);
+    console.log('Migration: Added horde_id column to horde_requests table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
+  // LoRA metadata cache table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS lora_cache (
+      version_id TEXT PRIMARY KEY,
+      model_id TEXT NOT NULL,
+      full_metadata TEXT NOT NULL,
+      date_cached INTEGER NOT NULL,
+      last_accessed INTEGER NOT NULL
+    )
+  `);
+
+  // CivitAI search cache table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS civitai_search_cache (
+      cache_key TEXT PRIMARY KEY,
+      result_data TEXT NOT NULL,
+      cached_at INTEGER NOT NULL
+    )
+  `);
+
   // Create indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_lora_cache_version
+    ON lora_cache(version_id)
+  `);
+
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_images_date_created
     ON generated_images(date_created DESC)
