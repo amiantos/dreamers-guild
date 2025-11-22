@@ -806,9 +806,10 @@ export default {
           if (cached) {
             // Found in cache or recent - use it and restore strengths from request
             // IMPORTANT: Explicitly set versionId to preserve the specific version that was selected
+            // Convert to number to match the type in modelVersions (CivitAI uses numeric IDs)
             const enrichedLora = new SavedLora({
               ...cached,
-              versionId: versionId,  // Explicitly preserve the versionId from the minimal format
+              versionId: Number(versionId),  // Convert to number to match modelVersions[].id type
               strength: lora.model || 1.0,
               clip: lora.clip || 1.0
             })
@@ -816,8 +817,8 @@ export default {
           } else {
             // Not found anywhere - create stub
             enrichedLoras.push(new SavedLora({
-              id: versionId,
-              versionId: versionId,
+              id: Number(versionId),
+              versionId: Number(versionId),
               name: `LoRA ${versionId}`,
               versionName: 'Unknown',
               strength: lora.model || 1.0,
