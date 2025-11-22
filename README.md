@@ -30,7 +30,9 @@ A locally-run web application for generating AI images using the AI Horde networ
 - **Request History**: Track ongoing and completed requests with status updates
 
 ### Settings & Security
-- **PIN Protection**: Optional PIN-based security for the application
+- **Hidden Images**: Hide sensitive images from the main library
+- **PIN Protection**: Optional 4-digit PIN to protect access to hidden images
+- **API Key Management**: Configure your AI Horde API key directly in the app settings
 - **Light/Dark Mode**: Toggle between theme preferences
 - **Persistent Settings**: Save generation preferences and UI state
 
@@ -67,17 +69,7 @@ A locally-run web application for generating AI images using the AI Horde networ
    npm run install:all
    ```
 
-2. **Configure environment variables:**
-
-   Create a `.env` file in the root directory:
-   ```env
-   HORDE_API_KEY=your_api_key_here
-   PORT=8005
-   ```
-
-   Get your API key from [AI Horde](https://aihorde.net/register) (free registration).
-
-3. **Run in development mode:**
+2. **Run in development mode:**
    ```bash
    npm run dev
    ```
@@ -87,6 +79,11 @@ A locally-run web application for generating AI images using the AI Horde networ
    - Frontend: http://localhost:5178
 
    The frontend proxies API requests to the backend automatically.
+
+3. **Configure your API key:**
+
+   Once the application is running, navigate to Settings and enter your AI Horde API key.
+   Get your API key from [AI Horde](https://aihorde.net/register) (free registration).
 
 ### Available Scripts
 
@@ -100,43 +97,45 @@ A locally-run web application for generating AI images using the AI Horde networ
 
 ### Docker (Recommended)
 
-1. **Create a `.env` file** with your configuration:
-   ```env
-   HORDE_API_KEY=your_api_key_here
-   PORT=8005
-   ```
-
-2. **Build and run with Docker Compose:**
+1. **Build and run with Docker Compose:**
    ```bash
    docker-compose up -d
    ```
 
    The application will be available at http://localhost:8005
 
+2. **Configure your API key:**
+
+   Navigate to Settings in the web interface and enter your AI Horde API key.
+
 3. **Data persistence:**
    - Images and database are stored in `./data` directory
    - This directory is mounted as a volume for persistence
+   - Your API key and settings are saved in the database
 
 ### Manual Deployment
 
-1. Build the frontend:
+1. **Build the frontend:**
    ```bash
    npm run client:build
    ```
 
-2. Set environment variables:
+2. **Set environment variables (optional):**
    ```bash
    export NODE_ENV=production
-   export HORDE_API_KEY=your_api_key_here
-   export PORT=8005
+   export PORT=8005  # Optional, defaults to 8005
    ```
 
-3. Start the server:
+3. **Start the server:**
    ```bash
    npm run server
    ```
 
-   The server will serve both the API and the built frontend.
+   The server will serve both the API and the built frontend at http://localhost:8005
+
+4. **Configure your API key:**
+
+   Navigate to Settings in the web interface and enter your AI Horde API key.
 
 ## Project Structure
 
@@ -182,7 +181,7 @@ aislingeach-web/
 
 ## License
 
-MPL2.0
+This project is licensed under the Mozilla Public License 2.0 - see the [MPL-2.0](https://www.mozilla.org/en-US/MPL/2.0/) for details.
 
 ## Acknowledgments
 
