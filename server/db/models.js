@@ -492,28 +492,6 @@ export const LoraCache = {
     return this.get(versionId);
   },
 
-  setMultiple(loras) {
-    const now = Date.now();
-    const insertStmt = db.prepare(`
-      INSERT OR REPLACE INTO lora_cache (version_id, model_id, full_metadata, date_cached, last_accessed)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    for (const lora of loras) {
-      if (lora.versionId && lora.id) {
-        insertStmt.run(
-          String(lora.versionId),
-          String(lora.id),
-          JSON.stringify(lora),
-          now,
-          now
-        );
-      }
-    }
-
-    return loras.length;
-  },
-
   cleanup(maxAgeMs = 90 * 24 * 60 * 60 * 1000) { // Default: 90 days
     const cutoff = Date.now() - maxAgeMs;
     const stmt = db.prepare('DELETE FROM lora_cache WHERE last_accessed < ?');

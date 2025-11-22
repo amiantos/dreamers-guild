@@ -187,7 +187,7 @@ import LoraDetails from './LoraDetails.vue'
 import { useLoraCache, useLoraFavorites, useLoraRecent } from '../composables/useLoraCache'
 import { LORA_CONSTANTS } from '../models/Lora'
 import { useSettingsStore } from '../stores/settingsStore'
-import { getLoraById } from '../api/civitai'
+import { getLoraById, getLoraByVersionId } from '../api/civitai'
 
 export default {
   name: 'LoraPicker',
@@ -388,8 +388,33 @@ export default {
 
     const loadRecentData = async () => {
       await loadRecent()
-      // Recent already has full model data
-      recentEmbeddings.value = recent.value
+
+      // Hydrate recent LoRAs from cache (recent now only stores versionId + timestamp)
+      const recentItems = recent.value
+      if (!recentItems || recentItems.length === 0) {
+        recentEmbeddings.value = []
+        return
+      }
+
+      try {
+        const embeddings = await Promise.all(
+          recentItems.map(async (item) => {
+            try {
+              const lora = await getLoraByVersionId(item.versionId)
+              return lora
+            } catch (error) {
+              console.error(`Failed to fetch recent LoRA ${item.versionId}:`, error)
+              return null
+            }
+          })
+        )
+
+        // Filter out any failed fetches
+        recentEmbeddings.value = embeddings.filter(e => e !== null)
+      } catch (error) {
+        console.error('Error loading recent data:', error)
+        recentEmbeddings.value = []
+      }
     }
 
     // Watch tab changes

@@ -526,7 +526,6 @@ import LoraDetails from './LoraDetails.vue'
 import { getLoraById, getLoraByVersionId } from '../api/civitai'
 import { SavedLora } from '../models/Lora'
 import { useLoraRecent } from '../composables/useLoraCache'
-import { getCachedLoras } from '../composables/useLoraMetadataCache'
 
 export default {
   name: 'RequestGeneratorModal',
@@ -588,7 +587,7 @@ export default {
     // Use composables
     const { models, fetchModels, getMostPopularModel } = useModelCache()
     const { kudosEstimate, estimating, estimateError, estimateKudos: estimateKudosComposable } = useKudosEstimation()
-    const { addToRecent, recent: recentLoras } = useLoraRecent()
+    const { addToRecent } = useLoraRecent()
 
     // Load worker preferences from settings store
     settingsStore.loadWorkerPreferences()
@@ -777,44 +776,20 @@ export default {
         }
       }
 
-      // If we have minimal LoRAs, try to enrich them with batch operations
+      // If we have minimal LoRAs, enrich them from server
+      // Server automatically checks: LoraCache → CivitaiSearchCache → CivitAI API
       let enrichmentMap = {}
       if (minimalLoras.length > 0) {
-        const versionIds = minimalLoras.map(lora => lora.name)
-
-        // 1. Try cache first (batch lookup)
-        try {
-          const cachedMap = await getCachedLoras(versionIds)
-          enrichmentMap = { ...cachedMap }
-        } catch (error) {
-          console.error('Error fetching from cache:', error)
-        }
-
-        // 2. Try recent LoRAs for any not found in cache
         for (const lora of minimalLoras) {
           const versionId = lora.name
-          if (!enrichmentMap[versionId] && recentLoras.value) {
-            const recentMatch = recentLoras.value.find(r => String(r.versionId) === String(versionId))
-            if (recentMatch?.model) {
-              enrichmentMap[versionId] = recentMatch.model
+          try {
+            const modelData = await getLoraByVersionId(versionId)
+            if (modelData) {
+              enrichmentMap[versionId] = modelData
             }
-          }
-        }
-
-        // 3. Try fetching from CivitAI API for any still not found
-        for (const lora of minimalLoras) {
-          const versionId = lora.name
-          if (!enrichmentMap[versionId]) {
-            try {
-              console.log(`Fetching LoRA from CivitAI API for version ${versionId}`)
-              const modelData = await getLoraByVersionId(versionId)
-              if (modelData) {
-                enrichmentMap[versionId] = modelData
-              }
-            } catch (error) {
-              console.warn(`Could not fetch LoRA version ${versionId} from API:`, error)
-              // Will fall through to stub creation
-            }
+          } catch (error) {
+            console.warn(`Could not fetch LoRA version ${versionId}:`, error)
+            // Will fall through to stub creation
           }
         }
       }

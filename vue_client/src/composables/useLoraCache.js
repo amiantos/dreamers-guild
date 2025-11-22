@@ -351,6 +351,7 @@ export function useLoraRecent() {
 
   /**
    * Add a LoRA to recent list
+   * Only stores versionId + timestamp, full data hydrated from cache when displaying
    */
   const addToRecent = async (lora) => {
     try {
@@ -361,11 +362,9 @@ export function useLoraRecent() {
       // Remove if already exists
       recentArray = recentArray.filter(r => r.versionId !== lora.versionId)
 
-      // Add to front
+      // Add to front (minimal data only)
       recentArray.unshift({
-        id: lora.id,
         versionId: lora.versionId,
-        model: lora,
         timestamp: Date.now()
       })
 
