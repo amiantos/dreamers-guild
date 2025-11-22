@@ -8,85 +8,103 @@
 import { CivitaiSearchCache, LoraCache } from '../db/models.js';
 
 const API_BASE_URL = 'https://civitai.com/api/v1';
+const SEARCH_API_URL = 'https://search-new.civitai.com/multi-search';
+const SEARCH_API_TOKEN = '8c46eb2508e21db1e9828a97968d91ab1ca1caa5f70a00e88a2ba1e286603b61';
 const CACHE_TTL = 60 * 60 * 1000; // 60 minutes
 
 /**
- * Build query string for CivitAI API
+ * Build Meilisearch query for CivitAI search API
  */
-function buildQueryString({ query = '', page = 1, limit = 100, baseModelFilters = [], nsfw = false, sort = 'Highest Rated' }) {
-  const params = new URLSearchParams();
+function buildMeilisearchQuery({ query = '', page = 1, limit = 100, baseModelFilters = [], nsfw = false, sort = 'Highest Rated' }) {
+  // Calculate offset from page
+  const offset = (page - 1) * limit;
 
-  // LoRA types (LoCon removed - not a valid API type)
-  params.append('types', 'LORA');
+  // Build base model filter as OR conditions
+  const baseModelFilterParts = [];
 
-  // Sorting
-  params.append('sort', sort);
-
-  // Limit
-  params.append('limit', limit);
-
-  // Search query
-  if (query) {
-    params.append('query', query);
-    // NOTE: Cannot use 'page' parameter with query searches - must use cursor-based pagination
-    // Pagination for searches is handled via metadata.nextPage cursor URLs
-  } else {
-    // Only use page parameter for browsing (no query)
-    params.append('page', page);
-  }
-
-  // NSFW
-  params.append('nsfw', nsfw);
-
-  // Base model filters
   if (baseModelFilters.includes('SD 1.x')) {
-    ['1.4', '1.5', '1.5 LCM'].forEach(version => {
-      params.append('baseModels', `SD ${version}`);
-    });
+    baseModelFilterParts.push('"version.baseModel"="SD 1.4"');
+    baseModelFilterParts.push('"version.baseModel"="SD 1.5"');
+    baseModelFilterParts.push('"version.baseModel"="SD 1.5 LCM"');
   }
 
   if (baseModelFilters.includes('SD 2.x')) {
-    ['2.0', '2.0 768', '2.1', '2.1 768', '2.1 Unclip'].forEach(version => {
-      params.append('baseModels', `SD ${version}`);
-    });
+    baseModelFilterParts.push('"version.baseModel"="SD 2.0"');
+    baseModelFilterParts.push('"version.baseModel"="SD 2.0 768"');
+    baseModelFilterParts.push('"version.baseModel"="SD 2.1"');
+    baseModelFilterParts.push('"version.baseModel"="SD 2.1 768"');
+    baseModelFilterParts.push('"version.baseModel"="SD 2.1 Unclip"');
   }
 
   if (baseModelFilters.includes('SDXL')) {
-    ['0.9', '1.0', '1.0 LCM', 'Turbo'].forEach(version => {
-      params.append('baseModels', `SDXL ${version}`);
-    });
+    baseModelFilterParts.push('"version.baseModel"="SDXL 0.9"');
+    baseModelFilterParts.push('"version.baseModel"="SDXL 1.0"');
+    baseModelFilterParts.push('"version.baseModel"="SDXL 1.0 LCM"');
+    baseModelFilterParts.push('"version.baseModel"="SDXL Turbo"');
   }
 
   if (baseModelFilters.includes('Pony')) {
-    params.append('baseModels', 'Pony');
+    baseModelFilterParts.push('"version.baseModel"="Pony"');
   }
 
   if (baseModelFilters.includes('Flux')) {
-    params.append('baseModels', 'Flux.1 S');
-    params.append('baseModels', 'Flux.1 D');
+    baseModelFilterParts.push('"version.baseModel"="Flux.1 S"');
+    baseModelFilterParts.push('"version.baseModel"="Flux.1 D"');
   }
 
   if (baseModelFilters.includes('NoobAI')) {
-    params.append('baseModels', 'NoobAI');
+    baseModelFilterParts.push('"version.baseModel"="NoobAI"');
   }
 
   if (baseModelFilters.includes('Illustrious')) {
-    params.append('baseModels', 'Illustrious');
+    baseModelFilterParts.push('"version.baseModel"="Illustrious"');
   }
 
-  return params.toString();
+  // Build NSFW filter
+  const nsfwLevels = nsfw
+    ? 'nsfwLevel=1 OR nsfwLevel=2 OR nsfwLevel=4 OR nsfwLevel=8 OR nsfwLevel=16'
+    : 'nsfwLevel=1';
+
+  // Build complete filter array (matching the structure from the curl example)
+  // The filter structure is: [[array of base model OR conditions], "remaining AND conditions"]
+  const filterArray = [];
+
+  // Add base model filter array if any selected
+  if (baseModelFilterParts.length > 0) {
+    filterArray.push(baseModelFilterParts);
+  }
+
+  // Add common filters as a string
+  filterArray.push('(poi != true) AND (minor != true) AND (availability != Private) AND (NOT (nsfwLevel IN [4, 8, 16, 32] AND version.baseModel IN [\'SD 3\', \'SD 3.5\', \'SD 3.5 Medium\', \'SD 3.5 Large\', \'SD 3.5 Large Turbo\', \'SDXL Turbo\', \'SVD\', \'SVD XT\', \'Stable Cascade\'])) AND (' + nsfwLevels + ')');
+
+  const filter = filterArray;
+
+  // Map sort options to Meilisearch format
+  // Note: Meilisearch handles sorting differently, we'll need to investigate available sort options
+  // For now, we'll rely on the default relevance sorting
+
+  return {
+    queries: [
+      {
+        q: query,
+        indexUid: 'models_v9',
+        facets: ['category.name', 'checkpointType', 'fileFormats', 'lastVersionAtUnix', 'tags.name', 'type', 'user.username', 'version.baseModel'],
+        attributesToHighlight: [],
+        highlightPreTag: '__ais-highlight__',
+        highlightPostTag: '__/ais-highlight__',
+        limit: limit,
+        offset: offset,
+        filter: filter
+      }
+    ]
+  };
 }
 
 /**
  * Generate cache key for a search
- * Note: For searches with query, pagination is cursor-based (not page-based)
- * So we only include page in the cache key when there's no query
  */
 function getCacheKey({ query = '', page = 1, limit = 100, baseModelFilters = [], nsfw = false, sort = 'Highest Rated' }) {
-  // For searches (with query), don't include page in cache key (cursor-based pagination)
-  // For browsing (no query), include page in cache key (page-based pagination)
-  const pageKey = query ? 'p1' : `p${page}`;
-  return `${query || 'default'}_${pageKey}_${limit}_${sort}_${(baseModelFilters || []).sort().join(',')}_${nsfw}`;
+  return `${query || 'default'}_p${page}_${limit}_${sort}_${(baseModelFilters || []).sort().join(',')}_${nsfw}`;
 }
 
 /**
@@ -115,7 +133,29 @@ function cacheModelVersions(modelData) {
 }
 
 /**
- * Search LoRAs on CivitAI
+ * Transform Meilisearch hit to CivitAI model format
+ */
+function transformMeilisearchHit(hit) {
+  // Meilisearch returns a different structure, we need to transform it
+  // to match the expected CivitAI API format
+  return {
+    id: hit.id,
+    name: hit.name,
+    description: hit.description,
+    type: hit.type,
+    nsfw: hit.nsfw,
+    nsfwLevel: hit.nsfwLevel,
+    tags: hit.tags,
+    creator: hit.user,
+    stats: hit.stats,
+    modelVersions: hit.modelVersions || (hit.version ? [hit.version] : []),
+    // Preserve any other fields that might be useful
+    ...hit
+  };
+}
+
+/**
+ * Search LoRAs on CivitAI using new Meilisearch API
  */
 export async function searchLoras({
   query = '',
@@ -127,31 +167,32 @@ export async function searchLoras({
   url = null
 }) {
   try {
-    let fetchUrl;
+    // Build Meilisearch query
+    const searchQuery = buildMeilisearchQuery({ query, page, limit, baseModelFilters, nsfw, sort });
 
-    if (url) {
-      // Direct URL provided (for pagination)
-      fetchUrl = url.startsWith('http') ? url : `${API_BASE_URL}/models?${url}`;
-    } else {
-      // Build query string
-      const queryString = buildQueryString({ query, page, limit, baseModelFilters, nsfw, sort });
-      fetchUrl = `${API_BASE_URL}/models?${queryString}`;
+    // CACHE DISABLED FOR DEBUGGING
+    // const cacheKey = getCacheKey({ query, page, limit, baseModelFilters, nsfw, sort });
+    // const cached = CivitaiSearchCache.get(cacheKey);
+    // if (cached && (Date.now() - cached.cached_at < CACHE_TTL)) {
+    //   console.log(`[CivitAI] Cache hit for search: ${cacheKey}`);
+    //   return {
+    //     ...cached.result_data,
+    //     cached: true
+    //   };
+    // }
 
-      // CACHE DISABLED FOR DEBUGGING
-      // const cacheKey = getCacheKey({ query, page, limit, baseModelFilters, nsfw, sort });
-      // const cached = CivitaiSearchCache.get(cacheKey);
-      // if (cached && (Date.now() - cached.cached_at < CACHE_TTL)) {
-      //   console.log(`[CivitAI] Cache hit for search: ${cacheKey}`);
-      //   return {
-      //     ...cached.result_data,
-      //     cached: true
-      //   };
-      // }
-    }
-
-    // Fetch from CivitAI API
-    console.log(`[CivitAI] Fetching from API: ${fetchUrl}`);
-    const response = await fetch(fetchUrl);
+    // Fetch from CivitAI Meilisearch API
+    console.log(`[CivitAI] Fetching from Meilisearch API with query:`, JSON.stringify(searchQuery, null, 2));
+    const response = await fetch(SEARCH_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SEARCH_API_TOKEN}`,
+        'Origin': 'https://civitai.com',
+        'Referer': 'https://civitai.com/'
+      },
+      body: JSON.stringify(searchQuery)
+    });
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -170,28 +211,41 @@ export async function searchLoras({
     const data = await response.json();
 
     // Log the actual response for debugging
-    console.log(`[CivitAI] API returned ${data.items?.length || 0} items`);
-    console.log(`[CivitAI] Full metadata:`, JSON.stringify(data.metadata, null, 2));
+    console.log(`[CivitAI] Meilisearch API returned:`, JSON.stringify(data, null, 2));
+
+    // Extract results from Meilisearch response
+    const results = data.results && data.results[0] ? data.results[0] : { hits: [], estimatedTotalHits: 0 };
+    const hits = results.hits || [];
+    const totalHits = results.estimatedTotalHits || 0;
+
+    // Transform hits to match expected format
+    const items = hits.map(transformMeilisearchHit);
+
+    // Log transformed data
+    console.log(`[CivitAI] Transformed ${items.length} items`);
 
     // CACHE DISABLED FOR DEBUGGING
-    // if (!url) {
-    //   const cacheKey = getCacheKey({ query, page, limit, baseModelFilters, nsfw, sort });
-    //   CivitaiSearchCache.set(cacheKey, data);
-    // }
+    // const cacheKey = getCacheKey({ query, page, limit, baseModelFilters, nsfw, sort });
+    // CivitaiSearchCache.set(cacheKey, { items, metadata });
 
     // Cache all model versions in LoraCache for long-term persistence
-    if (data.items && Array.isArray(data.items)) {
-      for (const model of data.items) {
-        cacheModelVersions(model);
-      }
+    for (const model of items) {
+      cacheModelVersions(model);
     }
 
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalHits / limit);
+    const hasNextPage = page < totalPages;
+
     return {
-      items: data.items || [],
-      metadata: data.metadata || {
-        nextPage: null,
+      items: items,
+      metadata: {
         currentPage: page,
-        pageSize: limit
+        pageSize: limit,
+        totalItems: totalHits,
+        totalPages: totalPages,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null
       },
       cached: false
     };
