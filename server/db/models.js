@@ -521,3 +521,53 @@ export const LoraCache = {
     return result.changes;
   }
 };
+
+// CivitAI Search Cache model
+export const CivitaiSearchCache = {
+  get(cacheKey) {
+    const stmt = db.prepare('SELECT * FROM civitai_search_cache WHERE cache_key = ?');
+    const cached = stmt.get(cacheKey);
+
+    if (cached) {
+      return {
+        ...cached,
+        result_data: JSON.parse(cached.result_data)
+      };
+    }
+
+    return null;
+  },
+
+  set(cacheKey, resultData) {
+    const now = Date.now();
+
+    // Check if exists
+    const existing = db.prepare('SELECT cache_key FROM civitai_search_cache WHERE cache_key = ?').get(cacheKey);
+
+    if (existing) {
+      // Update existing
+      const stmt = db.prepare(`
+        UPDATE civitai_search_cache
+        SET result_data = ?, cached_at = ?
+        WHERE cache_key = ?
+      `);
+      stmt.run(JSON.stringify(resultData), now, cacheKey);
+    } else {
+      // Insert new
+      const stmt = db.prepare(`
+        INSERT INTO civitai_search_cache (cache_key, result_data, cached_at)
+        VALUES (?, ?, ?)
+      `);
+      stmt.run(cacheKey, JSON.stringify(resultData), now);
+    }
+
+    return this.get(cacheKey);
+  },
+
+  cleanup(maxAgeMs = 7 * 24 * 60 * 60 * 1000) { // Default: 7 days
+    const cutoff = Date.now() - maxAgeMs;
+    const stmt = db.prepare('DELETE FROM civitai_search_cache WHERE cached_at < ?');
+    const result = stmt.run(cutoff);
+    return result.changes;
+  }
+};

@@ -174,6 +174,15 @@ function initDatabase() {
     )
   `);
 
+  // CivitAI search cache table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS civitai_search_cache (
+      cache_key TEXT PRIMARY KEY,
+      result_data TEXT NOT NULL,
+      cached_at INTEGER NOT NULL
+    )
+  `);
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_lora_cache_version
