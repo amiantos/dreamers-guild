@@ -6,26 +6,42 @@
         <span class="arrow">←</span> Back
       </button>
       <h3>LoRAs</h3>
-      <button class="btn-filter" @click="showFilter = !showFilter">
-        <i class="fas fa-filter"></i>
-      </button>
     </div>
 
-    <!-- Filter Panel -->
-    <div v-if="showFilter" class="filter-panel">
-      <div class="filter-section">
-        <h4>Base Models</h4>
-        <div class="filter-checkboxes">
-          <label v-for="filter in baseModelOptions" :key="filter" class="checkbox-label">
-            <input
-              type="checkbox"
-              :value="filter"
-              v-model="selectedFilters"
-              @change="onFiltersChange"
-            />
-            <span>{{ filter }}</span>
-          </label>
-        </div>
+    <!-- Filter Panel - Always Visible -->
+    <div class="filter-panel">
+      <div class="filter-row-single">
+        <!-- Base Model Chips -->
+        <button
+          v-for="filter in baseModelFilterOptions"
+          :key="filter"
+          :class="['model-chip', { active: selectedFilters.includes(filter) }]"
+          @click="toggleFilter(filter)"
+        >
+          {{ filter }}
+        </button>
+
+        <!-- Divider -->
+        <div class="filter-divider"></div>
+
+        <!-- Sort Dropdown -->
+        <select
+          v-model="sortOrder"
+          @change="onSortChange"
+          class="sort-select"
+        >
+          <option v-for="option in sortOptions" :key="option" :value="option">
+            {{ option }}
+          </option>
+        </select>
+
+        <!-- NSFW Toggle -->
+        <button
+          :class="['model-chip', { active: selectedFilters.includes('NSFW') }]"
+          @click="toggleFilter('NSFW')"
+        >
+          NSFW
+        </button>
       </div>
     </div>
 
@@ -213,13 +229,15 @@ export default {
       currentPage,
       baseModelFilters,
       nsfwEnabled,
+      sortOrder,
       hasNextPage,
       hasPreviousPage,
       search,
       searchImmediate,
       goToNextPage,
       goToPreviousPage,
-      updateFilters
+      updateFilters,
+      updateSort
     } = useLoraCache()
 
     const {
@@ -237,7 +255,6 @@ export default {
 
     // State
     const activeTab = ref('browse')
-    const showFilter = ref(false)
     const searchQuery = ref('')
     const selectedFilters = ref([...baseModelFilters.value])
     const showDetailsOverlay = ref(false)
@@ -288,16 +305,22 @@ export default {
       )
     })
 
-    // Base model options
-    const baseModelOptions = [
+    // Base model options (without NSFW - handled separately)
+    const baseModelFilterOptions = [
       'SD 1.x',
       'SD 2.x',
       'SDXL',
       'Pony',
       'Flux',
       'NoobAI',
-      'Illustrious',
-      'NSFW'
+      'Illustrious'
+    ]
+
+    // Sort options (matches CivitAI API)
+    const sortOptions = [
+      'Highest Rated',
+      'Most Downloaded',
+      'Newest'
     ]
 
     // Methods
@@ -308,6 +331,10 @@ export default {
       // For favorites and recent, filtering is done via computed properties
     }
 
+    const onSortChange = (event) => {
+      updateSort(event.target.value)
+    }
+
     const clearSearch = () => {
       searchQuery.value = ''
       if (activeTab.value === 'browse') {
@@ -315,15 +342,31 @@ export default {
       }
     }
 
-    const onFiltersChange = () => {
+    const toggleFilter = (filter) => {
+      const index = selectedFilters.value.indexOf(filter)
+      if (index > -1) {
+        selectedFilters.value.splice(index, 1)
+      } else {
+        selectedFilters.value.push(filter)
+      }
+
       const nsfw = selectedFilters.value.includes('NSFW')
       const modelFilters = selectedFilters.value.filter(f => f !== 'NSFW')
       updateFilters(modelFilters, nsfw)
     }
 
-    const showDetails = (lora) => {
-      selectedLoraForDetails.value = lora
-      showDetailsOverlay.value = true
+    const showDetails = async (lora) => {
+      // Fetch full model data to get complete metadata, file info, and all versions
+      try {
+        const fullModelData = await getLoraById(lora.id)
+        selectedLoraForDetails.value = fullModelData
+        showDetailsOverlay.value = true
+      } catch (error) {
+        console.error('Error fetching full model data:', error)
+        // Fallback to using the partial data from search
+        selectedLoraForDetails.value = lora
+        showDetailsOverlay.value = true
+      }
     }
 
     const onAddLora = async (lora) => {
@@ -457,7 +500,6 @@ export default {
     return {
       // State
       activeTab,
-      showFilter,
       searchQuery,
       selectedFilters,
       showDetailsOverlay,
@@ -470,7 +512,8 @@ export default {
       nsfwEnabled: nsfwEnabledComputed,
       filteredFavorites,
       filteredRecent,
-      baseModelOptions,
+      baseModelFilterOptions,
+      sortOptions,
 
       // From composables
       loading,
@@ -481,11 +524,13 @@ export default {
       favorites,
       favoritesLoading,
       recentLoading,
+      sortOrder,
 
       // Methods
       onSearchInput,
+      onSortChange,
       clearSearch,
-      onFiltersChange,
+      toggleFilter,
       showDetails,
       onAddLora,
       toggleFavorite,
@@ -536,8 +581,7 @@ export default {
   color: white;
 }
 
-.btn-back,
-.btn-filter {
+.btn-back {
   background: none;
   border: none;
   color: white;
@@ -548,8 +592,7 @@ export default {
   border-radius: 4px;
 }
 
-.btn-back:hover,
-.btn-filter:hover {
+.btn-back:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -560,34 +603,87 @@ export default {
 
 .filter-panel {
   background: var(--color-surface-hover);
-  padding: 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid #333;
 }
 
-.filter-section h4 {
-  margin: 0 0 12px 0;
-  color: white;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.filter-checkboxes {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.checkbox-label {
+.filter-row-single {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: white;
-  font-size: 13px;
-  cursor: pointer;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.checkbox-label input[type="checkbox"] {
+.model-chip {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 16px;
+  padding: 4px 12px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.model-chip:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-lighter);
+}
+
+.model-chip.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: white;
+}
+
+.filter-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--color-border);
+  margin: 0 4px;
+}
+
+.sort-select {
+  padding: 4px 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 130px;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.sort-select option {
+  background: var(--color-surface);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .filter-row-single {
+    gap: 6px;
+  }
+
+  .model-chip {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .sort-select {
+    min-width: 110px;
+    font-size: 11px;
+  }
+
+  .nsfw-checkbox {
+    font-size: 11px;
+  }
 }
 
 .tabs {
@@ -615,8 +711,8 @@ export default {
 
 .tab.active {
   color: white;
-  border-bottom-color: #4fc3f7;
-  background: rgba(79, 195, 247, 0.1);
+  border-bottom-color: var(--color-primary);
+  background: rgba(88, 114, 151, 0.1);
 }
 
 .search-container {
@@ -638,7 +734,7 @@ export default {
 
 .search-input:focus {
   outline: none;
-  border-color: #4fc3f7;
+  border-color: var(--color-primary);
 }
 
 .btn-clear-search {
@@ -704,7 +800,7 @@ export default {
   width: 48px;
   height: 48px;
   border: 4px solid #333;
-  border-top-color: #4fc3f7;
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -720,7 +816,7 @@ export default {
 
 .btn-retry {
   margin-top: 16px;
-  background: #4fc3f7;
+  background: var(--color-primary);
   border: none;
   border-radius: 4px;
   color: white;

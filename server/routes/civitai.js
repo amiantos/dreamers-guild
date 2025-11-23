@@ -17,9 +17,10 @@ router.post('/search', async (req, res) => {
     const {
       query = '',
       page = 1,
-      limit = 20,
+      limit = 100,
       baseModelFilters = [],
       nsfw = false,
+      sort = 'Highest Rated',
       url = null
     } = req.body;
 
@@ -29,6 +30,7 @@ router.post('/search', async (req, res) => {
       limit,
       baseModelFilters,
       nsfw,
+      sort,
       url
     });
 

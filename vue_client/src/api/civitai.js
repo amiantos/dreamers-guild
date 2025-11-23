@@ -15,6 +15,7 @@ import apiClient from './client.js';
  * @param {number} params.limit - Results per page
  * @param {Array<string>} params.baseModelFilters - Base model filters
  * @param {boolean} params.nsfw - Include NSFW results
+ * @param {string} params.sort - Sort order (Highest Rated, Most Downloaded, Newest)
  * @param {string} params.url - Direct URL to fetch (for pagination)
  * @param {AbortSignal} params.signal - Abort signal for cancellation
  * @returns {Promise<Object>} Response with items and metadata
@@ -22,9 +23,10 @@ import apiClient from './client.js';
 export async function searchLoras({
   query = '',
   page = 1,
-  limit = 20,
+  limit = 100,
   baseModelFilters = [],
   nsfw = false,
+  sort = 'Highest Rated',
   url = null,
   signal = null
 }) {
@@ -35,6 +37,7 @@ export async function searchLoras({
       limit,
       baseModelFilters,
       nsfw,
+      sort,
       url
     }, { signal });
 

@@ -16,9 +16,9 @@ const error = ref(null)
 const currentPage = ref(1)
 const currentSearchTerm = ref('')
 const nextPageUrl = ref(null)
-const previousPageUrls = ref([])
 const baseModelFilters = ref([])
 const nsfwEnabled = ref(false)
+const sortOrder = ref('Highest Rated')
 
 // Abort controller for canceling requests
 let abortController = null
@@ -87,6 +87,7 @@ async function performSearch(query = '', url = null) {
       page: currentPage.value,
       baseModelFilters: baseModelFilters.value,
       nsfw: nsfwEnabled.value,
+      sort: sortOrder.value,
       url,
       signal: abortController.signal
     })
@@ -116,7 +117,6 @@ async function performSearch(query = '', url = null) {
  */
 const debouncedSearch = debounce((query) => {
   currentPage.value = 1
-  previousPageUrls.value = []
   performSearch(query)
 }, 500)
 
@@ -138,7 +138,6 @@ export function useLoraCache() {
    */
   const searchImmediate = (query = '') => {
     currentPage.value = 1
-    previousPageUrls.value = []
     return performSearch(query)
   }
 
@@ -148,16 +147,17 @@ export function useLoraCache() {
   const goToNextPage = async () => {
     if (!nextPageUrl.value || loading.value) return
 
-    // Store current page URL before moving forward
-    if (currentPage.value === 1) {
-      // For page 1, store the search parameters
-      previousPageUrls.value.push(`page_1_${currentSearchTerm.value}`)
+    // For searches (with query), use cursor-based pagination (no backwards navigation)
+    // For browsing (no query), use page-based pagination (supports backwards)
+    if (currentSearchTerm.value) {
+      // Cursor-based: just increment page counter for display
+      currentPage.value++
+      await performSearch(currentSearchTerm.value, nextPageUrl.value)
     } else {
-      previousPageUrls.value.push(previousPageUrls.value[previousPageUrls.value.length - 1] || '')
+      // Page-based: traditional pagination
+      currentPage.value++
+      await performSearch('')
     }
-
-    currentPage.value++
-    await performSearch(undefined, nextPageUrl.value)
   }
 
   /**
@@ -166,17 +166,17 @@ export function useLoraCache() {
   const goToPreviousPage = async () => {
     if (currentPage.value <= 1 || loading.value) return
 
-    currentPage.value--
-
-    if (currentPage.value === 1) {
-      // Go back to first page
-      previousPageUrls.value = []
-      await performSearch(currentSearchTerm.value)
-    } else {
-      // Go to previous page URL
-      const prevUrl = previousPageUrls.value.pop()
-      await performSearch(undefined, prevUrl)
+    // Cursor-based pagination (searches) doesn't support going backwards
+    // Only allow backwards navigation for browsing (no search query)
+    if (currentSearchTerm.value) {
+      // For searches, cannot go back - would need to restart search
+      console.warn('Backward pagination not supported for searches (cursor-based)')
+      return
     }
+
+    // Page-based browsing: normal backward pagination
+    currentPage.value--
+    await performSearch('')
   }
 
   /**
@@ -190,7 +190,19 @@ export function useLoraCache() {
     // Trigger new search with updated filters
     if (currentSearchTerm.value || results.value.length > 0) {
       currentPage.value = 1
-      previousPageUrls.value = []
+      performSearch(currentSearchTerm.value)
+    }
+  }
+
+  /**
+   * Update sort order
+   */
+  const updateSort = (newSort) => {
+    sortOrder.value = newSort
+
+    // Trigger new search with updated sort
+    if (currentSearchTerm.value || results.value.length > 0) {
+      currentPage.value = 1
       performSearch(currentSearchTerm.value)
     }
   }
@@ -201,7 +213,6 @@ export function useLoraCache() {
   const resetSearch = () => {
     currentPage.value = 1
     currentSearchTerm.value = ''
-    previousPageUrls.value = []
     nextPageUrl.value = null
     results.value = []
     error.value = null
@@ -209,7 +220,15 @@ export function useLoraCache() {
 
   // Computed properties
   const hasNextPage = computed(() => !!nextPageUrl.value)
-  const hasPreviousPage = computed(() => currentPage.value > 1)
+  // Disable previous page for searches (cursor-based pagination doesn't support going backwards)
+  const hasPreviousPage = computed(() => {
+    if (currentSearchTerm.value) {
+      // No backward pagination for searches (cursor-based)
+      return false
+    }
+    // Normal backward pagination for browsing (page-based)
+    return currentPage.value > 1
+  })
 
   return {
     // State
@@ -219,6 +238,7 @@ export function useLoraCache() {
     currentPage,
     baseModelFilters,
     nsfwEnabled,
+    sortOrder,
 
     // Computed
     hasNextPage,
@@ -230,6 +250,7 @@ export function useLoraCache() {
     goToNextPage,
     goToPreviousPage,
     updateFilters,
+    updateSort,
     resetSearch
   }
 }
