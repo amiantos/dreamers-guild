@@ -573,40 +573,18 @@ export async function searchTextualInversions({
 
 /**
  * Get a specific TI model by ID
+ * Note: Uses the same endpoint as LoRAs since CivitAI uses /models/{id} for all model types
  */
 export async function getTiById(modelId) {
   try {
-    const cacheKey = `ti_model_${modelId}`;
-    const cached = CivitaiSearchCache.get(cacheKey);
-
-    if (cached && (Date.now() - cached.cached_at < CACHE_TTL)) {
-      console.log(`[CivitAI] Cache hit for TI model: ${modelId}`);
-      return {
-        ...cached.result_data,
-        cached: true
-      };
-    }
-
-    // Fetch from CivitAI API
-    console.log(`[CivitAI] Fetching TI model from API: ${modelId}`);
-    const response = await fetch(`${API_BASE_URL}/models/${modelId}`);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Cache the result
-    CivitaiSearchCache.set(cacheKey, data);
+    console.log(`[CivitAI] Fetching TI model ${modelId} (using shared models endpoint)`);
+    // Use getLoraById since the API endpoint is identical for all model types
+    const data = await getLoraById(modelId);
 
     // Cache model versions in TiCache for long-term persistence
     cacheTiVersions(data);
 
-    return {
-      ...data,
-      cached: false
-    };
+    return data;
   } catch (error) {
     console.error(`[CivitAI] Error fetching TI model ${modelId}:`, error);
     throw error;

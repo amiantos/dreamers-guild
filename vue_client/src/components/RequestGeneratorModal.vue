@@ -925,12 +925,36 @@ export default {
     const showTiInfo = async (ti) => {
       // Fetch full model data to ensure we have complete metadata
       try {
+        console.log('[showTiInfo] Fetching TI by ID:', { id: ti.id, name: ti.name, versionId: ti.versionId })
         const fullModelData = await getTiById(ti.id)
         selectedTiForDetails.value = fullModelData
         showTiDetails.value = true
       } catch (error) {
-        console.error('Error fetching full TI data:', error)
-        // Fallback to using the enriched data we already have
+        console.error('[showTiInfo] Error fetching by model ID:', error)
+
+        // Try fetching by version ID as a fallback
+        if (ti.versionId) {
+          try {
+            console.log('[showTiInfo] Trying to fetch by version ID:', ti.versionId)
+            const fullModelData = await getTiByVersionId(ti.versionId)
+            fullModelData.versionId = ti.versionId
+            selectedTiForDetails.value = fullModelData
+            showTiDetails.value = true
+            return
+          } catch (versionError) {
+            console.error('[showTiInfo] Error fetching by version ID:', versionError)
+          }
+        }
+
+        console.log('[showTiInfo] Falling back to enriched data:', {
+          id: ti.id,
+          name: ti.name,
+          versionId: ti.versionId,
+          hasModelVersions: !!ti.modelVersions,
+          versionCount: ti.modelVersions?.length
+        })
+        // Final fallback: use the enriched data we already have
+        // This handles cases where the model was deleted or is unavailable on CivitAI
         selectedTiForDetails.value = ti
         showTiDetails.value = true
       }

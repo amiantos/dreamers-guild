@@ -362,14 +362,38 @@ export default {
     const showDetails = async (ti) => {
       // Fetch full model data to get complete metadata, file info, and all versions
       try {
+        console.log('[TextualInversionPicker] Fetching TI by ID:', { id: ti.id, name: ti.name, versionId: ti.versionId })
         const fullModelData = await getTiById(ti.id)
         // Preserve the versionId from the clicked TI so details modal shows the correct version
         fullModelData.versionId = ti.versionId || fullModelData.versionId
         selectedTiForDetails.value = fullModelData
         showDetailsOverlay.value = true
       } catch (error) {
-        console.error('Error fetching full model data:', error)
-        // Fallback to using the partial data from search
+        console.error('[TextualInversionPicker] Error fetching by model ID:', error)
+
+        // Try fetching by version ID as a fallback
+        if (ti.versionId) {
+          try {
+            console.log('[TextualInversionPicker] Trying to fetch by version ID:', ti.versionId)
+            const fullModelData = await getTiByVersionId(ti.versionId)
+            fullModelData.versionId = ti.versionId
+            selectedTiForDetails.value = fullModelData
+            showDetailsOverlay.value = true
+            return
+          } catch (versionError) {
+            console.error('[TextualInversionPicker] Error fetching by version ID:', versionError)
+          }
+        }
+
+        console.log('[TextualInversionPicker] Falling back to search result data:', {
+          id: ti.id,
+          name: ti.name,
+          versionId: ti.versionId,
+          hasModelVersions: !!ti.modelVersions,
+          versionCount: ti.modelVersions?.length
+        })
+        // Final fallback: use the partial data from search
+        // This handles cases where the model was deleted or is unavailable on CivitAI
         selectedTiForDetails.value = ti
         showDetailsOverlay.value = true
       }
@@ -496,17 +520,17 @@ export default {
 
     // Initialize
     onMounted(async () => {
-      // Load initial browse results
-      searchImmediate('')
-
-      // Load favorites
-      await loadFavorites()
-
-      // Update NSFW from settings
+      // Update NSFW from settings FIRST before loading any data
       nsfwEnabled.value = nsfwEnabledComputed.value
       if (nsfwEnabledComputed.value && !selectedFilters.value.includes('NSFW')) {
         selectedFilters.value.push('NSFW')
       }
+
+      // Load initial browse results (now with correct NSFW setting)
+      searchImmediate('')
+
+      // Load favorites
+      await loadFavorites()
     })
 
     return {
