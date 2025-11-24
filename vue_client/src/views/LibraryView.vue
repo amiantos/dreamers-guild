@@ -165,10 +165,10 @@
           </div>
         </div>
 
-        <div v-if="image.is_favorite && selectedCount === 0" class="favorite-badge" title="Favorited">
+        <div v-if="image.is_favorite" class="favorite-badge" title="Favorited">
           <i class="fa-solid fa-star"></i>
         </div>
-        <div v-if="image.is_hidden && (!checkHiddenAuth || checkHiddenAuth()) && selectedCount === 0" class="hidden-badge" title="Hidden">
+        <div v-if="image.is_hidden && (!checkHiddenAuth || checkHiddenAuth())" class="hidden-badge" title="Hidden">
           <i class="fa-solid fa-eye-slash"></i>
         </div>
         <div v-if="selectedCount === 0" class="image-overlay">
@@ -697,8 +697,6 @@ export default {
     }
 
     const deleteImage = async (imageId) => {
-      if (!confirm('Delete this image?')) return
-
       try {
         await imagesApi.delete(imageId)
         images.value = images.value.filter(img => img.uuid !== imageId)
@@ -1695,8 +1693,8 @@ export default {
 
 .selection-checkbox {
   position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
+  bottom: 0.5rem;
+  right: 0.5rem;
   z-index: 3;
   pointer-events: none;
 }

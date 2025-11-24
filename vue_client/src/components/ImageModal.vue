@@ -101,11 +101,17 @@
           <a :href="imageUrl" :download="`aislingeach-${image.uuid}.png`" class="btn btn-download">
             <i class="fa-solid fa-download"></i> Download
           </a>
-          <button @click="$emit('delete', image.uuid)" class="btn btn-icon btn-delete" title="Delete image">
+          <button @click="showDeleteModal = true" class="btn btn-icon btn-delete" title="Delete image">
             <i class="fa-solid fa-trash"></i>
           </button>
         </div>
       </div>
+      <!-- Delete Confirmation Modal -->
+      <DeleteImageModal
+        v-if="showDeleteModal"
+        @close="showDeleteModal = false"
+        @delete="confirmDelete"
+      />
       <!-- Details Overlay -->
       <div v-if="showDetails" class="request-details-overlay">
         <div class="request-details-header">
@@ -129,9 +135,13 @@
 <script>
 import { computed, ref, watch, onMounted, onUnmounted, inject } from 'vue'
 import { imagesApi } from '../api/client.js'
+import DeleteImageModal from './DeleteImageModal.vue'
 
 export default {
   name: 'ImageModal',
+  components: {
+    DeleteImageModal
+  },
   props: {
     image: {
       type: Object,
@@ -163,6 +173,7 @@ export default {
     const showDetails = ref(false)
     const detailsType = ref('request')
     const copied = ref(false)
+    const showDeleteModal = ref(false)
 
     // Watch for prop changes when navigating between images
     watch(() => props.image, (newImage) => {
@@ -304,6 +315,11 @@ export default {
       }
     }
 
+    const confirmDelete = () => {
+      showDeleteModal.value = false
+      emit('delete', props.image.uuid)
+    }
+
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown)
     })
@@ -332,7 +348,9 @@ export default {
       closeDetails,
       copyToClipboard,
       copied,
-      copyButtonText
+      copyButtonText,
+      showDeleteModal,
+      confirmDelete
     }
   }
 }
