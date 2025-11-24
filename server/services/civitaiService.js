@@ -5,7 +5,7 @@
  * Implements database caching to reduce API calls and improve performance.
  */
 
-import { CivitaiSearchCache, LoraCache } from '../db/models.js';
+import { CivitaiSearchCache, LoraCache, TiCache } from '../db/models.js';
 
 const API_BASE_URL = 'https://civitai.com/api/v1';
 const SEARCH_API_URL = 'https://search-new.civitai.com/multi-search';
@@ -140,6 +140,31 @@ function cacheModelVersions(modelData) {
 }
 
 /**
+ * Cache a model's versions in TiCache for long-term persistence
+ * This allows us to enrich historical requests with full TI metadata
+ */
+function cacheTiVersions(modelData) {
+  try {
+    if (!modelData || !modelData.modelVersions || !Array.isArray(modelData.modelVersions)) {
+      return;
+    }
+
+    // Cache each version with the full model data
+    for (const version of modelData.modelVersions) {
+      if (version.id) {
+        TiCache.set(
+          String(version.id),
+          String(modelData.id),
+          modelData
+        );
+      }
+    }
+  } catch (error) {
+    console.error('[CivitAI] Error caching TI versions:', error);
+  }
+}
+
+/**
  * Transform image URL from Meilisearch format to full CivitAI URL
  */
 function transformImageUrl(image) {
@@ -243,6 +268,8 @@ function transformMeilisearchHit(hit) {
     creator: hit.user,
     stats: hit.metrics || hit.stats,
     modelVersions: modelVersions,
+    // Set versionId to the first (primary) version's ID for easy access
+    versionId: modelVersions.length > 0 ? modelVersions[0].id : null,
     // Preserve other useful fields
     mode: hit.mode,
     poi: hit.poi,
@@ -454,8 +481,201 @@ export async function getLoraByVersionId(versionId) {
   }
 }
 
+/**
+ * Search Textual Inversions on CivitAI using Meilisearch API
+ */
+export async function searchTextualInversions({
+  query = '',
+  page = 1,
+  limit = 100,
+  baseModelFilters = [],
+  nsfw = false,
+  sort = 'Highest Rated',
+  url = null
+}) {
+  try {
+    // Build Meilisearch query with TI type filter
+    const searchQuery = buildMeilisearchQuery({ query, page, limit, baseModelFilters, nsfw, sort });
+
+    // Replace LORA type filter with TextualInversion type filter
+    searchQuery.queries[0].filter = searchQuery.queries[0].filter.map(filter => {
+      if (typeof filter === 'string') {
+        return filter.replace('type=LORA', 'type=TextualInversion');
+      }
+      return filter;
+    });
+
+    // Fetch from CivitAI Meilisearch API
+    console.log(`[CivitAI] Fetching TIs from Meilisearch API with query:`, JSON.stringify(searchQuery, null, 2));
+    const response = await fetch(SEARCH_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SEARCH_API_TOKEN}`,
+        'Origin': 'https://civitai.com',
+        'Referer': 'https://civitai.com/'
+      },
+      body: JSON.stringify(searchQuery)
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage += ` - ${errorData.error}`;
+        }
+        console.error('[CivitAI] API Error Response:', errorData);
+      } catch (e) {
+        // Could not parse error response as JSON
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+
+    // Extract results from Meilisearch response
+    const results = data.results && data.results[0] ? data.results[0] : { hits: [], estimatedTotalHits: 0 };
+    const hits = results.hits || [];
+    const totalHits = results.estimatedTotalHits || 0;
+
+    // Transform hits to match expected format
+    const items = hits.map(transformMeilisearchHit);
+
+    console.log(`[CivitAI] Transformed ${items.length} TI items`);
+
+    // Cache all model versions in TiCache for long-term persistence
+    for (const model of items) {
+      cacheTiVersions(model);
+    }
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalHits / limit);
+    const hasNextPage = page < totalPages;
+
+    return {
+      items: items,
+      metadata: {
+        currentPage: page,
+        pageSize: limit,
+        totalItems: totalHits,
+        totalPages: totalPages,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: page > 1 ? page - 1 : null
+      },
+      cached: false
+    };
+  } catch (error) {
+    console.error('[CivitAI] Error searching Textual Inversions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get a specific TI model by ID
+ */
+export async function getTiById(modelId) {
+  try {
+    const cacheKey = `ti_model_${modelId}`;
+    const cached = CivitaiSearchCache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.cached_at < CACHE_TTL)) {
+      console.log(`[CivitAI] Cache hit for TI model: ${modelId}`);
+      return {
+        ...cached.result_data,
+        cached: true
+      };
+    }
+
+    // Fetch from CivitAI API
+    console.log(`[CivitAI] Fetching TI model from API: ${modelId}`);
+    const response = await fetch(`${API_BASE_URL}/models/${modelId}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Cache the result
+    CivitaiSearchCache.set(cacheKey, data);
+
+    // Cache model versions in TiCache for long-term persistence
+    cacheTiVersions(data);
+
+    return {
+      ...data,
+      cached: false
+    };
+  } catch (error) {
+    console.error(`[CivitAI] Error fetching TI model ${modelId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get a TI model by version ID (two-step process)
+ * Checks TiCache first for long-term persistence, then CivitaiSearchCache, then API
+ */
+export async function getTiByVersionId(versionId) {
+  try {
+    // Check long-term TiCache first
+    const tiCached = TiCache.get(String(versionId));
+    if (tiCached) {
+      console.log(`[CivitAI] TiCache hit for version: ${versionId}`);
+      return {
+        ...tiCached.full_metadata,
+        cached: true
+      };
+    }
+
+    // Check short-term CivitaiSearchCache
+    const cacheKey = `ti_version_${versionId}`;
+    const cached = CivitaiSearchCache.get(cacheKey);
+
+    if (cached && (Date.now() - cached.cached_at < CACHE_TTL)) {
+      console.log(`[CivitAI] SearchCache hit for TI version: ${versionId}`);
+      return {
+        ...cached.result_data,
+        cached: true
+      };
+    }
+
+    // Step 1: Fetch version data to get model ID
+    console.log(`[CivitAI] Fetching TI version from API: ${versionId}`);
+    const versionResponse = await fetch(`${API_BASE_URL}/model-versions/${versionId}`);
+
+    if (!versionResponse.ok) {
+      throw new Error(`HTTP error! status: ${versionResponse.status}`);
+    }
+
+    const versionData = await versionResponse.json();
+    const modelId = versionData.modelId;
+
+    // Step 2: Fetch full model data using model ID
+    const modelData = await getTiById(modelId);
+
+    // Cache the result under version ID for future lookups
+    CivitaiSearchCache.set(cacheKey, modelData);
+
+    // Cache model versions in TiCache for long-term persistence
+    cacheTiVersions(modelData);
+
+    return {
+      ...modelData,
+      cached: false
+    };
+  } catch (error) {
+    console.error(`[CivitAI] Error fetching TI version ${versionId}:`, error);
+    throw error;
+  }
+}
+
 export default {
   searchLoras,
   getLoraById,
-  getLoraByVersionId
+  getLoraByVersionId,
+  searchTextualInversions,
+  getTiById,
+  getTiByVersionId
 };

@@ -174,6 +174,17 @@ function initDatabase() {
     )
   `);
 
+  // Textual Inversion metadata cache table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ti_cache (
+      version_id TEXT PRIMARY KEY,
+      model_id TEXT NOT NULL,
+      full_metadata TEXT NOT NULL,
+      date_cached INTEGER NOT NULL,
+      last_accessed INTEGER NOT NULL
+    )
+  `);
+
   // CivitAI search cache table
   db.exec(`
     CREATE TABLE IF NOT EXISTS civitai_search_cache (
@@ -183,10 +194,39 @@ function initDatabase() {
     )
   `);
 
+  // Migration: Add favorite_tis column if it doesn't exist
+  // Stores JSON array of favorite Textual Inversion IDs from CivitAI
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN favorite_tis TEXT`);
+    console.log('Migration: Added favorite_tis column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
+  // Migration: Add recent_tis column if it doesn't exist
+  // Stores JSON array of recently used Textual Inversions with minimal metadata
+  try {
+    db.exec(`ALTER TABLE user_settings ADD COLUMN recent_tis TEXT`);
+    console.log('Migration: Added recent_tis column to user_settings table');
+  } catch (error) {
+    // Column already exists, ignore error
+    if (!error.message.includes('duplicate column name')) {
+      console.error('Migration error:', error.message);
+    }
+  }
+
   // Create indexes
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_lora_cache_version
     ON lora_cache(version_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ti_cache_version
+    ON ti_cache(version_id)
   `);
 
   db.exec(`

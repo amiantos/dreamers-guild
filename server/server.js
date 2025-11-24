@@ -11,6 +11,7 @@ import settingsRouter from './routes/settings.js';
 import stylesRouter from './routes/styles.js';
 import albumsRouter from './routes/albums.js';
 import loraCacheRouter from './routes/loraCache.js';
+import tiCacheRouter from './routes/tiCache.js';
 import civitaiRouter from './routes/civitai.js';
 
 // Import services
@@ -36,6 +37,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/styles', stylesRouter);
 app.use('/api/albums', albumsRouter);
 app.use('/api/lora-cache', loraCacheRouter);
+app.use('/api/ti-cache', tiCacheRouter);
 app.use('/api/civitai', civitaiRouter);
 
 // Health check
