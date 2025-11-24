@@ -316,6 +316,55 @@
         </div>
 
         <div class="section">
+          <h2>Gallery Thumbnails</h2>
+          <p class="help-text">
+            Regenerate thumbnails to support masonry view layout. This creates aspect-ratio preserving thumbnails for all your existing images.
+          </p>
+
+          <div class="thumbnail-regen-section">
+            <div v-if="!regeneratingThumbnails && !thumbnailRegenComplete" class="action-area">
+              <button @click="regenerateThumbnails" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Regenerate Thumbnails
+              </button>
+              <p class="help-text-small">
+                This will process all existing images and may take a few minutes depending on your library size.
+              </p>
+            </div>
+
+            <div v-if="regeneratingThumbnails" class="regen-progress">
+              <div class="progress-header">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <span>Regenerating thumbnails...</span>
+              </div>
+              <div v-if="thumbnailRegenStats.total > 0" class="progress-stats">
+                <p>Processed: {{ thumbnailRegenStats.succeeded + thumbnailRegenStats.failed }} / {{ thumbnailRegenStats.total }}</p>
+                <p v-if="thumbnailRegenStats.failed > 0" class="error-text">Failed: {{ thumbnailRegenStats.failed }}</p>
+              </div>
+            </div>
+
+            <div v-if="thumbnailRegenComplete" class="regen-complete">
+              <div class="success-indicator">
+                <i class="fa-solid fa-check-circle"></i>
+                <span>Thumbnails regenerated successfully!</span>
+              </div>
+              <div class="regen-stats">
+                <p>Total: {{ thumbnailRegenStats.total }}</p>
+                <p>Succeeded: {{ thumbnailRegenStats.succeeded }}</p>
+                <p v-if="thumbnailRegenStats.failed > 0">Failed: {{ thumbnailRegenStats.failed }}</p>
+              </div>
+              <button @click="resetThumbnailRegen" class="btn btn-secondary">
+                Regenerate Again
+              </button>
+            </div>
+
+            <div v-if="thumbnailRegenError" class="error-message">
+              <i class="fa-solid fa-exclamation-triangle"></i>
+              {{ thumbnailRegenError }}
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
           <h2>Hidden Gallery Protection</h2>
           <p class="help-text">
             Protect your hidden images with a 4-digit PIN.
@@ -510,7 +559,7 @@
 <script>
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { settingsApi } from '../api/client.js'
+import { settingsApi, imagesApi } from '../api/client.js'
 import { useSettingsStore } from '../stores/settingsStore.js'
 import { useTheme } from '../composables/useTheme.js'
 import PinInput from '../components/PinInput.vue'
@@ -568,6 +617,16 @@ export default {
     const newPinInput = ref(null)
     const removePinInput = ref(null)
     const setPinInput = ref(null)
+
+    // Thumbnail regeneration state
+    const regeneratingThumbnails = ref(false)
+    const thumbnailRegenComplete = ref(false)
+    const thumbnailRegenError = ref(null)
+    const thumbnailRegenStats = ref({
+      total: 0,
+      succeeded: 0,
+      failed: 0
+    })
 
     const goBack = () => {
       router.push('/')
@@ -832,6 +891,37 @@ export default {
       toggleTheme()
     }
 
+    // Thumbnail regeneration methods
+    const regenerateThumbnails = async () => {
+      try {
+        regeneratingThumbnails.value = true
+        thumbnailRegenError.value = null
+        thumbnailRegenComplete.value = false
+        thumbnailRegenStats.value = { total: 0, succeeded: 0, failed: 0 }
+
+        const response = await imagesApi.regenerateThumbnails()
+
+        thumbnailRegenStats.value = {
+          total: response.total || 0,
+          succeeded: response.succeeded || 0,
+          failed: response.failed || 0
+        }
+
+        thumbnailRegenComplete.value = true
+      } catch (error) {
+        console.error('Error regenerating thumbnails:', error)
+        thumbnailRegenError.value = error.response?.data?.error || 'Failed to regenerate thumbnails. Please try again.'
+      } finally {
+        regeneratingThumbnails.value = false
+      }
+    }
+
+    const resetThumbnailRegen = () => {
+      thumbnailRegenComplete.value = false
+      thumbnailRegenError.value = null
+      thumbnailRegenStats.value = { total: 0, succeeded: 0, failed: 0 }
+    }
+
     // PIN management methods
     const showChangePinModal = () => {
       changePinModalOpen.value = true
@@ -1010,6 +1100,13 @@ export default {
       // Theme
       currentTheme,
       handleThemeToggle,
+      // Thumbnail regeneration
+      regeneratingThumbnails,
+      thumbnailRegenComplete,
+      thumbnailRegenError,
+      thumbnailRegenStats,
+      regenerateThumbnails,
+      resetThumbnailRegen,
       // PIN management
       changePinModalOpen,
       removePinModalOpen,
@@ -1721,6 +1818,91 @@ export default {
 
 .checkbox-label span {
   user-select: none;
+}
+
+/* Thumbnail regeneration styles */
+.thumbnail-regen-section {
+  margin-top: 1rem;
+}
+
+.action-area {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.help-text-small {
+  font-size: 0.85rem;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.regen-progress {
+  padding: 1.5rem;
+  background: var(--color-border);
+  border-radius: 8px;
+  border: 1px solid #444;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+  margin-bottom: 1rem;
+}
+
+.progress-header i {
+  color: var(--color-primary);
+}
+
+.progress-stats p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.regen-complete {
+  padding: 1.5rem;
+  background: var(--color-border);
+  border-radius: 8px;
+  border: 1px solid var(--color-success);
+}
+
+.success-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  color: var(--color-success);
+  margin-bottom: 1rem;
+}
+
+.success-indicator i {
+  font-size: 1.25rem;
+}
+
+.regen-stats p {
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  margin-top: 1rem;
+}
+
+.error-text {
+  color: #ef4444;
 }
 
 @media (max-width: 768px) {

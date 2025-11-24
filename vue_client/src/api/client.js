@@ -86,6 +86,10 @@ export const imagesApi = {
 
   estimate(params) {
     return apiClient.post('/requests/estimate', { params })
+  },
+
+  regenerateThumbnails() {
+    return apiClient.post('/images/regenerate-thumbnails').then(res => res.data)
   }
 }
 

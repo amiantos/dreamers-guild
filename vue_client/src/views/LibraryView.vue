@@ -83,6 +83,54 @@
               <button @click="applySearch" class="btn-search">Search</button>
             </div>
 
+            <!-- View Mode Toggle Buttons -->
+            <div class="view-mode-controls">
+              <button
+                @click="setViewMode('grid')"
+                class="btn-view-mode"
+                :class="{ active: settingsStore.galleryPreferences.viewMode === 'grid' }"
+                title="Grid View"
+              >
+                <i class="fa-solid fa-grid"></i>
+              </button>
+              <button
+                @click="setViewMode('masonry')"
+                class="btn-view-mode"
+                :class="{ active: settingsStore.galleryPreferences.viewMode === 'masonry' }"
+                title="Masonry View"
+              >
+                <i class="fa-solid fa-grip-vertical"></i>
+              </button>
+            </div>
+
+            <!-- Image Size Controls (only for masonry view) -->
+            <div v-if="settingsStore.galleryPreferences.viewMode === 'masonry'" class="size-controls">
+              <button
+                @click="setImageSize('small')"
+                class="btn-size"
+                :class="{ active: settingsStore.galleryPreferences.imageSize === 'small' }"
+                title="Small"
+              >
+                S
+              </button>
+              <button
+                @click="setImageSize('medium')"
+                class="btn-size"
+                :class="{ active: settingsStore.galleryPreferences.imageSize === 'medium' }"
+                title="Medium"
+              >
+                M
+              </button>
+              <button
+                @click="setImageSize('large')"
+                class="btn-size"
+                :class="{ active: settingsStore.galleryPreferences.imageSize === 'large' }"
+                title="Large"
+              >
+                L
+              </button>
+            </div>
+
             <!-- Favorites Toggle Button -->
             <button
               @click="toggleFavorites"
@@ -125,13 +173,19 @@
       <p class="hint">Try adjusting your filters or generate some images</p>
     </div>
 
-    <div v-else class="image-grid" ref="gridContainer">
+    <div v-else class="image-grid" ref="gridContainer" :class="{
+      'masonry-view': settingsStore.galleryPreferences.viewMode === 'masonry',
+      'size-small': settingsStore.galleryPreferences.imageSize === 'small',
+      'size-medium': settingsStore.galleryPreferences.imageSize === 'medium',
+      'size-large': settingsStore.galleryPreferences.imageSize === 'large'
+    }">
       <div
         v-for="image in images"
         :key="image.uuid"
         class="image-item"
         @click="viewImage(image)"
         :class="{ 'hidden-locked': image.is_hidden && checkHiddenAuth && !checkHiddenAuth() }"
+        :style="getMasonryStyle(image)"
       >
         <div v-if="image.is_hidden && checkHiddenAuth && !checkHiddenAuth()" class="locked-placeholder">
           <i class="fa-solid fa-lock"></i>
@@ -139,7 +193,7 @@
         </div>
         <img
           v-else
-          :src="getThumbnailUrl(image.uuid)"
+          :src="getImageUrl(image)"
           :alt="image.prompt_simple"
           loading="lazy"
         />
@@ -200,6 +254,7 @@ import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { imagesApi, requestsApi, albumsApi } from '../api/client.js'
 import { useImagePolling } from '../composables/useImagePolling.js'
+import { useSettingsStore } from '../stores/settingsStore.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
@@ -221,6 +276,7 @@ export default {
   setup(props) {
     const router = useRouter()
     const route = useRoute()
+    const settingsStore = useSettingsStore()
     const images = ref([])
     const totalCount = ref(0)
     const loading = ref(true)
@@ -254,6 +310,9 @@ export default {
     // Menu state
     const showMenu = ref(false)
     const menuContainer = ref(null)
+
+    // Gallery view preferences
+    settingsStore.loadGalleryPreferences()
 
     // Initialize image polling composable
     const imagePolling = useImagePolling({
@@ -951,6 +1010,73 @@ export default {
       window.removeEventListener('click', handleClickOutside)
     })
 
+    // Gallery view mode functions
+    const setViewMode = (mode) => {
+      settingsStore.saveGalleryPreferences({ viewMode: mode })
+    }
+
+    const setImageSize = (size) => {
+      settingsStore.saveGalleryPreferences({ imageSize: size })
+    }
+
+    const getImageUrl = (image) => {
+      const viewMode = settingsStore.galleryPreferences.viewMode
+      const imageSize = settingsStore.galleryPreferences.imageSize
+
+      // For masonry view at large size, use full image
+      if (viewMode === 'masonry' && imageSize === 'large') {
+        return imagesApi.getImageUrl(image.uuid)
+      }
+
+      // For masonry view at small/medium, use aspect-ratio thumbnail
+      if (viewMode === 'masonry') {
+        return `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8005'}/api/images/${image.uuid}/thumbnail-ar`
+      }
+
+      // For grid view, use square thumbnail
+      return imagesApi.getThumbnailUrl(image.uuid)
+    }
+
+    const getImageDimensions = (image) => {
+      try {
+        const fullRequest = JSON.parse(image.full_request || '{}')
+        return {
+          width: fullRequest.params?.width || 512,
+          height: fullRequest.params?.height || 512
+        }
+      } catch {
+        return { width: 512, height: 512 }
+      }
+    }
+
+    const getGridRowSpan = (image) => {
+      const dimensions = getImageDimensions(image)
+      const aspectRatio = dimensions.height / dimensions.width
+
+      // Calculate how many 10px rows this image should span
+      // Base it on a 200px width, then scale by aspect ratio
+      const baseWidth = settingsStore.galleryPreferences.imageSize === 'small' ? 200 :
+                        settingsStore.galleryPreferences.imageSize === 'medium' ? 350 : 512
+      const height = Math.ceil(baseWidth * aspectRatio)
+      const span = Math.ceil(height / 10) + 1 // +1 for gap
+
+      return span
+    }
+
+    const getMasonryStyle = (image) => {
+      if (settingsStore.galleryPreferences.viewMode !== 'masonry') {
+        return {}
+      }
+
+      const dimensions = getImageDimensions(image)
+      const span = getGridRowSpan(image)
+
+      return {
+        gridRowEnd: `span ${span}`,
+        aspectRatio: `${dimensions.width} / ${dimensions.height}`
+      }
+    }
+
     return {
       images,
       loading,
@@ -999,7 +1125,15 @@ export default {
       toggleFavorites,
       toggleMenu,
       toggleHiddenImages,
-      checkHiddenAuth
+      checkHiddenAuth,
+      // Gallery view
+      settingsStore,
+      setViewMode,
+      setImageSize,
+      getImageUrl,
+      getImageDimensions,
+      getGridRowSpan,
+      getMasonryStyle
     }
   }
 }
@@ -1162,6 +1296,73 @@ export default {
   background: var(--color-primary-hover);
 }
 
+/* View mode controls */
+.view-mode-controls {
+  display: flex;
+  gap: 2px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.btn-view-mode {
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-view-mode:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.btn-view-mode.active {
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
+/* Size controls */
+.size-controls {
+  display: flex;
+  gap: 2px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.btn-size {
+  width: 36px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-size:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.btn-size.active {
+  background: var(--color-surface);
+  color: var(--color-accent);
+}
+
 .btn-favorites-toggle {
   width: 40px;
   height: 40px;
@@ -1280,6 +1481,25 @@ export default {
   background: var(--color-bg-base);
 }
 
+/* Masonry layout using CSS Grid */
+.image-grid.masonry-view {
+  display: grid;
+  gap: 4px;
+  align-items: start;
+}
+
+.image-grid.masonry-view.size-small {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.image-grid.masonry-view.size-medium {
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+}
+
+.image-grid.masonry-view.size-large {
+  grid-template-columns: repeat(auto-fill, minmax(512px, 1fr));
+}
+
 .image-item {
   position: relative;
   aspect-ratio: 1;
@@ -1288,11 +1508,21 @@ export default {
   background: var(--color-surface);
 }
 
+/* Masonry image items - use grid-row span based on aspect ratio */
+.masonry-view .image-item {
+  height: auto; /* Let height be determined by aspect ratio */
+}
+
 .image-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s;
+}
+
+.masonry-view .image-item img {
+  height: auto; /* Let image maintain its natural aspect ratio */
+  display: block;
 }
 
 .image-item:hover img {

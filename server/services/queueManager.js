@@ -384,13 +384,14 @@ class QueueManager {
           const imageExtension = imageFormat === 'jpeg' ? 'jpg' : imageFormat;
           const imagePath = path.join(imagesDir, `${imageUuid}.${imageExtension}`);
           const thumbnailPath = path.join(imagesDir, `${imageUuid}_thumb.webp`);
+          const thumbnailArPath = path.join(imagesDir, `${imageUuid}_thumb_ar.webp`);
 
           // Save original image
           console.log(`[Download] Saving image to ${imageUuid}.${imageExtension}`);
           fs.writeFileSync(imagePath, imageData);
 
-          // Generate square thumbnail (512x512) in WEBP format
-          console.log(`[Download] Generating thumbnail ${imageUuid}_thumb.webp`);
+          // Generate square thumbnail (512x512) in WEBP format for grid view
+          console.log(`[Download] Generating square thumbnail ${imageUuid}_thumb.webp`);
           await sharp(imageData)
             .resize(512, 512, {
               fit: 'cover',
@@ -398,6 +399,16 @@ class QueueManager {
             })
             .webp({ quality: 85 })
             .toFile(thumbnailPath);
+
+          // Generate aspect-ratio preserving thumbnail (512px width) for masonry view
+          console.log(`[Download] Generating aspect-ratio thumbnail ${imageUuid}_thumb_ar.webp`);
+          await sharp(imageData)
+            .resize(512, null, {
+              fit: 'inside',
+              withoutEnlargement: true
+            })
+            .webp({ quality: 85 })
+            .toFile(thumbnailArPath);
 
           // Get request info for metadata
           const request = HordeRequest.findById(download.request_id);

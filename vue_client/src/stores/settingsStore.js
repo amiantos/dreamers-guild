@@ -37,6 +37,12 @@ export const useSettingsStore = defineStore('settings', () => {
     replacementFilter: true
   })
 
+  // Gallery view preferences
+  const galleryPreferences = ref({
+    viewMode: 'grid', // 'grid' or 'masonry'
+    imageSize: 'medium' // 'small', 'medium', or 'large'
+  })
+
   // Loading states
   const loadingLastUsed = ref(false)
   const loadingWorkerPrefs = ref(false)
@@ -124,6 +130,37 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   /**
+   * Load gallery preferences from localStorage
+   * @returns {Object} Gallery preferences
+   */
+  const loadGalleryPreferences = () => {
+    try {
+      const savedPrefs = localStorage.getItem('galleryPreferences')
+      if (savedPrefs) {
+        const prefs = JSON.parse(savedPrefs)
+        galleryPreferences.value = { ...galleryPreferences.value, ...prefs }
+      }
+      return galleryPreferences.value
+    } catch (error) {
+      console.error('Error loading gallery preferences:', error)
+      return galleryPreferences.value
+    }
+  }
+
+  /**
+   * Save gallery preferences to localStorage
+   * @param {Object} prefs - Gallery preferences to save
+   */
+  const saveGalleryPreferences = (prefs) => {
+    try {
+      galleryPreferences.value = { ...galleryPreferences.value, ...prefs }
+      localStorage.setItem('galleryPreferences', JSON.stringify(galleryPreferences.value))
+    } catch (error) {
+      console.error('Error saving gallery preferences:', error)
+    }
+  }
+
+  /**
    * Update a specific setting value
    * @param {string} key - Setting key
    * @param {any} value - Setting value
@@ -185,12 +222,15 @@ export const useSettingsStore = defineStore('settings', () => {
     // State
     lastUsedSettings,
     workerPreferences,
+    galleryPreferences,
     loadingLastUsed,
     loadingWorkerPrefs,
     // Actions
     loadLastUsedSettings,
     loadWorkerPreferences,
     saveWorkerPreferences,
+    loadGalleryPreferences,
+    saveGalleryPreferences,
     updateSetting,
     updateSettings,
     resetLastUsedSettings,
