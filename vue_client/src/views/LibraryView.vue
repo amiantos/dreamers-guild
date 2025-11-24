@@ -373,8 +373,7 @@ export default {
         } else if (filters.value.keywords.length > 0) {
           // Join keywords with comma for search (supports AND filtering)
           const searchTerms = filters.value.keywords.join(',')
-          response = await imagesApi.search(searchTerms, limit, filters.value)
-          hasMore.value = false // Search doesn't paginate yet
+          response = await imagesApi.search(searchTerms, limit, offset.value, filters.value)
         } else {
           response = await imagesApi.getAll(limit, offset.value, filters.value)
         }

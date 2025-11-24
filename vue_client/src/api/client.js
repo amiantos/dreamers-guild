@@ -53,8 +53,8 @@ export const imagesApi = {
     return apiClient.get(`/images/request/${requestId}?limit=${limit}`)
   },
 
-  search(keywords, limit = 100, filters = {}) {
-    let url = `/images/search?q=${encodeURIComponent(keywords)}&limit=${limit}`
+  search(keywords, limit = 100, offset = 0, filters = {}) {
+    let url = `/images/search?q=${encodeURIComponent(keywords)}&limit=${limit}&offset=${offset}`
     if (filters.showFavoritesOnly) {
       url += '&favorites=true'
     }

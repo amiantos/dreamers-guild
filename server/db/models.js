@@ -178,7 +178,7 @@ export const GeneratedImage = {
     return result.count;
   },
 
-  findByKeywords(keywords, limit = 100, filters = {}) {
+  findByKeywords(keywords, limit = 100, offset = 0, filters = {}) {
     let query = `
       SELECT * FROM generated_images
       WHERE is_trashed = 0
@@ -206,10 +206,10 @@ export const GeneratedImage = {
 
     query += `
       ORDER BY date_created DESC
-      LIMIT ?
+      LIMIT ? OFFSET ?
     `;
 
-    params.push(limit);
+    params.push(limit, offset);
 
     const stmt = db.prepare(query);
     return stmt.all(...params);

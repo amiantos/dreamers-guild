@@ -41,10 +41,11 @@ router.get('/search', (req, res) => {
   try {
     const keywords = req.query.q || '';
     const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
     const showFavorites = req.query.favorites === 'true';
     const includeHidden = req.query.includeHidden === 'true';
 
-    const images = GeneratedImage.findByKeywords(keywords, limit, { showFavorites, includeHidden });
+    const images = GeneratedImage.findByKeywords(keywords, limit, offset, { showFavorites, includeHidden });
     const total = GeneratedImage.countByKeywords(keywords, { showFavorites, includeHidden });
 
     res.json({ data: images, total });
