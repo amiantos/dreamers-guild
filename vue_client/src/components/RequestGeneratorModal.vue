@@ -945,9 +945,11 @@ export default {
       const enriched = []
       for (const ti of tis) {
         try {
-          if (ti.versionId) {
-            const fullData = await getTiByVersionId(ti.versionId)
-            const enrichedTi = SavedTextualInversion.fromEmbedding(fullData, ti.versionId, {
+          // AI Horde format stores version ID in 'name' field
+          const versionId = ti.versionId || ti.name
+          if (versionId) {
+            const fullData = await getTiByVersionId(versionId)
+            const enrichedTi = SavedTextualInversion.fromEmbedding(fullData, versionId, {
               strength: ti.strength || 0.0,
               inject_ti: ti.inject_ti || 'prompt'
             })
@@ -956,7 +958,7 @@ export default {
             enriched.push(ti)
           }
         } catch (error) {
-          console.error(`Failed to enrich TI ${ti.versionId}:`, error)
+          console.error(`Failed to enrich TI ${ti.versionId || ti.name}:`, error)
           enriched.push(ti)
         }
       }
@@ -1085,6 +1087,14 @@ export default {
           // Note: Cache is automatically populated by server when enriching via CivitAI API
         } else {
           form.loras = []
+        }
+
+        // Load and enrich TIs
+        if (params.tis && params.tis.length > 0) {
+          form.tis = await enrichTis(params.tis)
+          // Note: Cache is automatically populated by server when enriching via CivitAI API
+        } else {
+          form.tis = []
         }
 
         // Load new post-processing structure
