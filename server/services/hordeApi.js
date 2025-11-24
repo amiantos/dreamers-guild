@@ -141,6 +141,122 @@ class HordeAPI {
       throw error;
     }
   }
+
+  /**
+   * Get details for multiple workers by ID
+   * @param {string[]} workerIds - Array of worker IDs
+   * @returns {Promise<Object[]>} Array of worker details
+   */
+  async getUserWorkers(workerIds) {
+    try {
+      if (!workerIds || workerIds.length === 0) {
+        return [];
+      }
+      const client = this.getClient();
+      const promises = workerIds.map(id =>
+        client.get(`/workers/${id}`).then(res => res.data).catch(err => {
+          console.error(`Error fetching worker ${id}:`, err.message);
+          return null;
+        })
+      );
+      const results = await Promise.all(promises);
+      return results.filter(worker => worker !== null);
+    } catch (error) {
+      console.error('Error fetching user workers:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a worker's settings
+   * @param {string} workerId - The worker ID
+   * @param {Object} settings - Worker settings to update
+   * @returns {Promise<Object>} Updated worker data
+   */
+  async updateWorker(workerId, settings) {
+    try {
+      const client = this.getClient();
+      const response = await client.put(`/workers/${workerId}`, settings);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating worker ${workerId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get details for multiple shared keys by ID
+   * @param {string[]} sharedKeyIds - Array of shared key IDs
+   * @returns {Promise<Object[]>} Array of shared key details
+   */
+  async getSharedKeys(sharedKeyIds) {
+    try {
+      if (!sharedKeyIds || sharedKeyIds.length === 0) {
+        return [];
+      }
+      const client = this.getClient();
+      const promises = sharedKeyIds.map(id =>
+        client.get(`/sharedkeys/${id}`).then(res => res.data).catch(err => {
+          console.error(`Error fetching shared key ${id}:`, err.message);
+          return null;
+        })
+      );
+      const results = await Promise.all(promises);
+      return results.filter(key => key !== null);
+    } catch (error) {
+      console.error('Error fetching shared keys:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new shared key
+   * @param {Object} data - Shared key configuration (name, kudos, limits)
+   * @returns {Promise<Object>} Created shared key data
+   */
+  async createSharedKey(data) {
+    try {
+      const client = this.getClient();
+      const response = await client.put('/sharedkeys', data);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating shared key:', error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Update an existing shared key
+   * @param {string} keyId - The shared key ID
+   * @param {Object} data - Updated configuration (name, kudos, limits)
+   * @returns {Promise<Object>} Updated shared key data
+   */
+  async updateSharedKey(keyId, data) {
+    try {
+      const client = this.getClient();
+      const response = await client.patch(`/sharedkeys/${keyId}`, data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating shared key ${keyId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a shared key
+   * @param {string} keyId - The shared key ID to delete
+   * @returns {Promise<Object>} Deletion response
+   */
+  async deleteSharedKey(keyId) {
+    try {
+      const client = this.getClient();
+      const response = await client.delete(`/sharedkeys/${keyId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting shared key ${keyId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
 }
 
 export default new HordeAPI();

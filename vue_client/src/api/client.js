@@ -102,6 +102,32 @@ export const settingsApi = {
     return apiClient.get('/settings/horde-user').then(res => res.data)
   },
 
+  // Horde workers management
+  getHordeWorkers() {
+    return apiClient.get('/settings/horde-workers').then(res => res.data)
+  },
+
+  updateHordeWorker(workerId, data) {
+    return apiClient.put(`/settings/horde-workers/${workerId}`, data).then(res => res.data)
+  },
+
+  // Horde shared keys management
+  getHordeSharedKeys() {
+    return apiClient.get('/settings/horde-shared-keys').then(res => res.data)
+  },
+
+  createHordeSharedKey(data) {
+    return apiClient.post('/settings/horde-shared-keys', data).then(res => res.data)
+  },
+
+  updateHordeSharedKey(keyId, data) {
+    return apiClient.patch(`/settings/horde-shared-keys/${keyId}`, data).then(res => res.data)
+  },
+
+  deleteHordeSharedKey(keyId) {
+    return apiClient.delete(`/settings/horde-shared-keys/${keyId}`).then(res => res.data)
+  },
+
   // PIN management
   setupHiddenPin(pin, declined = false) {
     return apiClient.post('/settings/hidden-pin/setup', { pin, declined }).then(res => res.data)

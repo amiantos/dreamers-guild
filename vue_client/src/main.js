@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import LibraryView from './views/LibraryView.vue'
 import SettingsView from './views/SettingsView.vue'
+import WorkersView from './views/WorkersView.vue'
 import './assets/colors.css'
 
 const router = createRouter({
@@ -24,6 +25,11 @@ const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: SettingsView
+    },
+    {
+      path: '/settings/workers',
+      name: 'workers',
+      component: WorkersView
     }
   ]
 })

@@ -55,6 +55,77 @@ router.get('/horde-user', async (req, res) => {
   }
 });
 
+// Get user's workers from AI Horde
+router.get('/horde-workers', async (req, res) => {
+  try {
+    const userInfo = await hordeApi.getUserInfo();
+    const workers = await hordeApi.getUserWorkers(userInfo.worker_ids || []);
+    res.json(workers);
+  } catch (error) {
+    console.error('Error fetching workers:', error);
+    res.status(500).json({ error: 'Failed to fetch workers' });
+  }
+});
+
+// Update a worker
+router.put('/horde-workers/:workerId', async (req, res) => {
+  try {
+    const { workerId } = req.params;
+    const result = await hordeApi.updateWorker(workerId, req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating worker:', error);
+    res.status(500).json({ error: 'Failed to update worker' });
+  }
+});
+
+// Get user's shared keys from AI Horde
+router.get('/horde-shared-keys', async (req, res) => {
+  try {
+    const userInfo = await hordeApi.getUserInfo();
+    const sharedKeys = await hordeApi.getSharedKeys(userInfo.sharedkey_ids || []);
+    res.json(sharedKeys);
+  } catch (error) {
+    console.error('Error fetching shared keys:', error);
+    res.status(500).json({ error: 'Failed to fetch shared keys' });
+  }
+});
+
+// Create a new shared key
+router.post('/horde-shared-keys', async (req, res) => {
+  try {
+    const result = await hordeApi.createSharedKey(req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('Error creating shared key:', error);
+    res.status(500).json({ error: 'Failed to create shared key' });
+  }
+});
+
+// Update a shared key
+router.patch('/horde-shared-keys/:keyId', async (req, res) => {
+  try {
+    const { keyId } = req.params;
+    const result = await hordeApi.updateSharedKey(keyId, req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating shared key:', error);
+    res.status(500).json({ error: 'Failed to update shared key' });
+  }
+});
+
+// Delete a shared key
+router.delete('/horde-shared-keys/:keyId', async (req, res) => {
+  try {
+    const { keyId } = req.params;
+    const result = await hordeApi.deleteSharedKey(keyId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error deleting shared key:', error);
+    res.status(500).json({ error: 'Failed to delete shared key' });
+  }
+});
+
 // Setup hidden gallery PIN (first time) or decline protection
 router.post('/hidden-pin/setup', async (req, res) => {
   try {
