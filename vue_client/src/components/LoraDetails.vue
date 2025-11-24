@@ -395,7 +395,7 @@ export default {
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(400px, 1fr) minmax(300px, 1fr);
   gap: 24px;
   padding: 24px;
 }
@@ -491,6 +491,10 @@ export default {
 
 .details-info {
   color: white;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
 }
 
 .lora-name {
@@ -629,6 +633,10 @@ export default {
 .version-description,
 .model-description {
   margin-bottom: 16px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .version-description h3,
@@ -642,6 +650,24 @@ export default {
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-gray-300);
+}
+
+.version-description :deep(*),
+.model-description :deep(*) {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.version-description :deep(pre),
+.model-description :deep(pre) {
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.version-description :deep(code),
+.model-description :deep(code) {
+  word-break: break-all;
 }
 
 .details-footer {

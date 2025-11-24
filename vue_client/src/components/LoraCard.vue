@@ -145,8 +145,8 @@ export default {
 .lora-card {
   position: relative;
   width: 100%;
-  max-width: 320px;
-  max-height: 400px;
+  max-width: 240px;
+  max-height: 300px;
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
