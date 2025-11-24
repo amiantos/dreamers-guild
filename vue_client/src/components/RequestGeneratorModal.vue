@@ -1,7 +1,7 @@
 <template>
   <div class="modal-overlay">
     <div class="modal-content">
-      <div class="modal-wrapper" v-show="!showModelPicker && !showStylePicker && !showLoraPicker">
+      <div class="modal-wrapper">
         <div class="modal-header">
           <h2>New Image Request</h2>
           <div class="header-actions">
@@ -473,30 +473,6 @@
         </div>
       </div>
 
-      <!-- Model Picker Slide-in -->
-      <ModelPicker
-        v-if="showModelPicker"
-        :currentModel="form.model"
-        @select="onModelSelect"
-        @close="showModelPicker = false"
-      />
-
-      <!-- Style Picker Slide-in -->
-      <StylePicker
-        v-if="showStylePicker"
-        :currentStyle="selectedStyleName"
-        @select="onStyleSelect"
-        @close="showStylePicker = false"
-      />
-
-      <!-- LoRA Picker Slide-in -->
-      <LoraPicker
-        v-if="showLoraPicker"
-        :currentLoras="form.loras"
-        @add="addLora"
-        @close="showLoraPicker = false"
-      />
-
       <!-- LoRA Details Overlay -->
       <LoraDetails
         v-if="showLoraDetails"
@@ -507,6 +483,31 @@
       />
     </div>
   </div>
+
+  <!-- Independent Modals -->
+  <!-- Model Picker Modal -->
+  <ModelPicker
+    v-if="showModelPicker"
+    :currentModel="form.model"
+    @select="onModelSelect"
+    @close="showModelPicker = false"
+  />
+
+  <!-- Style Picker Modal -->
+  <StylePicker
+    v-if="showStylePicker"
+    :currentStyle="selectedStyleName"
+    @select="onStyleSelect"
+    @close="showStylePicker = false"
+  />
+
+  <!-- LoRA Picker Modal -->
+  <LoraPicker
+    v-if="showLoraPicker"
+    :currentLoras="form.loras"
+    @add="addLora"
+    @close="showLoraPicker = false"
+  />
 </template>
 
 <script>

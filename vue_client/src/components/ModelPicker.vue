@@ -1,87 +1,91 @@
 <template>
-  <div class="model-picker">
-    <div class="picker-header">
-      <button class="btn-back" @click="$emit('close')">
-        <span class="arrow">←</span> Back
-      </button>
-      <h3>Select Model</h3>
-      <button
-        class="btn-refresh"
-        @click="refreshModels"
-        :disabled="loadingModels"
-        title="Refresh model list from server"
-      >
-        {{ loadingModels ? '...' : '↻' }}
-      </button>
-    </div>
-
-    <div class="search-container">
-      <input
-        type="text"
-        v-model="searchQuery"
-        placeholder="Search models..."
-        class="search-input"
-      />
-    </div>
-
-    <div class="model-list">
-      <div v-if="loadingModels" class="loading">Loading models...</div>
-
-      <div v-else-if="filteredModels.length === 0" class="no-results">
-        No models found
-      </div>
-
-      <div v-else>
-        <div v-if="favoriteModels.length > 0" class="model-section">
-          <h4 class="section-title">Favorites</h4>
-          <div
-            v-for="model in favoriteModels"
-            :key="model.name"
-            class="model-item"
-            :class="{ selected: selectedModel === model.name }"
-            @click="selectModel(model)"
+  <div class="modal-backdrop" @click.self="$emit('close')">
+    <div class="modal-container">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Select Model</h3>
+          <button
+            class="btn-refresh"
+            @click="refreshModels"
+            :disabled="loadingModels"
+            title="Refresh model list from server"
           >
-            <div class="model-header">
-              <span class="model-name">{{ model.name }}</span>
-              <button
-                class="btn-favorite active"
-                @click.stop="toggleFavorite(model.name)"
-                title="Remove from favorites"
-              >
-                <i class="fa-solid fa-star"></i>
-              </button>
-            </div>
-            <div class="model-info">
-              <span>Workers: {{ model.count || 0 }}</span>
-              <span>Queue: {{ model.queued || 0 }}</span>
-              <span v-if="model.eta">Wait: {{ model.eta }}s</span>
-            </div>
-          </div>
+            {{ loadingModels ? '...' : '↻' }}
+          </button>
+          <button class="btn-close" @click="$emit('close')" title="Close">
+            ×
+          </button>
         </div>
 
-        <div class="model-section">
-          <h4 class="section-title">All Models</h4>
-          <div
-            v-for="model in nonFavoriteModels"
-            :key="model.name"
-            class="model-item"
-            :class="{ selected: selectedModel === model.name }"
-            @click="selectModel(model)"
-          >
-            <div class="model-header">
-              <span class="model-name">{{ model.name }}</span>
-              <button
-                class="btn-favorite"
-                @click.stop="toggleFavorite(model.name)"
-                title="Add to favorites"
+        <div class="search-container">
+          <input
+            type="text"
+            v-model="searchQuery"
+            placeholder="Search models..."
+            class="search-input"
+          />
+        </div>
+
+        <div class="model-list">
+          <div v-if="loadingModels" class="loading">Loading models...</div>
+
+          <div v-else-if="filteredModels.length === 0" class="no-results">
+            No models found
+          </div>
+
+          <div v-else>
+            <div v-if="favoriteModels.length > 0" class="model-section">
+              <h4 class="section-title">Favorites</h4>
+              <div
+                v-for="model in favoriteModels"
+                :key="model.name"
+                class="model-item"
+                :class="{ selected: selectedModel === model.name }"
+                @click="selectModel(model)"
               >
-                <i class="fa-regular fa-star"></i>
-              </button>
+                <div class="model-header-item">
+                  <span class="model-name">{{ model.name }}</span>
+                  <button
+                    class="btn-favorite active"
+                    @click.stop="toggleFavorite(model.name)"
+                    title="Remove from favorites"
+                  >
+                    <i class="fa-solid fa-star"></i>
+                  </button>
+                </div>
+                <div class="model-info">
+                  <span>Workers: {{ model.count || 0 }}</span>
+                  <span>Queue: {{ model.queued || 0 }}</span>
+                  <span v-if="model.eta">Wait: {{ model.eta }}s</span>
+                </div>
+              </div>
             </div>
-            <div class="model-info">
-              <span>Workers: {{ model.count || 0 }}</span>
-              <span>Queue: {{ model.queued || 0 }}</span>
-              <span v-if="model.eta">Wait: {{ model.eta }}s</span>
+
+            <div class="model-section">
+              <h4 class="section-title">All Models</h4>
+              <div
+                v-for="model in nonFavoriteModels"
+                :key="model.name"
+                class="model-item"
+                :class="{ selected: selectedModel === model.name }"
+                @click="selectModel(model)"
+              >
+                <div class="model-header-item">
+                  <span class="model-name">{{ model.name }}</span>
+                  <button
+                    class="btn-favorite"
+                    @click.stop="toggleFavorite(model.name)"
+                    title="Add to favorites"
+                  >
+                    <i class="fa-regular fa-star"></i>
+                  </button>
+                </div>
+                <div class="model-info">
+                  <span>Workers: {{ model.count || 0 }}</span>
+                  <span>Queue: {{ model.queued || 0 }}</span>
+                  <span v-if="model.eta">Wait: {{ model.eta }}s</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -200,29 +204,47 @@ export default {
 </script>
 
 <style scoped>
-.model-picker {
-  position: absolute;
+.modal-backdrop {
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--color-surface);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
-  flex-direction: column;
-  z-index: 10;
-  animation: slideIn 0.3s ease-out;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
   from {
-    transform: translateX(100%);
+    opacity: 0;
   }
   to {
-    transform: translateX(0);
+    opacity: 1;
   }
 }
 
-.picker-header {
+.modal-container {
+  width: 90%;
+  max-width: 600px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.modal-header {
   display: flex;
   align-items: center;
   padding: 1.5rem;
@@ -230,28 +252,7 @@ export default {
   gap: 1rem;
 }
 
-.btn-back {
-  background: transparent;
-  border: none;
-  color: var(--color-primary);
-  font-size: 1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  transition: opacity 0.2s;
-}
-
-.btn-back:hover {
-  opacity: 0.7;
-}
-
-.arrow {
-  font-size: 1.25rem;
-}
-
-.picker-header h3 {
+.modal-header h3 {
   margin: 0;
   font-size: 1.25rem;
   flex: 1;
@@ -277,6 +278,26 @@ export default {
 .btn-refresh:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--color-text-tertiary);
+  font-size: 2rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.btn-close:hover {
+  color: var(--color-text-primary);
 }
 
 .search-container {
@@ -345,7 +366,7 @@ export default {
   border-color: var(--color-primary);
 }
 
-.model-header {
+.model-header-item {
   display: flex;
   justify-content: space-between;
   align-items: center;

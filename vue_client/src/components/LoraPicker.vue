@@ -1,49 +1,14 @@
 <template>
-  <div class="lora-picker">
-    <!-- Header -->
-    <div class="picker-header">
-      <button class="btn-back" @click="$emit('close')">
-        <span class="arrow">←</span> Back
-      </button>
-      <h3>LoRAs</h3>
-    </div>
-
-    <!-- Filter Panel - Always Visible -->
-    <div class="filter-panel">
-      <div class="filter-row-single">
-        <!-- Base Model Chips -->
-        <button
-          v-for="filter in baseModelFilterOptions"
-          :key="filter"
-          :class="['model-chip', { active: selectedFilters.includes(filter) }]"
-          @click="toggleFilter(filter)"
-        >
-          {{ filter }}
-        </button>
-
-        <!-- Divider -->
-        <div class="filter-divider"></div>
-
-        <!-- Sort Dropdown -->
-        <select
-          v-model="sortOrder"
-          @change="onSortChange"
-          class="sort-select"
-        >
-          <option v-for="option in sortOptions" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
-
-        <!-- NSFW Toggle -->
-        <button
-          :class="['model-chip', { active: selectedFilters.includes('NSFW') }]"
-          @click="toggleFilter('NSFW')"
-        >
-          NSFW
-        </button>
-      </div>
-    </div>
+  <div class="modal-backdrop" @click.self="$emit('close')">
+    <div class="modal-container">
+      <div class="modal-content">
+        <!-- Header -->
+        <div class="modal-header">
+          <h3>LoRAs</h3>
+          <button class="btn-close" @click="$emit('close')" title="Close">
+            ×
+          </button>
+        </div>
 
     <!-- Tabs -->
     <div class="tabs">
@@ -79,6 +44,41 @@
       <button v-if="searchQuery" class="btn-clear-search" @click="clearSearch">
         <i class="fas fa-times"></i>
       </button>
+
+      <!-- Filter Panel - Only for Browse Tab -->
+      <div v-if="activeTab === 'browse'" class="filter-row-single">
+        <!-- Base Model Chips -->
+        <button
+          v-for="filter in baseModelFilterOptions"
+          :key="filter"
+          :class="['model-chip', { active: selectedFilters.includes(filter) }]"
+          @click="toggleFilter(filter)"
+        >
+          {{ filter }}
+        </button>
+
+        <!-- Divider -->
+        <div class="filter-divider"></div>
+
+        <!-- Sort Dropdown -->
+        <select
+          v-model="sortOrder"
+          @change="onSortChange"
+          class="sort-select"
+        >
+          <option v-for="option in sortOptions" :key="option" :value="option">
+            {{ option }}
+          </option>
+        </select>
+
+        <!-- NSFW Toggle -->
+        <button
+          :class="['model-chip', { active: selectedFilters.includes('NSFW') }]"
+          @click="toggleFilter('NSFW')"
+        >
+          NSFW
+        </button>
+      </div>
     </div>
 
     <!-- Content Area -->
@@ -193,6 +193,8 @@
       @addLora="onAddLora"
       @toggleFavorite="toggleFavorite"
     />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -543,29 +545,47 @@ export default {
 </script>
 
 <style scoped>
-.lora-picker {
-  position: absolute;
+.modal-backdrop {
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--color-surface);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
-  flex-direction: column;
-  z-index: 10;
-  animation: slideIn 0.3s ease-out;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
   from {
-    transform: translateX(100%);
+    opacity: 0;
   }
   to {
-    transform: translateX(0);
+    opacity: 1;
   }
 }
 
-.picker-header {
+.modal-container {
+  width: 90%;
+  max-width: 900px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content {
+  background: var(--color-surface);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -574,44 +594,41 @@ export default {
   background: var(--color-surface);
 }
 
-.picker-header h3 {
+.modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: bold;
   color: white;
+  flex: 1;
 }
 
-.btn-back {
-  background: none;
+.btn-close {
+  background: transparent;
   border: none;
-  color: white;
+  color: var(--color-text-tertiary);
+  font-size: 2rem;
   cursor: pointer;
-  padding: 8px 12px;
-  font-size: 14px;
-  transition: background 0.2s;
-  border-radius: 4px;
+  padding: 0;
+  line-height: 1;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
 }
 
-.btn-back:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.btn-back .arrow {
-  font-size: 18px;
-  margin-right: 4px;
-}
-
-.filter-panel {
-  background: var(--color-surface-hover);
-  padding: 10px 16px;
-  border-bottom: 1px solid #333;
+.btn-close:hover {
+  color: var(--color-text-primary);
 }
 
 .filter-row-single {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: 12px;
 }
 
 .model-chip {
@@ -740,8 +757,7 @@ export default {
 .btn-clear-search {
   position: absolute;
   right: 24px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 26px;
   background: none;
   border: none;
   color: var(--color-text-tertiary);
