@@ -963,7 +963,8 @@ export default {
             console.log('[enrichTis] Got fullData:', { modelId: fullData.id, name: fullData.name, versionCount: fullData.modelVersions?.length })
             const enrichedTi = SavedTextualInversion.fromEmbedding(fullData, versionId, {
               strength: ti.strength || 0.0,
-              inject_ti: ti.inject_ti || 'prompt'
+              // If inject_ti is not provided, default to 'none' (not 'prompt')
+              inject_ti: ti.inject_ti !== undefined ? ti.inject_ti : 'none'
             })
             console.log('[enrichTis] Created enrichedTi:', { versionId: enrichedTi.versionId, name: enrichedTi.name })
             enriched.push(enrichedTi)

@@ -361,6 +361,8 @@ export default {
       // Fetch full model data to get complete metadata, file info, and all versions
       try {
         const fullModelData = await getLoraById(lora.id)
+        // Preserve the versionId from the clicked LORA so details modal shows the correct version
+        fullModelData.versionId = lora.versionId || fullModelData.versionId
         selectedLoraForDetails.value = fullModelData
         showDetailsOverlay.value = true
       } catch (error) {

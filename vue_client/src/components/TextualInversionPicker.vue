@@ -363,6 +363,8 @@ export default {
       // Fetch full model data to get complete metadata, file info, and all versions
       try {
         const fullModelData = await getTiById(ti.id)
+        // Preserve the versionId from the clicked TI so details modal shows the correct version
+        fullModelData.versionId = ti.versionId || fullModelData.versionId
         selectedTiForDetails.value = fullModelData
         showDetailsOverlay.value = true
       } catch (error) {
