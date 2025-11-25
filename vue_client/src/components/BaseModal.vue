@@ -86,6 +86,7 @@ export default {
   justify-content: center;
   z-index: var(--z-index-modal);
   padding: 2rem;
+  overflow: hidden;
 }
 
 .modal-content {
@@ -95,6 +96,7 @@ export default {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Size variants */

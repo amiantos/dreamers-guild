@@ -1,10 +1,10 @@
 <template>
   <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
-    <!-- Keywords Panel -->
-    <KeywordsPanel
+    <!-- Albums Modal -->
+    <AlbumsModal
       :keywords="keywords"
-      :isOpen="isKeywordsPanelOpen"
-      @close="isKeywordsPanelOpen = false"
+      :isOpen="isAlbumsModalOpen"
+      @close="isAlbumsModalOpen = false"
       @select="selectKeyword"
     />
 
@@ -88,9 +88,9 @@
               <i class="fa-solid fa-star"></i>
             </button>
 
-            <!-- Keywords Panel Toggle Button -->
-            <button @click="toggleKeywordsPanel" class="btn-keywords-toggle" title="Keywords">
-              <i class="fa-solid fa-filter"></i>
+            <!-- Albums Modal Toggle Button -->
+            <button @click="toggleAlbumsModal" class="btn-albums-toggle" title="Albums">
+              <i class="fa-solid fa-images"></i>
             </button>
 
             <!-- Overflow Menu -->
@@ -270,7 +270,7 @@ import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
-import KeywordsPanel from '../components/KeywordsPanel.vue'
+import AlbumsModal from '../components/AlbumsModal.vue'
 
 export default {
   name: 'LibraryView',
@@ -280,7 +280,7 @@ export default {
     DeleteRequestModal,
     DeleteAllRequestsModal,
     BatchDeleteModal,
-    KeywordsPanel
+    AlbumsModal
   },
   props: {
     imageId: String // selected image ID from URL
@@ -314,8 +314,8 @@ export default {
     const requestToDelete = ref(null)
     let pollInterval = null
 
-    // Keywords panel state
-    const isKeywordsPanelOpen = ref(false)
+    // Albums modal state
+    const isAlbumsModalOpen = ref(false)
     const keywords = ref([])
 
     // Menu state
@@ -1066,9 +1066,9 @@ export default {
       }
     }
 
-    // Keywords panel functions
-    const toggleKeywordsPanel = () => {
-      isKeywordsPanelOpen.value = !isKeywordsPanelOpen.value
+    // Albums modal functions
+    const toggleAlbumsModal = () => {
+      isAlbumsModalOpen.value = !isAlbumsModalOpen.value
     }
 
     const fetchKeywords = async () => {
@@ -1298,9 +1298,9 @@ export default {
       showDeleteAllModal,
       confirmDeleteAll,
       requestToDelete,
-      // Keywords panel
-      isKeywordsPanelOpen,
-      toggleKeywordsPanel,
+      // Albums modal
+      isAlbumsModalOpen,
+      toggleAlbumsModal,
       keywords,
       selectKeyword,
       // Menu and filters
@@ -1385,7 +1385,7 @@ export default {
   margin: 0;
 }
 
-.btn-keywords-toggle {
+.btn-albums-toggle {
   width: 40px;
   height: 40px;
   border-radius: 6px;
@@ -1400,7 +1400,7 @@ export default {
   justify-content: center;
 }
 
-.btn-keywords-toggle:hover {
+.btn-albums-toggle:hover {
   background: var(--color-surface);
   border-color: var(--color-text-disabled);
   color: var(--color-text-primary);
