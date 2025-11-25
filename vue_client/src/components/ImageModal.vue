@@ -1,117 +1,220 @@
 <template>
-  <div class="modal-overlay" @click.self="$emit('close')">
-    <div class="modal-content">
-      <button class="btn-close" @click="$emit('close')">×</button>
+  <div class="lightbox-overlay" @click.self="$emit('close')">
+    <div class="lightbox-container">
+      <!-- Main content area -->
+      <div class="lightbox-content">
+        <!-- Left side: Image + Filmstrip -->
+        <div class="image-area">
+          <!-- Close button (inside image area to avoid sidebar overlap) -->
+          <button class="btn-close" @click="$emit('close')" title="Close (Esc)">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
 
-      <button
-        v-if="showNavigation && !isProtected && canNavigatePrev"
-        class="btn-nav btn-prev"
-        @click="$emit('navigate', -1)"
-        title="Previous image (←)"
-      >
-        ‹
-      </button>
+          <!-- Main image display -->
+          <div class="image-display" :class="{ 'protected': isProtected }">
+            <img :src="imageUrl" :alt="image.prompt_simple" />
+            <!-- Protection overlay -->
+            <div v-if="isProtected" class="protection-overlay">
+              <div class="protection-content">
+                <i class="fa-solid fa-lock"></i>
+                <h3>Hidden Image</h3>
+                <p>This image is protected. Enter your PIN to view it.</p>
+                <button @click="handleUnlock" class="btn btn-unlock">
+                  <i class="fa-solid fa-unlock"></i> Enter PIN
+                </button>
+              </div>
+            </div>
+          </div>
 
-      <button
-        v-if="showNavigation && !isProtected && canNavigateNext"
-        class="btn-nav btn-next"
-        @click="$emit('navigate', 1)"
-        title="Next image (→)"
-      >
-        ›
-      </button>
-
-      <div class="image-container" :class="{ 'protected': isProtected }">
-        <img :src="imageUrl" :alt="image.prompt_simple" />
-        <div v-if="isProtected" class="protection-overlay">
-          <div class="protection-content">
-            <i class="fa-solid fa-lock"></i>
-            <h3>Hidden Image</h3>
-            <p>This image is protected. Enter your PIN to view it.</p>
-            <button @click="handleUnlock" class="btn btn-unlock">
-              <i class="fa-solid fa-unlock"></i> Enter PIN
+          <!-- Filmstrip navigation -->
+          <div v-if="showFilmstrip && !isProtected" class="filmstrip">
+            <button
+              class="filmstrip-nav filmstrip-prev"
+              @click="scrollFilmstrip(-1)"
+              :disabled="!canScrollPrev"
+              title="Scroll left"
+            >
+              <i class="fa-solid fa-chevron-left"></i>
+            </button>
+            <div class="filmstrip-track" ref="filmstripTrack">
+              <div
+                v-for="(img, index) in images"
+                :key="img.uuid"
+                class="filmstrip-thumb"
+                :class="{ active: img.uuid === image.uuid }"
+                @click="navigateToImage(index)"
+              >
+                <img :src="getThumbnailUrl(img.uuid)" :alt="img.prompt_simple || 'Thumbnail'" />
+              </div>
+            </div>
+            <button
+              class="filmstrip-nav filmstrip-next"
+              @click="scrollFilmstrip(1)"
+              :disabled="!canScrollNext"
+              title="Scroll right"
+            >
+              <i class="fa-solid fa-chevron-right"></i>
             </button>
           </div>
         </div>
+
+        <!-- Right side: Inspector Sidebar -->
+        <aside v-if="!isProtected" class="inspector-sidebar">
+          <div class="inspector-content">
+            <!-- Prompt Section -->
+            <AccordionSection title="Prompt" icon="fa-font" :defaultOpen="true" :forceOpen="isDesktop">
+              <div class="prompt-display">
+                <p v-if="image.prompt_simple">{{ image.prompt_simple }}</p>
+                <p v-else class="no-data">No prompt available</p>
+              </div>
+            </AccordionSection>
+
+            <!-- Negative Prompt Section (only if there is one) -->
+            <AccordionSection
+              v-if="negativePrompt"
+              title="Negative Prompt"
+              icon="fa-ban"
+              :defaultOpen="false"
+            >
+              <div class="prompt-display negative">
+                <p>{{ negativePrompt }}</p>
+              </div>
+            </AccordionSection>
+
+            <!-- Generation Settings Section -->
+            <AccordionSection title="Generation" icon="fa-sliders" :defaultOpen="true" :forceOpen="isDesktop">
+              <InspectorGrid v-if="generationSettings.length" :items="generationSettings" />
+              <p v-else class="no-data">No generation data available</p>
+            </AccordionSection>
+
+            <!-- Model & LoRAs Section -->
+            <AccordionSection title="Model & LoRAs" icon="fa-cube" :defaultOpen="false" :forceOpen="isDesktop">
+              <div class="model-info">
+                <span class="model-label">Model</span>
+                <span class="model-name">{{ modelName }}</span>
+              </div>
+              <div v-if="parsedLoras.length" class="loras-list">
+                <div class="loras-header">LoRAs</div>
+                <div v-for="lora in parsedLoras" :key="lora.name" class="lora-item">
+                  <span class="lora-name">{{ lora.name }}</span>
+                  <span class="lora-strength">{{ lora.model }} / {{ lora.clip }}</span>
+                </div>
+              </div>
+              <div v-if="parsedTis.length" class="tis-list">
+                <div class="tis-header">Textual Inversions</div>
+                <div v-for="ti in parsedTis" :key="ti.name" class="ti-item">
+                  <span class="ti-name">{{ ti.name }}</span>
+                  <span class="ti-strength">{{ ti.strength }}</span>
+                </div>
+              </div>
+              <p v-if="!parsedLoras.length && !parsedTis.length && modelName === 'Unknown'" class="no-data">
+                No model data available
+              </p>
+            </AccordionSection>
+
+            <!-- Dimensions Section -->
+            <AccordionSection title="Dimensions" icon="fa-expand" :defaultOpen="false" :forceOpen="isDesktop">
+              <InspectorGrid v-if="dimensionSettings.length" :items="dimensionSettings" />
+              <p v-else class="no-data">No dimension data available</p>
+            </AccordionSection>
+
+            <!-- Info Section -->
+            <AccordionSection title="Info" icon="fa-info-circle" :defaultOpen="false" :forceOpen="isDesktop">
+              <InspectorGrid :items="metadataInfo" />
+            </AccordionSection>
+
+            <!-- Actions Section -->
+            <AccordionSection title="Actions" icon="fa-gear" :defaultOpen="true" :forceOpen="true">
+              <!-- Action buttons -->
+              <div class="action-buttons">
+                <!-- Favorite / Hide row -->
+                <div class="action-row">
+                  <button
+                    @click="toggleFavorite"
+                    :class="['btn-action btn-secondary', { 'active': isFavorite }]"
+                    :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+                  >
+                    <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
+                    <span>{{ isFavorite ? 'Favorited' : 'Favorite' }}</span>
+                  </button>
+                  <button
+                    @click="toggleHidden"
+                    :class="['btn-action btn-secondary', { 'active-hide': isHidden }]"
+                    :title="isHidden ? 'Unhide image' : 'Hide image'"
+                  >
+                    <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
+                    <span>{{ isHidden ? 'Hidden' : 'Hide' }}</span>
+                  </button>
+                </div>
+                <!-- Load settings row -->
+                <div v-if="hasSettings" class="action-row">
+                  <button
+                    @click="$emit('load-settings', false)"
+                    class="btn-action btn-secondary"
+                    title="Load generation settings from this image"
+                  >
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Load Settings</span>
+                  </button>
+                  <button
+                    @click="$emit('load-settings', true)"
+                    class="btn-action btn-secondary"
+                    title="Load generation settings including seed"
+                  >
+                    <i class="fa-solid fa-seedling"></i>
+                    <span>+ Seed</span>
+                  </button>
+                </div>
+                <!-- Request / Response row -->
+                <div v-if="hasSettings || hasResponse" class="action-row">
+                  <button
+                    v-if="hasSettings"
+                    @click="showDetailsView('request')"
+                    class="btn-action btn-secondary"
+                    title="View full request JSON"
+                  >
+                    <i class="fa-solid fa-code"></i>
+                    <span>Request</span>
+                  </button>
+                  <button
+                    v-if="hasResponse"
+                    @click="showDetailsView('response')"
+                    class="btn-action btn-secondary"
+                    title="View full response JSON"
+                  >
+                    <i class="fa-solid fa-file-code"></i>
+                    <span>Response</span>
+                  </button>
+                </div>
+                <a
+                  :href="imageUrl"
+                  :download="`aislingeach-${image.uuid}.png`"
+                  class="btn-action btn-primary"
+                >
+                  <i class="fa-solid fa-download"></i>
+                  <span>Download</span>
+                </a>
+                <button
+                  @click="showDeleteModal = true"
+                  class="btn-action btn-delete"
+                  title="Delete image"
+                >
+                  <i class="fa-solid fa-trash"></i>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </AccordionSection>
+          </div>
+        </aside>
       </div>
 
-      <div v-if="!isProtected" class="image-details">
-        <div v-if="image.prompt_simple" class="detail-row">
-          <strong>Prompt:</strong>
-          <p>{{ image.prompt_simple }}</p>
-        </div>
-
-        <div class="detail-row">
-          <strong>Created:</strong>
-          <p>{{ formatDate(image.date_created) }}</p>
-        </div>
-
-        <div v-if="image.backend" class="detail-row">
-          <strong>Backend:</strong>
-          <p>{{ image.backend }}</p>
-        </div>
-
-        <div class="actions">
-          <button
-            @click="toggleFavorite"
-            :class="['btn', 'btn-icon', 'btn-favorite', { 'active': isFavorite }]"
-            :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-          >
-            <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
-          </button>
-          <button
-            @click="toggleHidden"
-            :class="['btn', 'btn-icon', 'btn-hidden', { 'active': isHidden }]"
-            :title="isHidden ? 'Unhide image' : 'Hide image'"
-          >
-            <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
-          </button>
-          <button
-            v-if="hasSettings"
-            @click="$emit('load-settings', false)"
-            class="btn btn-load-settings"
-            title="Load generation settings from this image"
-          >
-            <i class="fa-solid fa-sliders"></i> Load Settings
-          </button>
-          <button
-            v-if="hasSettings"
-            @click="$emit('load-settings', true)"
-            class="btn btn-load-settings-seed"
-            title="Load generation settings including seed from this image"
-          >
-            <i class="fa-solid fa-sliders"></i> Load Settings + Seed
-          </button>
-          <button
-            v-if="hasSettings"
-            @click="showDetailsView('request')"
-            class="btn btn-view-request"
-            title="View full request JSON"
-          >
-            <i class="fa-solid fa-code"></i> View Request
-          </button>
-          <button
-            v-if="hasResponse"
-            @click="showDetailsView('response')"
-            class="btn btn-view-response"
-            title="View full response JSON"
-          >
-            <i class="fa-solid fa-file-code"></i> View Response
-          </button>
-          <a :href="imageUrl" :download="`aislingeach-${image.uuid}.png`" class="btn btn-download">
-            <i class="fa-solid fa-download"></i> Download
-          </a>
-          <button @click="showDeleteModal = true" class="btn btn-icon btn-delete" title="Delete image">
-            <i class="fa-solid fa-trash"></i>
-          </button>
-        </div>
-      </div>
       <!-- Delete Confirmation Modal -->
       <DeleteImageModal
         v-if="showDeleteModal"
         @close="showDeleteModal = false"
         @delete="confirmDelete"
       />
+
       <!-- Details Overlay -->
       <div v-if="showDetails" class="request-details-overlay">
         <div class="request-details-header">
@@ -121,7 +224,9 @@
               <i :class="copied ? 'fa-solid fa-check' : 'fa-solid fa-copy'"></i>
               {{ copyButtonText }}
             </button>
-            <button class="btn-close-details" @click="closeDetails">×</button>
+            <button class="btn-close-details" @click="closeDetails">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
           </div>
         </div>
         <div class="request-details-body">
@@ -133,14 +238,18 @@
 </template>
 
 <script>
-import { computed, ref, watch, onMounted, onUnmounted, inject } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { imagesApi } from '../api/client.js'
 import DeleteImageModal from './DeleteImageModal.vue'
+import AccordionSection from './AccordionSection.vue'
+import InspectorGrid from './InspectorGrid.vue'
 
 export default {
   name: 'ImageModal',
   components: {
-    DeleteImageModal
+    DeleteImageModal,
+    AccordionSection,
+    InspectorGrid
   },
   props: {
     image: {
@@ -174,25 +283,181 @@ export default {
     const detailsType = ref('request')
     const copied = ref(false)
     const showDeleteModal = ref(false)
+    const filmstripTrack = ref(null)
+    const canScrollPrev = ref(false)
+    const canScrollNext = ref(false)
+    const isDesktop = ref(window.innerWidth > 1024)
 
     // Watch for prop changes when navigating between images
     watch(() => props.image, (newImage) => {
       isFavorite.value = !!newImage.is_favorite
       isHidden.value = !!newImage.is_hidden
+      scrollToActiveThumb()
     })
 
     const imageUrl = computed(() => {
       return imagesApi.getImageUrl(props.image.uuid)
     })
 
-    // Check if current image is in the images array (not a direct URL load)
+    const getThumbnailUrl = (uuid) => {
+      return imagesApi.getThumbnailUrl(uuid)
+    }
+
+    // Check if current image is in the images array
     const isImageInArray = computed(() => {
       return props.images.some(img => img.uuid === props.image.uuid)
     })
 
     const showNavigation = computed(() => {
-      // Only show navigation if there are multiple images AND the current image is in the array
       return props.images.length > 1 && isImageInArray.value
+    })
+
+    const showFilmstrip = computed(() => {
+      return props.images.length > 1 && isImageInArray.value
+    })
+
+    const currentImageIndex = computed(() => {
+      return props.images.findIndex(img => img.uuid === props.image.uuid)
+    })
+
+    // Parse full_request JSON
+    const parsedRequest = computed(() => {
+      if (!props.image.full_request) return null
+      try {
+        return JSON.parse(props.image.full_request)
+      } catch (e) {
+        return null
+      }
+    })
+
+    // Parse full_response JSON
+    const parsedResponse = computed(() => {
+      if (!props.image.full_response) return null
+      try {
+        return JSON.parse(props.image.full_response)
+      } catch (e) {
+        return null
+      }
+    })
+
+    const parsedParams = computed(() => {
+      return parsedRequest.value?.params || {}
+    })
+
+    const modelName = computed(() => {
+      const models = parsedRequest.value?.models
+      if (models && models.length > 0) {
+        return models[0]
+      }
+      return 'Unknown'
+    })
+
+    // Full prompt from parsed request
+    const fullPrompt = computed(() => {
+      return parsedRequest.value?.prompt || props.image.prompt_simple || ''
+    })
+
+    // Negative prompt (part after ###)
+    const negativePrompt = computed(() => {
+      const full = fullPrompt.value
+      if (!full) return ''
+      const parts = full.split('###')
+      if (parts.length > 1) {
+        return parts[1].trim()
+      }
+      return ''
+    })
+
+    const parsedLoras = computed(() => {
+      const loras = parsedRequest.value?.params?.loras || []
+      return loras.map(lora => ({
+        name: lora.name,
+        model: lora.model ?? 1,
+        clip: lora.clip ?? 1,
+        isVersion: lora.is_version ?? false
+      }))
+    })
+
+    const parsedTis = computed(() => {
+      const tis = parsedRequest.value?.params?.tis || []
+      return tis.map(ti => ({
+        name: ti.name,
+        strength: ti.strength ?? 1
+      }))
+    })
+
+    // Format sampler name nicely
+    const formatSamplerName = (name) => {
+      if (!name) return '-'
+      return name.replace('k_', '').replace(/_/g, ' ')
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ')
+    }
+
+    // Calculate aspect ratio
+    const calculateAspect = (w, h) => {
+      if (!w || !h) return '-'
+      const gcd = (a, b) => b ? gcd(b, a % b) : a
+      const divisor = gcd(w, h)
+      return `${w / divisor}:${h / divisor}`
+    }
+
+    // Generation settings for InspectorGrid
+    const generationSettings = computed(() => {
+      const params = parsedParams.value
+      const response = parsedResponse.value
+
+      if (!params || Object.keys(params).length === 0) return []
+
+      const items = [
+        { label: 'Steps', value: params.steps || '-' },
+        { label: 'CFG Scale', value: params.cfg_scale || '-' },
+        { label: 'Sampler', value: formatSamplerName(params.sampler_name) },
+        { label: 'Seed', value: response?.seed || params.seed || '-', class: 'highlight' }
+      ]
+
+      if (params.karras !== undefined) {
+        items.push({ label: 'Karras', value: params.karras ? 'Yes' : 'No' })
+      }
+      if (params.clip_skip !== undefined && params.clip_skip !== 1) {
+        items.push({ label: 'CLIP Skip', value: params.clip_skip })
+      }
+      if (params.hires_fix) {
+        items.push({ label: 'Hires Fix', value: 'Yes' })
+        if (params.hires_fix_denoising_strength) {
+          items.push({ label: 'Hires Denoise', value: params.hires_fix_denoising_strength })
+        }
+      }
+      if (params.denoising_strength && params.denoising_strength !== 0.5) {
+        items.push({ label: 'Denoise', value: params.denoising_strength })
+      }
+
+      return items
+    })
+
+    // Dimension settings for InspectorGrid
+    const dimensionSettings = computed(() => {
+      const params = parsedParams.value
+      if (!params.width && !params.height) return []
+
+      return [
+        { label: 'Width', value: `${params.width || '-'}px` },
+        { label: 'Height', value: `${params.height || '-'}px` },
+        { label: 'Aspect', value: calculateAspect(params.width, params.height) }
+      ]
+    })
+
+    // Metadata info for InspectorGrid
+    const metadataInfo = computed(() => {
+      const items = [
+        { label: 'Created', value: formatDate(props.image.date_created) }
+      ]
+      if (props.image.backend) {
+        items.push({ label: 'Backend', value: props.image.backend })
+      }
+      items.push({ label: 'UUID', value: props.image.uuid?.slice(0, 8) + '...', class: 'muted' })
+      return items
     })
 
     const hasSettings = computed(() => {
@@ -288,9 +553,55 @@ export default {
       }
     }
 
+    // Filmstrip navigation
+    const navigateToImage = (index) => {
+      if (index >= 0 && index < props.images.length) {
+        const direction = index - currentImageIndex.value
+        if (direction !== 0) {
+          emit('navigate', direction)
+        }
+      }
+    }
+
+    const scrollFilmstrip = (direction) => {
+      if (!filmstripTrack.value) return
+      const scrollAmount = 200
+      filmstripTrack.value.scrollBy({
+        left: direction * scrollAmount,
+        behavior: 'smooth'
+      })
+    }
+
+    const updateScrollButtons = () => {
+      if (!filmstripTrack.value) return
+      const { scrollLeft, scrollWidth, clientWidth } = filmstripTrack.value
+      canScrollPrev.value = scrollLeft > 0
+      canScrollNext.value = scrollLeft + clientWidth < scrollWidth - 1
+    }
+
+    const scrollToActiveThumb = () => {
+      if (!filmstripTrack.value) return
+
+      nextTick(() => {
+        const activeThumb = filmstripTrack.value?.querySelector('.filmstrip-thumb.active')
+        if (activeThumb) {
+          activeThumb.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center'
+          })
+        }
+        updateScrollButtons()
+      })
+    }
+
     const handleKeydown = (e) => {
       if (e.key === 'Escape') {
-        emit('close')
+        if (showDetails.value) {
+          closeDetails()
+        } else {
+          emit('close')
+        }
       } else if (e.key === 'ArrowLeft') {
         if (showNavigation.value && props.canNavigatePrev) {
           emit('navigate', -1)
@@ -299,10 +610,14 @@ export default {
         if (showNavigation.value && props.canNavigateNext) {
           emit('navigate', 1)
         }
+      } else if (e.key === 'Home' && showNavigation.value) {
+        navigateToImage(0)
+      } else if (e.key === 'End' && showNavigation.value) {
+        navigateToImage(props.images.length - 1)
       }
     }
 
-    // Check if image should be protected (hidden and not authenticated)
+    // Check if image should be protected
     const isProtected = computed(() => {
       return props.image.is_hidden && checkHiddenAuth && !checkHiddenAuth()
     })
@@ -320,17 +635,35 @@ export default {
       emit('delete', props.image.uuid)
     }
 
+    const handleResize = () => {
+      isDesktop.value = window.innerWidth > 1024
+    }
+
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown)
+      window.addEventListener('resize', handleResize)
+      scrollToActiveThumb()
+
+      // Set up scroll listener for filmstrip
+      if (filmstripTrack.value) {
+        filmstripTrack.value.addEventListener('scroll', updateScrollButtons)
+        updateScrollButtons()
+      }
     })
 
     onUnmounted(() => {
       window.removeEventListener('keydown', handleKeydown)
+      window.removeEventListener('resize', handleResize)
+      if (filmstripTrack.value) {
+        filmstripTrack.value.removeEventListener('scroll', updateScrollButtons)
+      }
     })
 
     return {
       imageUrl,
+      getThumbnailUrl,
       showNavigation,
+      showFilmstrip,
       hasSettings,
       hasResponse,
       formatDate,
@@ -350,14 +683,30 @@ export default {
       copied,
       copyButtonText,
       showDeleteModal,
-      confirmDelete
+      confirmDelete,
+      // Parsed data
+      negativePrompt,
+      modelName,
+      parsedLoras,
+      parsedTis,
+      generationSettings,
+      dimensionSettings,
+      metadataInfo,
+      // Filmstrip
+      filmstripTrack,
+      navigateToImage,
+      scrollFilmstrip,
+      canScrollPrev,
+      canScrollNext,
+      // Responsive
+      isDesktop
     }
   }
 }
 </script>
 
 <style scoped>
-.modal-overlay {
+.lightbox-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -368,13 +717,14 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 2rem;
+  padding: 1rem;
 }
 
-.modal-content {
+.lightbox-container {
   position: relative;
-  max-width: 1200px;
   width: 100%;
+  max-width: 1400px;
+  height: 90vh;
   max-height: 90vh;
   background: var(--color-surface);
   border-radius: 12px;
@@ -385,80 +735,68 @@ export default {
 
 .btn-close {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 40px;
-  height: 40px;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 36px;
+  height: 36px;
   border: none;
   background: var(--overlay-darker);
   color: white;
-  font-size: 2rem;
-  line-height: 1;
-  border-radius: 50%;
+  font-size: 1rem;
+  border-radius: 8px;
   cursor: pointer;
   z-index: 10;
-  transition: background 0.2s;
-}
-
-.btn-close:hover {
-  background: var(--overlay-modal);
-}
-
-.btn-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 50px;
-  height: 50px;
-  border: none;
-  background: var(--overlay-darker);
-  color: white;
-  font-size: 3rem;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 10;
-  transition: all 0.2s;
+  transition: background 0.15s;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
 }
 
-.btn-nav:hover {
-  background: var(--overlay-modal);
-  transform: translateY(-50%) scale(1.1);
+.btn-close:hover {
+  background: var(--color-danger);
 }
 
-.btn-prev {
-  left: 1rem;
-}
-
-.btn-next {
-  right: 1rem;
-}
-
-.image-container {
+/* Main content layout */
+.lightbox-content {
   flex: 1;
   display: flex;
-  justify-content: center;
-  background: var(--color-bg-base);
-  overflow: hidden;
   min-height: 0;
+}
+
+/* Image area (left side) */
+.image-area {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--color-bg-base);
+}
+
+.image-display {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 1rem;
   position: relative;
 }
 
-.image-container.protected img {
-  filter: blur(50px);
-}
-
-.image-container img {
+.image-display img {
   max-width: 100%;
   max-height: 100%;
   width: auto;
   height: auto;
   object-fit: contain;
+  border-radius: 4px;
 }
 
+.image-display.protected img {
+  filter: blur(50px);
+}
+
+/* Protection overlay */
 .protection-overlay {
   position: absolute;
   top: 0;
@@ -480,21 +818,21 @@ export default {
 }
 
 .protection-content i.fa-lock {
-  font-size: 4rem;
+  font-size: 3rem;
   color: var(--color-info);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .protection-content h3 {
-  margin: 0 0 1rem 0;
-  font-size: 1.8rem;
+  margin: 0 0 0.75rem 0;
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
 .protection-content p {
-  margin: 0 0 2rem 0;
+  margin: 0 0 1.5rem 0;
   color: var(--color-text-tertiary);
-  font-size: 1.1rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 
@@ -502,9 +840,9 @@ export default {
   background: var(--color-info);
   color: white;
   border: none;
-  padding: 12px 32px;
+  padding: 10px 24px;
   border-radius: 8px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -515,158 +853,303 @@ export default {
 
 .btn-unlock:hover {
   background: var(--color-info-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  transform: translateY(-1px);
 }
 
-.btn-unlock i {
-  font-size: 1rem;
+/* Filmstrip */
+.filmstrip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-bg-tertiary);
+  border-top: 1px solid var(--color-border);
 }
 
-.image-details {
-  padding: 1.5rem;
+.filmstrip-nav {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: var(--color-surface);
-  border-top: 1px solid #333;
-}
-
-.detail-row {
-  margin-bottom: 1rem;
-}
-
-.detail-row:last-of-type {
-  margin-bottom: 1.5rem;
-}
-
-.detail-row strong {
-  display: block;
+  border: 1px solid var(--color-border);
   color: var(--color-text-tertiary);
-  font-size: 0.85rem;
-  margin-bottom: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.75rem;
 }
 
-.detail-row p {
+.filmstrip-nav:hover:not(:disabled) {
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.filmstrip-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.filmstrip-track {
+  flex: 1;
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filmstrip-track::-webkit-scrollbar {
+  display: none;
+}
+
+.filmstrip-thumb {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  opacity: 0.5;
+  transition: all 0.15s;
+}
+
+.filmstrip-thumb:hover {
+  opacity: 0.8;
+}
+
+.filmstrip-thumb.active {
+  border-color: var(--color-primary);
+  opacity: 1;
+}
+
+.filmstrip-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Inspector Sidebar */
+.inspector-sidebar {
+  width: 320px;
+  min-width: 320px;
+  background: var(--color-bg-secondary);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.inspector-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.inspector-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inspector-content::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.inspector-content::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-light);
+}
+
+/* Prompt display */
+.prompt-display {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+.prompt-display p {
   margin: 0;
   word-break: break-word;
 }
 
-.actions {
+.prompt-display.negative {
+  color: var(--color-text-tertiary);
+}
+
+.no-data {
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Model info */
+.model-info {
   display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
 }
 
-.btn {
-  padding: 0.6rem 1.2rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
+.model-label {
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+}
+
+.model-name {
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-decoration: none;
-  display: inline-block;
+  text-align: right;
+  word-break: break-word;
 }
 
-.btn-icon {
-  padding: 0.6rem;
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
+/* LoRAs list */
+.loras-list,
+.tis-list {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.loras-header,
+.tis-header {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  margin-bottom: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lora-item,
+.ti-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  font-size: 0.8125rem;
+}
+
+.lora-name,
+.ti-name {
+  color: var(--color-text-primary);
+  word-break: break-word;
+  flex: 1;
+  padding-right: 0.5rem;
+}
+
+.lora-strength,
+.ti-strength {
+  color: var(--color-text-tertiary);
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.action-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.action-row .btn-action {
+  flex: 1;
+}
+
+.btn-action {
+  display: flex;
   align-items: center;
   justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
 }
 
-.btn-load-settings {
-  background: var(--color-success);
-  color: white;
+.btn-action i {
+  font-size: 0.8125rem;
 }
 
-.btn-load-settings:hover {
-  background: var(--color-success-hover);
-}
-
-.btn-load-settings-seed {
-  background: var(--color-success-light);
-  color: white;
-}
-
-.btn-load-settings-seed:hover {
-  background: var(--color-success-light-hover);
-}
-
-.btn-download {
+/* Primary button style */
+.btn-primary {
   background: var(--color-primary);
   color: white;
+  border: 1px solid var(--color-primary);
 }
 
-.btn-download:hover {
+.btn-primary:hover {
   background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
-.btn-delete {
-  background: transparent;
-  color: var(--color-danger);
-  border: 1px solid #3a1a1a;
+/* Secondary button style (gray) */
+.btn-secondary {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
 }
 
-.btn-delete:hover {
-  background: #3a1a1a;
-  border-color: var(--color-danger);
+.btn-secondary:hover {
+  background: var(--color-border);
+  border-color: var(--color-border-light);
 }
 
-.btn-favorite {
-  background: transparent;
-  color: var(--color-warning);
-  border: 1px solid #3a3a1a;
-}
-
-.btn-favorite:hover {
-  background: #3a3a1a;
-  border-color: var(--color-warning);
-}
-
-.btn-favorite.active {
+/* Active state for favorite button */
+.btn-secondary.active {
   background: var(--color-warning);
   color: var(--color-bg-base);
   border-color: var(--color-warning);
 }
 
-.btn-hidden {
-  background: transparent;
-  color: var(--color-text-tertiary);
-  border: 1px solid #2a2a2a;
+.btn-secondary.active:hover {
+  background: var(--color-warning-hover);
+  border-color: var(--color-warning-hover);
 }
 
-.btn-hidden:hover {
-  background: var(--color-surface-hover);
-  border-color: var(--color-text-tertiary);
-}
-
-.btn-hidden.active {
+/* Active state for hide button */
+.btn-secondary.active-hide {
   background: var(--color-text-disabled);
   color: var(--color-text-primary);
   border-color: var(--color-text-disabled);
 }
 
-.btn-view-request {
-  background: var(--color-info-light);
+.btn-secondary.active-hide:hover {
+  background: var(--color-text-tertiary);
+  border-color: var(--color-text-tertiary);
+}
+
+/* Delete button (danger) */
+.btn-delete {
+  background: var(--color-danger);
   color: white;
+  border: 1px solid var(--color-danger);
 }
 
-.btn-view-request:hover {
-  background: var(--color-info-light-hover);
+.btn-delete:hover {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
 }
 
-.btn-view-response {
-  background: var(--color-purple);
-  color: white;
-}
-
-.btn-view-response:hover {
-  background: var(--color-purple-hover);
-}
-
+/* Details overlay */
 .request-details-overlay {
   position: absolute;
   top: 0;
@@ -674,10 +1157,10 @@ export default {
   right: 0;
   bottom: 0;
   background: var(--color-surface);
-  z-index: 20;
+  z-index: 25;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  padding: 1.25rem;
 }
 
 .request-details-header {
@@ -685,35 +1168,36 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #333;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .request-details-header h3 {
   margin: 0;
   color: var(--color-text-primary);
-  font-size: 1.2rem;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .btn-copy {
   background: var(--color-primary);
   color: white;
   border: none;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.875rem;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .btn-copy:hover {
@@ -725,35 +1209,85 @@ export default {
 }
 
 .btn-close-details {
-  background: none;
-  border: none;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
   color: var(--color-text-tertiary);
-  font-size: 2rem;
   cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  transition: color 0.2s;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-close-details:hover {
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
 .request-details-body {
   flex: 1;
   overflow: auto;
-  background: #111;
+  background: var(--color-bg-base);
   padding: 1rem;
   border-radius: 8px;
-  border: 1px solid #333;
+  border: 1px solid var(--color-border);
 }
 
 .request-details-body pre {
   margin: 0;
-  color: #0f0;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 0.9rem;
+  color: var(--color-success);
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.8125rem;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .lightbox-content {
+    flex-direction: column;
+  }
+
+  .inspector-sidebar {
+    width: 100%;
+    min-width: 100%;
+    max-height: 45vh;
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .image-area {
+    flex: 1;
+    min-height: 40vh;
+  }
+}
+
+@media (max-width: 640px) {
+  .lightbox-overlay {
+    padding: 0;
+  }
+
+  .lightbox-container {
+    border-radius: 0;
+    height: 100vh;
+    max-height: 100vh;
+  }
+
+  .inspector-sidebar {
+    max-height: 50vh;
+  }
+
+  .filmstrip-thumb {
+    width: 44px;
+    height: 44px;
+  }
+
+  .btn-close {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
 }
 </style>
