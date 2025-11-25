@@ -1,6 +1,7 @@
 import hordeApi from './hordeApi.js';
 import { HordeRequest, GeneratedImage, HordePendingDownload } from '../db/models.js';
 import { imagesDir } from '../db/database.js';
+import albumCache from './albumCache.js';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
@@ -429,6 +430,9 @@ class QueueManager {
               status: 'completed',
               message: 'All images downloaded'
             });
+
+            // Invalidate album cache since new images were added
+            albumCache.invalidate();
           } else {
             console.log(`[Download] ${remainingDownloads.length} downloads remaining for request ${download.request_id.substring(0, 8)}...`);
           }

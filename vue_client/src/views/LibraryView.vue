@@ -1122,18 +1122,33 @@ export default {
       // Update filters based on keyword selection
       filters.value.requestId = null
 
-      if (keyword.id.startsWith('keyword:')) {
-        // Extract keyword from ID and toggle it
-        const keywordText = keyword.id.replace('keyword:', '')
-        const index = filters.value.keywords.indexOf(keywordText)
-        if (index !== -1) {
-          // Remove keyword if already present
-          filters.value.keywords.splice(index, 1)
+      // Check if this keyword album has multiple keywords (grouped keywords)
+      if (keyword.keywords && Array.isArray(keyword.keywords)) {
+        // Multi-keyword group - replace all keywords
+        // Check if all cluster keywords are already in the filter (exact match)
+        const allPresent = keyword.keywords.every(kw =>
+          filters.value.keywords.includes(kw)
+        ) && filters.value.keywords.length === keyword.keywords.length
+
+        if (allPresent) {
+          // Clear all keywords if this is already the active filter (toggle off)
+          filters.value.keywords = []
         } else {
-          // Add keyword if not present
-          filters.value.keywords.push(keywordText)
+          // Replace with this group's keywords
+          filters.value.keywords = [...keyword.keywords]
         }
-        // Keep current favorite/hidden filters intact for keyword searches
+      } else if (keyword.id.startsWith('keyword:')) {
+        // Single keyword album - replace keywords
+        const keywordText = keyword.id.replace('keyword:', '').split('+')[0] // Get first keyword from ID
+
+        // Check if this is the only keyword in the filter
+        if (filters.value.keywords.length === 1 && filters.value.keywords[0] === keywordText) {
+          // Clear if already the active filter (toggle off)
+          filters.value.keywords = []
+        } else {
+          // Replace with this keyword
+          filters.value.keywords = [keywordText]
+        }
       }
 
       // Refresh images with new filters
