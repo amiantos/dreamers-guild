@@ -2,6 +2,7 @@ import express from 'express';
 import { HordeRequest, GeneratedImage, HordePendingDownload } from '../db/models.js';
 import queueManager from '../services/queueManager.js';
 import hordeApi from '../services/hordeApi.js';
+import db from '../db/database.js';
 
 const router = express.Router();
 
@@ -61,38 +62,55 @@ router.delete('/', async (req, res) => {
       await queueManager.cancelRequest(request.uuid);
     }
 
-    // Delete all pending downloads
-    const allPendingDownloads = HordePendingDownload.findAll();
-    allPendingDownloads.forEach(d => HordePendingDownload.delete(d.uuid));
-
-    // Process images based on action
+    // Process images and pending downloads based on action
     for (const request of requests) {
-      const images = GeneratedImage.findByRequestId(request.uuid);
+      try {
+        const images = GeneratedImage.findByRequestId(request.uuid);
+        const pendingDownloads = HordePendingDownload.findByRequestId(request.uuid);
 
-      if (imageAction === 'prune') {
-        // Delete all non-favorited and non-hidden images
-        images.forEach(img => {
-          if (!img.is_favorite && !img.is_hidden) {
-            GeneratedImage.delete(img.uuid);
-          } else {
-            // Remove request_id from favorited/hidden images
+        // Delete all pending downloads for this request first
+        pendingDownloads.forEach(d => HordePendingDownload.delete(d.uuid));
+
+        if (imageAction === 'prune') {
+          // Delete all non-favorited and non-hidden images
+          images.forEach(img => {
+            if (!img.is_favorite && !img.is_hidden) {
+              GeneratedImage.delete(img.uuid);
+            } else {
+              // Remove request_id from favorited/hidden images
+              GeneratedImage.update(img.uuid, { requestId: null });
+            }
+          });
+        } else if (imageAction === 'hide') {
+          // Mark all images as hidden and remove the request_id reference
+          images.forEach(img => {
+            GeneratedImage.update(img.uuid, { isHidden: true, requestId: null });
+          });
+        } else if (imageAction === 'keep' || imageAction === 'cancel') {
+          // Keep all images by removing the request_id reference
+          images.forEach(img => {
             GeneratedImage.update(img.uuid, { requestId: null });
-          }
-        });
-      } else if (imageAction === 'hide') {
-        // Mark all images as hidden and remove the request_id reference
-        images.forEach(img => {
-          GeneratedImage.update(img.uuid, { isHidden: true, requestId: null });
-        });
-      } else if (imageAction === 'keep' || imageAction === 'cancel') {
-        // Keep all images by removing the request_id reference
-        images.forEach(img => {
-          GeneratedImage.update(img.uuid, { requestId: null });
-        });
-      }
+          });
+        }
 
-      // Delete the request
-      HordeRequest.delete(request.uuid);
+        // Check for any remaining references
+        const allImages = db.prepare('SELECT uuid, is_trashed FROM generated_images WHERE request_id = ?').all(request.uuid);
+        const allDownloads = db.prepare('SELECT uuid FROM horde_pending_downloads WHERE request_id = ?').all(request.uuid);
+
+        if (allImages.length > 0) {
+          db.prepare('UPDATE generated_images SET request_id = NULL WHERE request_id = ?').run(request.uuid);
+        }
+
+        if (allDownloads.length > 0) {
+          db.prepare('DELETE FROM horde_pending_downloads WHERE request_id = ?').run(request.uuid);
+        }
+
+        // Delete the request
+        HordeRequest.delete(request.uuid);
+      } catch (requestError) {
+        console.error(`[DeleteRequests] Error deleting request ${request.uuid.substring(0, 8)}:`, requestError.message);
+        throw requestError; // Re-throw to trigger the outer catch
+      }
     }
 
     res.json({ success: true, deletedCount: requests.length });

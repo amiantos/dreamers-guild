@@ -9,7 +9,7 @@ import requestsRouter from './routes/requests.js';
 import imagesRouter from './routes/images.js';
 import settingsRouter from './routes/settings.js';
 import stylesRouter from './routes/styles.js';
-import albumsRouter from './routes/albums.js';
+import albumsRouter, { warmAlbumCache } from './routes/albums.js';
 import loraCacheRouter from './routes/loraCache.js';
 import tiCacheRouter from './routes/tiCache.js';
 import civitaiRouter from './routes/civitai.js';
@@ -68,6 +68,13 @@ app.listen(PORT, () => {
   console.log(`Aislingeach Web server running on http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`API Key configured: ${process.env.HORDE_API_KEY ? 'Yes' : 'No'}`);
+
+  // Warm up album cache in background after server is ready
+  setImmediate(() => {
+    warmAlbumCache().catch(err => {
+      console.error('[Server] Error warming album cache:', err);
+    });
+  });
 });
 
 // Graceful shutdown
