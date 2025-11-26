@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS = {
   favorite_tis: '[]',
   recent_tis: '[]',
   favorite_styles: '[]',
-  hidden_pin_enabled: 0,
+  hidden_pin_enabled: null,  // null = not configured, 0 = declined, 1 = enabled
   hidden_pin_hash: null,
   hidden_pin_declined: false
 }
