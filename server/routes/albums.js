@@ -1,202 +1,605 @@
 import express from 'express';
 import db from '../db/database.js';
+import { LoraCache, TiCache, GeneratedImage } from '../db/models.js';
 import albumCache from '../services/albumCache.js';
+import {
+  extractIdentityKeywords,
+  jaccardSimilarity,
+  formatLoraName,
+  BOILERPLATE_KEYWORDS
+} from '../utils/keywordCategories.js';
 
 const router = express.Router();
 
 /**
- * Boilerplate keywords to exclude from album analysis
+ * Minimum number of images required to create an album
  */
-const BOILERPLATE_KEYWORDS = new Set([
-  'masterpiece', 'best quality', 'amazing quality', 'very aesthetic',
-  'high resolution', 'ultra-detailed', 'absurdres', 'intricate',
-  'detailed', 'highly detailed', 'extremely detailed', 'insane details',
-  'hyper detailed', 'ultra detailed', 'very detailed', 'intricate details',
-  'hyperdetailed', 'maximum details', 'meticulous', 'magnificent',
-  'score_9', 'score_8_up', 'score_7_up', 'score_6_up', 'score_5_up',
-  'score_4_up', 'score_3_up', 'score_2_up', 'score_1_up',
-  'looking at viewer', 'solo', 'depth of field', 'volumetric lighting',
-  'scenery', 'newest', 'sharp focus', 'elegant', 'cinematic look',
-  'soothing tones', 'soft cinematic light', 'low contrast', 'dim colors',
-  'exposure blend', 'hdr', 'faded'
-]);
+const MIN_ALBUM_SIZE = 5;
 
 /**
- * Extract and count keywords from prompts using TF-IDF scoring
- * @param {Array} promptData - Array of objects with {prompt, isFavorite}
- * @param {number} limit - Number of top keywords to return
+ * Similarity threshold for clustering (0-1)
  */
-function extractKeywords(promptData, limit = 20) {
-  const keywordCounts = new Map(); // Total occurrences of each keyword
-  const documentFrequency = new Map(); // Number of prompts containing each keyword
-  const favoriteKeywords = new Set(); // Keywords that appear in favorite images
-
-  promptData.forEach(({ prompt, isFavorite }) => {
-    if (!prompt) return;
-
-    // Get positive prompts (before "###")
-    let positivePrompt = prompt.split('###')[0];
-
-    // Remove parentheses and their content (including nested ones)
-    positivePrompt = positivePrompt.replace(/\([^)]*\)/g, '');
-
-    // Remove weight numbers like :1.2
-    positivePrompt = positivePrompt.replace(/:\d+\.?\d*/g, '');
-
-    // Split by commas and process each keyword
-    const keywords = positivePrompt.split(',')
-      .map(k => k.trim())
-      .filter(k => k.length > 0)
-      .filter(k => !k.startsWith('score_')); // Filter out score_ keywords
-
-    // Track unique keywords in this prompt for document frequency
-    const uniqueKeywords = new Set(keywords);
-
-    keywords.forEach(keyword => {
-      keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);
-
-      // Track if this keyword appears in a favorite
-      if (isFavorite) {
-        favoriteKeywords.add(keyword);
-      }
-    });
-
-    // Update document frequency
-    uniqueKeywords.forEach(keyword => {
-      documentFrequency.set(keyword, (documentFrequency.get(keyword) || 0) + 1);
-    });
-  });
-
-  const totalPrompts = promptData.length;
-
-  // Dynamic minimum threshold: require keywords to appear in at least 3% of images
-  // but with a minimum of 5 occurrences (for small datasets) and max of 100 (for very large datasets)
-  const minThreshold = Math.max(5, Math.min(100, Math.floor(totalPrompts * 0.03)));
-
-  // Calculate TF-IDF scores with balanced scoring
-  const keywordScores = Array.from(keywordCounts.entries())
-    .filter(([keyword, count]) => count >= minThreshold) // Filter out rare keywords
-    .map(([keyword, count]) => {
-      const df = documentFrequency.get(keyword) || 1;
-      const idf = Math.log(totalPrompts / df);
-
-      // Use sublinear TF scaling to dampen high-frequency terms
-      // Keep IDF linear for balanced distinctiveness boost
-      let tfidf = Math.log(1 + count) * idf;
-
-      // Boost keywords from favorite images by 2x
-      if (favoriteKeywords.has(keyword)) {
-        tfidf *= 2;
-      }
-
-      return { keyword, count, tfidf };
-    });
-
-  // Sort by TF-IDF score and return top keywords
-  return keywordScores
-    .sort((a, b) => b.tfidf - a.tfidf)
-    .slice(0, limit)
-    .map(({ keyword, count }) => ({ keyword, count }));
-}
+const SIMILARITY_THRESHOLD = 0.6;
 
 /**
- * Group keywords that appear in the same images together
- * @param {Array} keywords - Array of {keyword, count} objects
- * @param {string} baseWhere - SQL WHERE clause for filtering
+ * Threshold for considering a LoRA as "utility" (general purpose)
+ * If a LoRA appears with more than this many different co-LoRAs, it's likely utility
  */
-function groupKeywordsByOverlap(keywords, baseWhere) {
-  const groups = [];
-  const processed = new Set();
+const UTILITY_LORA_COLORA_THRESHOLD = 10;
 
-  // For each keyword, get the UUIDs of images containing it
-  const keywordImageSets = keywords.map(({ keyword, count }) => {
-    const images = db.prepare(`
-      SELECT uuid FROM generated_images
-      WHERE ${baseWhere} AND prompt_simple LIKE ?
-    `).all(`%${keyword}%`).map(row => row.uuid);
+/**
+ * Threshold for keyword variance to detect utility LoRAs
+ * If Jaccard similarity of keywords across images is below this, it's utility
+ */
+const UTILITY_LORA_KEYWORD_VARIANCE_THRESHOLD = 0.3;
 
-    return {
-      keyword,
-      count,
-      imageSet: new Set(images)
-    };
-  });
-
-  // Group keywords with high overlap (>80% Jaccard similarity)
-  for (let i = 0; i < keywordImageSets.length; i++) {
-    if (processed.has(i)) continue;
-
-    const group = {
-      keywords: [keywordImageSets[i].keyword],
-      count: keywordImageSets[i].count,
-      imageSet: keywordImageSets[i].imageSet
-    };
-    processed.add(i);
-
-    // Find all keywords with high overlap
-    for (let j = i + 1; j < keywordImageSets.length; j++) {
-      if (processed.has(j)) continue;
-
-      const set1 = group.imageSet;
-      const set2 = keywordImageSets[j].imageSet;
-
-      // Calculate Jaccard similarity
-      const intersection = new Set([...set1].filter(x => set2.has(x)));
-      const union = new Set([...set1, ...set2]);
-      const jaccard = intersection.size / union.size;
-
-      // If >80% overlap, merge into this group
-      if (jaccard > 0.8) {
-        group.keywords.push(keywordImageSets[j].keyword);
-        processed.add(j);
-      }
-    }
-
-    groups.push({
-      keywords: group.keywords,
-      count: group.imageSet.size,
-      imageSet: group.imageSet
-    });
+/**
+ * Extract identity fingerprint from an image
+ * @param {Object} image - Image row from database
+ * @returns {Object} Fingerprint with uuid, loras, tis, model, identityKeywords
+ */
+function extractFingerprint(image) {
+  let fullRequest = {};
+  try {
+    fullRequest = JSON.parse(image.full_request || '{}');
+  } catch {
+    // Invalid JSON, use empty object
   }
 
-  // Filter out single-keyword groups that are fully covered by multi-keyword groups
-  // Build a set of all images covered by multi-keyword groups
-  const multiKeywordGroups = groups.filter(g => g.keywords.length > 1);
-  const coveredImages = new Set();
-  multiKeywordGroups.forEach(group => {
-    group.imageSet.forEach(uuid => coveredImages.add(uuid));
-  });
+  const params = fullRequest.params || {};
+  const prompt = fullRequest.prompt || image.prompt_simple || '';
 
-  // Only keep single-keyword groups if they have unique images
-  const filteredGroups = groups.filter(group => {
-    if (group.keywords.length > 1) {
-      // Keep all multi-keyword groups
-      return true;
-    }
-
-    // For single-keyword groups, check if they have any unique images
-    const uniqueImages = [...group.imageSet].filter(uuid => !coveredImages.has(uuid));
-    if (uniqueImages.length > 0) {
-      // Keep the group, but count stays as total images (not just unique)
-      return true;
-    }
-
-    return false;
-  });
-
-  // Remove imageSet from final output (no longer needed)
-  return filteredGroups.map(({ keywords, count }) => ({ keywords, count }));
+  return {
+    uuid: image.uuid,
+    loras: new Set((params.loras || []).map(l => l.name)),
+    tis: new Set((params.tis || []).map(t => t.name)),
+    model: fullRequest.models?.[0] || 'unknown',
+    identityKeywords: extractIdentityKeywords(prompt),
+    dateCreated: image.date_created
+  };
 }
 
 /**
- * Generate albums from filters
+ * Detect utility LoRAs that shouldn't be used for grouping
+ * A utility LoRA is one that:
+ * - Is used with many different other LoRAs (style/quality enhancers)
+ * - Has high variance in identity keywords across its images (not character-specific)
+ * @param {Array} fingerprints - All image fingerprints
+ * @returns {Set} Set of LoRA IDs that are considered utility
+ */
+function detectUtilityLoras(fingerprints) {
+  const utilityLoras = new Set();
+
+  // Build LoRA usage statistics
+  const loraStats = new Map(); // loraId -> { coLoras: Set, keywordSets: Array<Set> }
+
+  for (const fp of fingerprints) {
+    for (const loraId of fp.loras) {
+      if (!loraStats.has(loraId)) {
+        loraStats.set(loraId, { coLoras: new Set(), keywordSets: [], imageCount: 0 });
+      }
+
+      const stats = loraStats.get(loraId);
+      stats.imageCount++;
+
+      // Track co-LoRAs (other LoRAs used in same image)
+      for (const otherLora of fp.loras) {
+        if (otherLora !== loraId) {
+          stats.coLoras.add(otherLora);
+        }
+      }
+
+      // Track identity keywords for this image
+      if (fp.identityKeywords.size > 0) {
+        stats.keywordSets.push(fp.identityKeywords);
+      }
+    }
+  }
+
+  // Analyze each LoRA
+  for (const [loraId, stats] of loraStats) {
+    // Skip LoRAs with few images
+    if (stats.imageCount < MIN_ALBUM_SIZE) continue;
+
+    // Check 1: Too many co-LoRAs suggests it's a utility/style LoRA
+    if (stats.coLoras.size >= UTILITY_LORA_COLORA_THRESHOLD) {
+      utilityLoras.add(loraId);
+      continue;
+    }
+
+    // Check 2: High keyword variance suggests it's not character-specific
+    if (stats.keywordSets.length >= 2) {
+      // Calculate average pairwise Jaccard similarity of keywords
+      let totalSimilarity = 0;
+      let pairCount = 0;
+
+      for (let i = 0; i < Math.min(stats.keywordSets.length, 20); i++) {
+        for (let j = i + 1; j < Math.min(stats.keywordSets.length, 20); j++) {
+          totalSimilarity += jaccardSimilarity(stats.keywordSets[i], stats.keywordSets[j]);
+          pairCount++;
+        }
+      }
+
+      const avgSimilarity = pairCount > 0 ? totalSimilarity / pairCount : 1;
+
+      // Low similarity = high variance = utility LoRA
+      if (avgSimilarity < UTILITY_LORA_KEYWORD_VARIANCE_THRESHOLD) {
+        utilityLoras.add(loraId);
+      }
+    }
+  }
+
+  return utilityLoras;
+}
+
+/**
+ * Calculate similarity between two fingerprints
+ * Uses weighted scoring: LoRAs (3), TIs (2), Model (1), Keywords (3)
+ * @param {Object} fp1 - First fingerprint
+ * @param {Object} fp2 - Second fingerprint
+ * @param {Set} utilityLoras - Set of LoRA IDs to exclude from similarity
+ * @returns {number} Similarity score between 0 and 1
+ */
+function calculateSimilarity(fp1, fp2, utilityLoras = new Set()) {
+  let score = 0;
+  let maxScore = 0;
+
+  // Filter out utility LoRAs for comparison
+  const loras1 = new Set([...fp1.loras].filter(l => !utilityLoras.has(l)));
+  const loras2 = new Set([...fp2.loras].filter(l => !utilityLoras.has(l)));
+
+  // LoRA overlap (weight: 3)
+  if (loras1.size > 0 || loras2.size > 0) {
+    score += jaccardSimilarity(loras1, loras2) * 3;
+    maxScore += 3;
+  }
+
+  // TI overlap (weight: 2)
+  if (fp1.tis.size > 0 || fp2.tis.size > 0) {
+    score += jaccardSimilarity(fp1.tis, fp2.tis) * 2;
+    maxScore += 2;
+  }
+
+  // Model match (weight: 1)
+  maxScore += 1;
+  if (fp1.model === fp2.model) {
+    score += 1;
+  }
+
+  // Identity keyword overlap (weight: 3)
+  if (fp1.identityKeywords.size > 0 || fp2.identityKeywords.size > 0) {
+    score += jaccardSimilarity(fp1.identityKeywords, fp2.identityKeywords) * 3;
+    maxScore += 3;
+  }
+
+  return maxScore > 0 ? score / maxScore : 0;
+}
+
+/**
+ * Cluster images by fingerprint similarity
+ * Uses greedy clustering algorithm
+ * @param {Array} fingerprints - Array of fingerprint objects
+ * @param {Set} utilityLoras - Set of utility LoRA IDs to exclude
+ * @returns {Array} Array of clusters, each containing fingerprints
+ */
+function clusterImages(fingerprints, utilityLoras) {
+  const clusters = [];
+  const assigned = new Set();
+
+  // Sort by number of identity features (more features = better cluster seed)
+  const sorted = [...fingerprints].sort((a, b) => {
+    const aLoras = [...a.loras].filter(l => !utilityLoras.has(l)).length;
+    const bLoras = [...b.loras].filter(l => !utilityLoras.has(l)).length;
+    const aFeatures = aLoras + a.tis.size + a.identityKeywords.size;
+    const bFeatures = bLoras + b.tis.size + b.identityKeywords.size;
+    return bFeatures - aFeatures;
+  });
+
+  for (const fp of sorted) {
+    if (assigned.has(fp.uuid)) continue;
+
+    const cluster = [fp];
+    assigned.add(fp.uuid);
+
+    // Find all similar images
+    for (const other of sorted) {
+      if (assigned.has(other.uuid)) continue;
+
+      if (calculateSimilarity(fp, other, utilityLoras) >= SIMILARITY_THRESHOLD) {
+        cluster.push(other);
+        assigned.add(other.uuid);
+      }
+    }
+
+    // Only keep clusters meeting minimum size
+    if (cluster.length >= MIN_ALBUM_SIZE) {
+      clusters.push(cluster);
+    }
+  }
+
+  return clusters;
+}
+
+/**
+ * Merge clusters that share the same dominant LoRA
+ * This fixes the issue where the same LoRA ends up in multiple albums
+ * @param {Array} clusters - Array of clusters
+ * @param {Set} utilityLoras - Set of utility LoRA IDs to exclude
+ * @returns {Array} Merged clusters
+ */
+function mergeClustersWithSameLora(clusters, utilityLoras) {
+  // Find dominant non-utility LoRA for each cluster
+  const clusterDominantLoras = clusters.map(cluster => {
+    const loraCounts = new Map();
+    for (const fp of cluster) {
+      for (const lora of fp.loras) {
+        if (!utilityLoras.has(lora)) {
+          loraCounts.set(lora, (loraCounts.get(lora) || 0) + 1);
+        }
+      }
+    }
+
+    // Find LoRA that appears in majority of cluster
+    let dominantLora = null;
+    let maxCount = 0;
+    for (const [lora, count] of loraCounts) {
+      if (count > maxCount && count >= cluster.length * 0.5) {
+        dominantLora = lora;
+        maxCount = count;
+      }
+    }
+
+    return dominantLora;
+  });
+
+  // Group clusters by dominant LoRA
+  const loraToClusterIndices = new Map();
+  for (let i = 0; i < clusters.length; i++) {
+    const dominantLora = clusterDominantLoras[i];
+    if (dominantLora) {
+      if (!loraToClusterIndices.has(dominantLora)) {
+        loraToClusterIndices.set(dominantLora, []);
+      }
+      loraToClusterIndices.get(dominantLora).push(i);
+    }
+  }
+
+  // Merge clusters with same dominant LoRA
+  const mergedClusters = [];
+  const processedIndices = new Set();
+
+  for (const [lora, indices] of loraToClusterIndices) {
+    if (indices.length > 1) {
+      // Merge these clusters
+      const mergedCluster = [];
+      const seenUuids = new Set();
+
+      for (const idx of indices) {
+        for (const fp of clusters[idx]) {
+          if (!seenUuids.has(fp.uuid)) {
+            mergedCluster.push(fp);
+            seenUuids.add(fp.uuid);
+          }
+        }
+        processedIndices.add(idx);
+      }
+
+      mergedClusters.push(mergedCluster);
+    }
+  }
+
+  // Add unmerged clusters
+  for (let i = 0; i < clusters.length; i++) {
+    if (!processedIndices.has(i)) {
+      mergedClusters.push(clusters[i]);
+    }
+  }
+
+  return mergedClusters;
+}
+
+/**
+ * Count occurrences of features across a cluster
+ * @param {Array} cluster - Array of fingerprints
+ * @param {string} featureKey - Key of feature set to count ('loras', 'tis', 'identityKeywords')
+ * @param {Set} excludeSet - Optional set of values to exclude
+ * @returns {Map} Map of feature -> count
+ */
+function countFeatures(cluster, featureKey, excludeSet = new Set()) {
+  const counts = new Map();
+
+  for (const fp of cluster) {
+    const features = fp[featureKey];
+    if (features instanceof Set) {
+      for (const feature of features) {
+        if (!excludeSet.has(feature)) {
+          counts.set(feature, (counts.get(feature) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  return counts;
+}
+
+/**
+ * Get top N features by count
+ * @param {Map} countMap - Map of feature -> count
+ * @param {number} n - Number of features to return
+ * @returns {Array} Array of {name, count} sorted by count desc
+ */
+function getTopFeatures(countMap, n = 3) {
+  return Array.from(countMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([name, count]) => ({ name, count }));
+}
+
+/**
+ * Hydrate LoRA names from cache
+ * @param {Array} loraIds - Array of LoRA version IDs
+ * @returns {Map} Map of loraId -> display name
+ */
+function hydrateLoraNames(loraIds) {
+  const nameMap = new Map();
+
+  if (loraIds.length === 0) return nameMap;
+
+  try {
+    const cachedLoras = LoraCache.getMultiple(loraIds);
+
+    for (const cached of cachedLoras) {
+      const metadata = cached.full_metadata;
+      // Try to get name from metadata (CivitAI structure)
+      const name = metadata?.model?.name || metadata?.name || formatLoraName(cached.version_id);
+      nameMap.set(cached.version_id, name);
+    }
+  } catch (error) {
+    console.error('Error hydrating LoRA names:', error);
+  }
+
+  // Fill in any missing names with formatted version
+  for (const loraId of loraIds) {
+    if (!nameMap.has(loraId)) {
+      nameMap.set(loraId, formatLoraName(loraId));
+    }
+  }
+
+  return nameMap;
+}
+
+/**
+ * Generate a descriptive name for a cluster
+ * @param {Array} cluster - Array of fingerprints
+ * @param {Set} utilityLoras - Set of utility LoRA IDs
+ * @param {Map} loraNameMap - Map of loraId -> display name
+ * @returns {string} Human-readable album name
+ */
+function generateClusterName(cluster, utilityLoras, loraNameMap) {
+  const clusterSize = cluster.length;
+
+  // Count features (excluding utility LoRAs)
+  const loraCounts = countFeatures(cluster, 'loras', utilityLoras);
+  const keywordCounts = countFeatures(cluster, 'identityKeywords');
+
+  // Get top features
+  const topLoras = getTopFeatures(loraCounts, 1);
+  const topKeywords = getTopFeatures(keywordCounts, 3);
+
+  // If there's a LoRA shared by most images, use it as the name
+  if (topLoras.length > 0 && topLoras[0].count >= clusterSize * 0.5) {
+    const loraId = topLoras[0].name;
+    return loraNameMap.get(loraId) || formatLoraName(loraId);
+  }
+
+  // Otherwise use top identity keywords
+  if (topKeywords.length > 0) {
+    // Filter to keywords appearing in majority of cluster
+    const majorityKeywords = topKeywords
+      .filter(k => k.count >= clusterSize * 0.5)
+      .slice(0, 2);
+
+    if (majorityKeywords.length > 0) {
+      return majorityKeywords.map(k => k.name).join(', ');
+    }
+  }
+
+  // Fallback: use model name if consistent
+  const modelCounts = new Map();
+  for (const fp of cluster) {
+    modelCounts.set(fp.model, (modelCounts.get(fp.model) || 0) + 1);
+  }
+  const topModel = getTopFeatures(modelCounts, 1)[0];
+  if (topModel && topModel.count >= clusterSize * 0.8) {
+    return `${topModel.name} images`;
+  }
+
+  return 'Unnamed Group';
+}
+
+/**
+ * Generate a unique cluster ID
+ * @param {Array} cluster - Array of fingerprints
+ * @param {Set} utilityLoras - Set of utility LoRA IDs
+ * @returns {string} Unique cluster identifier
+ */
+function generateClusterId(cluster, utilityLoras) {
+  // Use characteristics of cluster for ID
+  const loraCounts = countFeatures(cluster, 'loras', utilityLoras);
+  const keywordCounts = countFeatures(cluster, 'identityKeywords');
+
+  const topLoras = getTopFeatures(loraCounts, 2).map(l => l.name);
+  const topKeywords = getTopFeatures(keywordCounts, 2).map(k => k.name);
+
+  const idParts = [...topLoras, ...topKeywords].slice(0, 3);
+
+  if (idParts.length === 0) {
+    // Fallback to using first image UUID
+    return `cluster:${cluster[0].uuid.substring(0, 8)}`;
+  }
+
+  return `cluster:${idParts.join('+')}`;
+}
+
+/**
+ * Build filter criteria for a cluster
+ * Returns an array of filters that can be used to query images in this cluster
+ * Strategy: Use the SINGLE most defining characteristic to avoid over-filtering
+ * @param {Array} cluster - Array of fingerprints
+ * @param {Set} utilityLoras - Set of utility LoRA IDs
+ * @returns {Array} Array of filter objects {type, value}
+ */
+function buildClusterFilters(cluster, utilityLoras) {
+  const filters = [];
+  const clusterSize = cluster.length;
+
+  // Get feature counts
+  const loraCounts = countFeatures(cluster, 'loras', utilityLoras);
+  const keywordCounts = countFeatures(cluster, 'identityKeywords');
+  const modelCounts = new Map();
+  for (const fp of cluster) {
+    modelCounts.set(fp.model, (modelCounts.get(fp.model) || 0) + 1);
+  }
+
+  const topLoras = getTopFeatures(loraCounts, 1);
+  const topKeywords = getTopFeatures(keywordCounts, 2);
+  const topModel = getTopFeatures(modelCounts, 1)[0];
+
+  // Strategy: Pick ONE primary filter type to avoid AND-combining too many conditions
+
+  // If there's a dominant LoRA (70%+), use ONLY that
+  if (topLoras.length > 0 && topLoras[0].count >= clusterSize * 0.7) {
+    filters.push({ type: 'lora_id', value: topLoras[0].name });
+    return filters;
+  }
+
+  // If there's a very dominant keyword (80%+), use that alone
+  if (topKeywords.length > 0 && topKeywords[0].count >= clusterSize * 0.8) {
+    filters.push({ type: 'keyword', value: topKeywords[0].name });
+    return filters;
+  }
+
+  // If there's a somewhat dominant LoRA (50%+), combine with top keyword if it's also common
+  if (topLoras.length > 0 && topLoras[0].count >= clusterSize * 0.5) {
+    filters.push({ type: 'lora_id', value: topLoras[0].name });
+    // Only add a keyword if it appears in most images WITH that LoRA
+    if (topKeywords.length > 0 && topKeywords[0].count >= clusterSize * 0.7) {
+      filters.push({ type: 'keyword', value: topKeywords[0].name });
+    }
+    return filters;
+  }
+
+  // No dominant LoRA - use top 1-2 keywords if they're common enough
+  for (const keyword of topKeywords) {
+    if (keyword.count >= clusterSize * 0.6) {
+      filters.push({ type: 'keyword', value: keyword.name });
+    }
+  }
+
+  // If we have keyword filters, return them
+  if (filters.length > 0) {
+    return filters;
+  }
+
+  // Last resort: use model if very consistent
+  if (topModel && topModel.count >= clusterSize * 0.9) {
+    filters.push({ type: 'model', value: topModel.name });
+  }
+
+  return filters;
+}
+
+/**
+ * Get optional metadata about cluster features
+ * @param {Array} cluster - Array of fingerprints
+ * @param {Set} utilityLoras - Set of utility LoRA IDs
+ * @param {Map} loraNameMap - Map of loraId -> display name
+ * @returns {Object} Feature metadata
+ */
+function getClusterFeatures(cluster, utilityLoras, loraNameMap) {
+  const loraCounts = countFeatures(cluster, 'loras', utilityLoras);
+  const keywordCounts = countFeatures(cluster, 'identityKeywords');
+
+  const topLoras = getTopFeatures(loraCounts, 3).map(l => ({
+    id: l.name,
+    name: loraNameMap.get(l.name) || formatLoraName(l.name),
+    count: l.count
+  }));
+  const topKeywords = getTopFeatures(keywordCounts, 5).map(k => k.name);
+
+  // Get dominant model
+  const modelCounts = new Map();
+  for (const fp of cluster) {
+    modelCounts.set(fp.model, (modelCounts.get(fp.model) || 0) + 1);
+  }
+  const topModel = getTopFeatures(modelCounts, 1)[0];
+
+  return {
+    loras: topLoras,
+    keywords: topKeywords,
+    model: topModel?.name || 'unknown'
+  };
+}
+
+/**
+ * Generate album name directly from filters
+ * This ensures the name matches what the user sees in filter chips
+ * @param {Array} filters - Array of filter objects {type, value}
+ * @param {Map} loraNameMap - Map of loraId -> display name
+ * @returns {string} Human-readable album name
+ */
+function generateAlbumNameFromFilters(filters, loraNameMap) {
+  if (!filters || filters.length === 0) {
+    return 'Unnamed Group';
+  }
+
+  const nameParts = [];
+
+  for (const filter of filters) {
+    switch (filter.type) {
+      case 'lora_id':
+        nameParts.push(loraNameMap.get(filter.value) || formatLoraName(filter.value));
+        break;
+      case 'keyword':
+        nameParts.push(filter.value);
+        break;
+      case 'model':
+        nameParts.push(`${filter.value} images`);
+        break;
+    }
+  }
+
+  return nameParts.join(', ') || 'Unnamed Group';
+}
+
+/**
+ * Generate album ID from filters
+ * This creates a unique, deterministic ID based on the filter criteria
+ * @param {Array} filters - Array of filter objects {type, value}
+ * @returns {string} Unique album identifier
+ */
+function generateAlbumIdFromFilters(filters) {
+  if (!filters || filters.length === 0) {
+    return 'cluster:empty';
+  }
+
+  // Sort filters for consistent ID generation
+  const sortedFilters = [...filters].sort((a, b) => {
+    if (a.type !== b.type) return a.type.localeCompare(b.type);
+    return a.value.localeCompare(b.value);
+  });
+
+  const idParts = sortedFilters.map(f => `${f.type}:${f.value}`);
+  return `cluster:${idParts.join('+')}`;
+}
+
+/**
+ * Generate albums from filters using multi-factor clustering
  * @param {boolean} showFavorites - Only show favorite images
  * @param {boolean} includeHidden - Include hidden images
  * @returns {Array} Array of album objects
  */
 function generateAlbumsForFilters(showFavorites, includeHidden) {
-  const albums = [];
-
   // Build base query for filtering
   let baseWhere = 'is_trashed = 0';
   if (showFavorites) {
@@ -206,69 +609,109 @@ function generateAlbumsForFilters(showFavorites, includeHidden) {
     baseWhere += ' AND is_hidden = 0';
   }
 
-  // Get prompts for analysis
-  const promptData = db.prepare(`
-    SELECT prompt_simple, is_favorite FROM generated_images
+  // Get all images for analysis
+  const images = db.prepare(`
+    SELECT uuid, prompt_simple, full_request, date_created
+    FROM generated_images
     WHERE ${baseWhere}
-  `).all().map(row => ({
-    prompt: row.prompt_simple,
-    isFavorite: row.is_favorite === 1
-  }));
+  `).all();
 
-  // Skip if no data
-  if (promptData.length === 0) {
-    return albums;
+  // Skip if not enough data
+  if (images.length < MIN_ALBUM_SIZE) {
+    return [];
   }
 
-  // Simple frequency-based albums: show any keyword with ≥50 images
-  const totalImages = promptData.length;
-  const minThreshold = Math.max(20, Math.min(50, Math.floor(totalImages * 0.02)));
+  // Extract fingerprints for all images
+  const fingerprints = images.map(extractFingerprint);
 
-  // Extract keywords with TF-IDF but use it only for ordering, not filtering
-  const topKeywords = extractKeywords(promptData, 100);
+  // Detect utility LoRAs
+  const utilityLoras = detectUtilityLoras(fingerprints);
 
-  // Filter by frequency threshold and exclude boilerplate
-  const eligibleKeywords = topKeywords
-    .filter(({ keyword, count }) =>
-      count >= minThreshold && !BOILERPLATE_KEYWORDS.has(keyword.toLowerCase())
-    );
+  // Cluster images by similarity
+  let clusters = clusterImages(fingerprints, utilityLoras);
 
-  // Group keywords by image overlap
-  const keywordGroups = groupKeywordsByOverlap(eligibleKeywords, baseWhere);
+  // Merge clusters with same dominant LoRA
+  clusters = mergeClustersWithSameLora(clusters, utilityLoras);
 
-  // Sort groups by image count (highest first)
-  keywordGroups.sort((a, b) => b.count - a.count);
+  // Collect all LoRA IDs for name hydration
+  const allLoraIds = new Set();
+  for (const cluster of clusters) {
+    for (const fp of cluster) {
+      for (const loraId of fp.loras) {
+        if (!utilityLoras.has(loraId)) {
+          allLoraIds.add(loraId);
+        }
+      }
+    }
+  }
 
-  // Create albums from groups
-  keywordGroups.forEach(group => {
-    // Get most recent image for this keyword group
-    const thumbnail = db.prepare(`
-      SELECT uuid FROM generated_images
-      WHERE ${baseWhere} AND prompt_simple LIKE ?
-      ORDER BY date_created DESC
-      LIMIT 1
-    `).get(`%${group.keywords[0]}%`);
+  // Hydrate LoRA names from cache
+  const loraNameMap = hydrateLoraNames([...allLoraIds]);
 
-    albums.push({
-      id: `keyword:${group.keywords.join('+')}`,
-      name: group.keywords.join(', '),
-      type: 'keyword',
-      keywords: group.keywords,
-      count: group.count,
-      thumbnail: thumbnail ? thumbnail.uuid : null
-    });
+  // Build global filters for count queries
+  const globalFilters = { showFavorites, includeHidden };
+
+  // Convert clusters to albums
+  const albums = clusters.map(cluster => {
+    // Get most recent image for thumbnail
+    const sortedByDate = [...cluster].sort((a, b) => b.dateCreated - a.dateCreated);
+    const thumbnailUuid = sortedByDate[0].uuid;
+
+    // Build filter criteria for this cluster
+    const filters = buildClusterFilters(cluster, utilityLoras);
+
+    // Recalculate count based on actual filter results
+    // This ensures the displayed count matches what the user will see when clicking the album
+    let actualCount = cluster.length;
+    if (filters.length > 0) {
+      actualCount = GeneratedImage.countByFilters(filters, globalFilters);
+    }
+
+    // Generate album name from the actual filters (not the cluster features)
+    // This ensures the name matches what the user will see in the filter chips
+    const albumName = generateAlbumNameFromFilters(filters, loraNameMap);
+
+    // Generate a unique ID based on the filters
+    const albumId = generateAlbumIdFromFilters(filters);
+
+    return {
+      id: albumId,
+      name: albumName,
+      type: 'cluster',
+      count: actualCount,
+      thumbnail: thumbnailUuid,
+      filters: filters,
+      features: getClusterFeatures(cluster, utilityLoras, loraNameMap)
+    };
   });
 
-  return albums;
+  // Filter out albums that ended up with fewer than MIN_ALBUM_SIZE after recalculation
+  const validAlbums = albums.filter(album => album.count >= MIN_ALBUM_SIZE);
+
+  // Deduplicate albums with identical filters
+  const seenFilterKeys = new Set();
+  const uniqueAlbums = validAlbums.filter(album => {
+    const filterKey = album.id; // ID is based on filters, so same ID = same filters
+    if (seenFilterKeys.has(filterKey)) {
+      return false;
+    }
+    seenFilterKeys.add(filterKey);
+    return true;
+  });
+
+  // Sort by count (descending)
+  uniqueAlbums.sort((a, b) => b.count - a.count);
+
+  return uniqueAlbums;
 }
 
 /**
  * GET /api/albums
- * Get all keyword albums extracted from image prompts
+ * Get all albums extracted from image analysis
  */
 router.get('/', (req, res) => {
   try {
-    // Parse filter params for context-aware keyword albums
+    // Parse filter params for context-aware albums
     const showFavorites = req.query.favorites === 'true';
     const includeHidden = req.query.includeHidden === 'true';
 

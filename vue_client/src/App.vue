@@ -68,16 +68,17 @@
 </template>
 
 <script>
-import { ref, provide, nextTick, computed, onMounted } from 'vue'
+import { ref, provide, nextTick, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import BaseModal from './components/BaseModal.vue'
-import { settingsApi } from '@api'
+import { settingsApi, imagesApi } from '@api'
 import { useTheme } from './composables/useTheme.js'
 
 const isDemoMode = typeof __DEMO_MODE__ !== 'undefined' && __DEMO_MODE__
+const APP_NAME = 'Dreamers Guild'
 
 export default {
   name: 'App',
@@ -91,6 +92,105 @@ export default {
     // Initialize theme
     const { initializeTheme } = useTheme()
     initializeTheme()
+
+    const route = useRoute()
+
+    // Dynamic page title based on route
+    const updatePageTitle = async () => {
+      const path = route.path
+      const query = route.query
+
+      // Handle image routes: /image/:id
+      if (path.startsWith('/image/')) {
+        const imageId = path.replace('/image/', '')
+        const shortId = imageId.substring(0, 7)
+
+        try {
+          const response = await imagesApi.getById(imageId)
+          const image = response.data
+          if (image && image.prompt_simple) {
+            // Truncate prompt to ~50 chars
+            let promptExcerpt = image.prompt_simple.substring(0, 50)
+            if (image.prompt_simple.length > 50) {
+              promptExcerpt += '...'
+            }
+            document.title = `Image #${shortId} - ${promptExcerpt} - ${APP_NAME}`
+          } else {
+            document.title = `Image #${shortId} - ${APP_NAME}`
+          }
+        } catch (error) {
+          document.title = `Image #${shortId} - ${APP_NAME}`
+        }
+        return
+      }
+
+      // Handle settings route
+      if (path === '/settings') {
+        document.title = `Settings - ${APP_NAME}`
+        return
+      }
+
+      // Handle workers route
+      if (path === '/workers') {
+        document.title = `Workers - ${APP_NAME}`
+        return
+      }
+
+      // Handle main library route with filters
+      const titleParts = []
+
+      // Check for request filter
+      if (query.request) {
+        const shortRequest = query.request.substring(0, 8)
+        titleParts.push(`Request #${shortRequest}`)
+      }
+
+      // Check for lora filter
+      if (query.lora) {
+        const loras = query.lora.split(',')
+        for (const lora of loras) {
+          // Format lora ID for display
+          if (/^\d+$/.test(lora)) {
+            titleParts.push(`LoRA #${lora}`)
+          } else {
+            titleParts.push(`LoRA: ${lora}`)
+          }
+        }
+      }
+
+      // Check for model filter
+      if (query.model) {
+        titleParts.push(`Model: ${query.model}`)
+      }
+
+      // Check for keyword filters (q param)
+      if (query.q) {
+        const keywords = query.q.split(',').filter(k => k !== 'favorites')
+        if (keywords.length > 0) {
+          titleParts.push(keywords.join(', '))
+        }
+
+        // Check for favorites
+        if (query.q.includes('favorites')) {
+          titleParts.unshift('Favorites')
+        }
+      }
+
+      if (titleParts.length > 0) {
+        document.title = `${titleParts.join(' - ')} - ${APP_NAME}`
+      } else {
+        document.title = APP_NAME
+      }
+    }
+
+    // Watch route changes and update title
+    watch(
+      () => route.fullPath,
+      () => {
+        updatePageTitle()
+      },
+      { immediate: true }
+    )
 
     // Demo mode state
     const showStorageInfo = ref(false)

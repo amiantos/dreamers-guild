@@ -5,7 +5,7 @@ import path from 'path';
 
 const router = express.Router();
 
-// Get all images (paginated)
+// Get all images (paginated) with optional flexible filters
 router.get('/', (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
@@ -13,8 +13,26 @@ router.get('/', (req, res) => {
     const showFavorites = req.query.favorites === 'true';
     const includeHidden = req.query.includeHidden === 'true';
 
-    const images = GeneratedImage.findAll(limit, offset, { showFavorites, includeHidden });
-    const total = GeneratedImage.countAll({ showFavorites, includeHidden });
+    // Parse flexible filters if provided
+    let filterCriteria = null;
+    if (req.query.filters) {
+      try {
+        filterCriteria = JSON.parse(req.query.filters);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid filters JSON' });
+      }
+    }
+
+    const globalFilters = { showFavorites, includeHidden };
+
+    let images, total;
+    if (filterCriteria && filterCriteria.length > 0) {
+      images = GeneratedImage.findByFilters(filterCriteria, limit, offset, globalFilters);
+      total = GeneratedImage.countByFilters(filterCriteria, globalFilters);
+    } else {
+      images = GeneratedImage.findAll(limit, offset, globalFilters);
+      total = GeneratedImage.countAll(globalFilters);
+    }
 
     res.json({ data: images, total });
   } catch (error) {

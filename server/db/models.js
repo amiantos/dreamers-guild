@@ -244,6 +244,116 @@ export const GeneratedImage = {
     return result.count;
   },
 
+  /**
+   * Find images by flexible filter criteria
+   * @param {Array} filterCriteria - Array of {type, value} filters
+   *   Supported types: 'keyword', 'lora_id', 'model', 'request_id'
+   * @param {number} limit - Max results
+   * @param {number} offset - Pagination offset
+   * @param {Object} globalFilters - Global filters (showFavorites, includeHidden)
+   */
+  findByFilters(filterCriteria, limit = 100, offset = 0, globalFilters = {}) {
+    if (!filterCriteria || filterCriteria.length === 0) {
+      return this.findAll(limit, offset, globalFilters);
+    }
+
+    let query = `
+      SELECT * FROM generated_images
+      WHERE is_trashed = 0
+    `;
+    const params = [];
+
+    // Apply each filter criterion
+    for (const filter of filterCriteria) {
+      switch (filter.type) {
+        case 'keyword':
+          query += ` AND prompt_simple LIKE ?`;
+          params.push(`%${filter.value}%`);
+          break;
+        case 'lora_id':
+          // Search in full_request JSON for LoRA
+          query += ` AND full_request LIKE ?`;
+          params.push(`%"name":"${filter.value}"%`);
+          break;
+        case 'model':
+          // Search in full_request JSON for model
+          query += ` AND full_request LIKE ?`;
+          params.push(`%"models":["${filter.value}"%`);
+          break;
+        case 'request_id':
+          query += ` AND request_id = ?`;
+          params.push(filter.value);
+          break;
+      }
+    }
+
+    // Apply global filters
+    if (globalFilters.showFavorites) {
+      query += ` AND is_favorite = 1`;
+    }
+    if (!globalFilters.includeHidden) {
+      query += ` AND is_hidden = 0`;
+    }
+
+    query += `
+      ORDER BY date_created DESC
+      LIMIT ? OFFSET ?
+    `;
+    params.push(limit, offset);
+
+    const stmt = db.prepare(query);
+    return stmt.all(...params);
+  },
+
+  /**
+   * Count images matching flexible filter criteria
+   */
+  countByFilters(filterCriteria, globalFilters = {}) {
+    if (!filterCriteria || filterCriteria.length === 0) {
+      return this.countAll(globalFilters);
+    }
+
+    let query = `
+      SELECT COUNT(*) as count FROM generated_images
+      WHERE is_trashed = 0
+    `;
+    const params = [];
+
+    // Apply each filter criterion (same logic as findByFilters)
+    for (const filter of filterCriteria) {
+      switch (filter.type) {
+        case 'keyword':
+          query += ` AND prompt_simple LIKE ?`;
+          params.push(`%${filter.value}%`);
+          break;
+        case 'lora_id':
+          query += ` AND full_request LIKE ?`;
+          params.push(`%"name":"${filter.value}"%`);
+          break;
+        case 'model':
+          query += ` AND full_request LIKE ?`;
+          params.push(`%"models":["${filter.value}"%`);
+          break;
+        case 'request_id':
+          query += ` AND request_id = ?`;
+          params.push(filter.value);
+          break;
+      }
+    }
+
+    // Apply global filters
+    if (globalFilters.showFavorites) {
+      query += ` AND is_favorite = 1`;
+    }
+    if (!globalFilters.includeHidden) {
+      query += ` AND is_hidden = 0`;
+    }
+
+    const stmt = db.prepare(query);
+    const result = stmt.get(...params);
+    return result.count;
+  },
+
   update(uuid, data) {
     const fields = [];
     const values = [];

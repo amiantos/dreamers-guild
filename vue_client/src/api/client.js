@@ -39,13 +39,25 @@ export const requestsApi = {
 }
 
 export const imagesApi = {
-  getAll(limit = 100, offset = 0, filters = {}) {
+  /**
+   * Get images with optional flexible filters
+   * @param {number} limit - Max results
+   * @param {number} offset - Pagination offset
+   * @param {Object} options - Filter options
+   * @param {boolean} options.showFavoritesOnly - Only show favorites
+   * @param {boolean} options.showHidden - Include hidden images
+   * @param {Array} options.filterCriteria - Array of {type, value} filters
+   */
+  getAll(limit = 100, offset = 0, options = {}) {
     let url = `/images?limit=${limit}&offset=${offset}`
-    if (filters.showFavoritesOnly) {
+    if (options.showFavoritesOnly) {
       url += '&favorites=true'
     }
-    if (filters.showHidden) {
+    if (options.showHidden) {
       url += '&includeHidden=true'
+    }
+    if (options.filterCriteria && options.filterCriteria.length > 0) {
+      url += `&filters=${encodeURIComponent(JSON.stringify(options.filterCriteria))}`
     }
     return apiClient.get(url)
   },

@@ -35,6 +35,42 @@ function buildFilter(filters) {
     if (!filters.showHidden && image.is_hidden) {
       return false
     }
+
+    // Apply flexible filter criteria if present
+    if (filters.filterCriteria && filters.filterCriteria.length > 0) {
+      for (const criterion of filters.filterCriteria) {
+        switch (criterion.type) {
+          case 'keyword': {
+            const prompt = (image.prompt_simple || '').toLowerCase()
+            if (!prompt.includes(criterion.value.toLowerCase())) {
+              return false
+            }
+            break
+          }
+          case 'lora_id': {
+            const fullRequest = image.full_request || '{}'
+            if (!fullRequest.includes(`"name":"${criterion.value}"`)) {
+              return false
+            }
+            break
+          }
+          case 'model': {
+            const fullRequest = image.full_request || '{}'
+            if (!fullRequest.includes(`"models":["${criterion.value}"`)) {
+              return false
+            }
+            break
+          }
+          case 'request_id': {
+            if (image.request_id !== criterion.value) {
+              return false
+            }
+            break
+          }
+        }
+      }
+    }
+
     return true
   }
 }
