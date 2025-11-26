@@ -5,6 +5,13 @@
         <div class="modal-header">
           <h2>New Image Request</h2>
           <div class="header-actions">
+            <button
+              class="btn-mode-toggle"
+              @click="toggleEditorMode"
+              :title="editorMode === 'simple' ? 'Switch to Advanced mode' : 'Switch to Simple mode'"
+            >
+              {{ editorMode === 'simple' ? 'Advanced' : 'Simple' }}
+            </button>
             <button class="btn-reset" @click="loadRandomPreset" title="Load random preset">
               Reset
             </button>
@@ -13,6 +20,18 @@
         </div>
 
         <div class="modal-body">
+          <!-- Style Switch Confirmation Overlay -->
+          <div v-if="showStyleSwitchConfirm" class="style-switch-confirm-overlay">
+            <div class="style-switch-confirm">
+              <p>You have a style selected. What would you like to do?</p>
+              <div class="confirm-buttons">
+                <button type="button" @click="confirmSwitchToAdvanced(true)" class="btn">Apply Style & Switch</button>
+                <button type="button" @click="confirmSwitchToAdvanced(false)" class="btn">Discard Style & Switch</button>
+                <button type="button" @click="showStyleSwitchConfirm = false" class="btn btn-secondary">Cancel</button>
+              </div>
+            </div>
+          </div>
+
           <form @submit.prevent="submitRequest">
             <!-- Basic Settings Section (Always Visible) -->
             <h4 class="section-title">Basic Settings</h4>
@@ -30,7 +49,7 @@
                 ></textarea>
               </div>
 
-              <div class="form-group">
+              <div v-if="editorMode === 'advanced'" class="form-group">
                 <label for="negative_prompt">Negative Prompt</label>
                 <textarea
                   id="negative_prompt"
@@ -58,7 +77,7 @@
                 </div>
               </div>
 
-              <div class="form-group">
+              <div v-if="editorMode === 'simple'" class="form-group">
                 <label>Style</label>
                 <div class="selector-button" @click="showStylePicker = true">
                   <span class="selector-value">{{ selectedStyleName || 'None' }}</span>
@@ -88,8 +107,8 @@
               </div>
             </div>
 
-            <!-- Full Parameters (Only Visible When NO Style is Selected) -->
-            <div v-if="!selectedStyleName" class="full-parameters">
+            <!-- Full Parameters (Only visible in Advanced mode) -->
+            <div v-if="editorMode === 'advanced'" class="full-parameters">
               <!-- Dimensions Section -->
               <h4 class="section-title">Dimensions</h4>
               <div class="dimensions-section">
@@ -686,6 +705,8 @@ export default {
     const aspectRatio = ref(1)
     const selectedStyleName = ref('')
     const selectedStyleData = ref(null)
+    const editorMode = ref(localStorage.getItem('generatorEditorMode') || 'simple')
+    const showStyleSwitchConfirm = ref(false)
 
     const form = reactive({
       prompt: '',
@@ -767,18 +788,12 @@ export default {
     }
 
     // Save last used settings (to both localStorage and server)
-    // Now saves the actual Horde request params, not form state
-    // This way loading uses the same enrichment logic as historical requests
-    const saveLastUsedSettings = async (requestParams) => {
+    // Saves the raw form settings BEFORE style processing
+    // This preserves the user's original prompt for next session
+    const saveLastUsedSettings = async (settingsToSave) => {
       try {
-        // Save the actual request that was sent to Horde
+        // Save the raw form settings (before style processing)
         // This includes minimal LoRA data that will be enriched on load
-        const settingsToSave = {
-          prompt: requestParams.prompt,
-          models: requestParams.models,
-          params: requestParams.params
-        }
-
         // Save to localStorage immediately for instant access
         localStorage.setItem('lastUsedSettings', JSON.stringify(settingsToSave))
 
@@ -799,6 +814,8 @@ export default {
     const onStyleSelect = (style) => {
       selectedStyleName.value = style.name
       selectedStyleData.value = style
+      // Persist selected style for Simple mode
+      localStorage.setItem('selectedStyle', JSON.stringify(style))
     }
 
     // LoRA handlers
@@ -1202,6 +1219,8 @@ export default {
     const removeStyle = () => {
       selectedStyleName.value = ''
       selectedStyleData.value = null
+      // Clear persisted style
+      localStorage.removeItem('selectedStyle')
     }
 
     const applyStyle = async () => {
@@ -1256,6 +1275,27 @@ export default {
       removeStyle()
 
       estimateKudos()
+    }
+
+    // Toggle between Simple and Advanced editor modes
+    const toggleEditorMode = () => {
+      if (editorMode.value === 'simple' && selectedStyleName.value) {
+        // Show confirmation dialog when switching to Advanced with a style selected
+        showStyleSwitchConfirm.value = true
+      } else {
+        editorMode.value = editorMode.value === 'simple' ? 'advanced' : 'simple'
+      }
+    }
+
+    // Handle confirmation when switching to Advanced mode with a style
+    const confirmSwitchToAdvanced = async (shouldApplyStyle) => {
+      if (shouldApplyStyle) {
+        await applyStyle()
+      } else {
+        removeStyle()
+      }
+      editorMode.value = 'advanced'
+      showStyleSwitchConfirm.value = false
     }
 
     // Calculate GCD for aspect ratio simplification
@@ -1352,6 +1392,87 @@ export default {
         prompt: generationText,
         negativePrompt: null
       }
+    }
+
+    // Build raw settings for saving - preserves original form values without style processing
+    const buildRawSettingsForSave = () => {
+      // Combine prompt and negative prompt with ### separator (Horde format)
+      let promptToSave = form.prompt
+      if (form.negativePrompt) {
+        promptToSave = `${form.prompt} ### ${form.negativePrompt}`
+      }
+
+      const settings = {
+        prompt: promptToSave,
+        models: [form.model],
+        params: {
+          n: form.n,
+          steps: form.steps,
+          width: form.width,
+          height: form.height,
+          cfg_scale: form.cfgScale,
+          sampler_name: form.sampler,
+          karras: form.karras,
+          hires_fix: form.hiresFix,
+          clip_skip: form.clipSkip,
+          tiling: form.tiling
+        }
+      }
+
+      if (form.hiresFix) {
+        settings.params.hires_fix_denoising_strength = form.hiresFixDenoisingStrength
+      }
+
+      if (!form.useRandomSeed && form.seed) {
+        settings.params.seed = form.seed
+      }
+
+      // Save LoRAs in minimal format
+      if (form.loras && form.loras.length > 0) {
+        settings.params.loras = form.loras.map(lora => {
+          if (lora.toHordeFormat && typeof lora.toHordeFormat === 'function') {
+            return lora.toHordeFormat()
+          }
+          return {
+            name: lora.name || String(lora.civitaiId),
+            model: lora.strength || 1,
+            clip: lora.clip || 1,
+            is_version: true
+          }
+        })
+      }
+
+      // Save TIs in minimal format
+      if (form.tis && form.tis.length > 0) {
+        settings.params.tis = form.tis.map(ti => {
+          if (ti.toHordeFormat && typeof ti.toHordeFormat === 'function') {
+            return ti.toHordeFormat()
+          }
+          return {
+            name: ti.name || String(ti.civitaiId),
+            strength: ti.strength || 1,
+            inject_ti: ti.inject || 'prompt'
+          }
+        })
+      }
+
+      // Save post-processing
+      const postProcessing = []
+      if (form.faceFix !== 'none') {
+        postProcessing.push(form.faceFix)
+        settings.params.facefixer_strength = form.faceFixStrength
+      }
+      if (form.upscaler && form.upscaler !== 'none') {
+        postProcessing.push(form.upscaler)
+      }
+      if (form.stripBackground) {
+        postProcessing.push('strip_background')
+      }
+      if (postProcessing.length > 0) {
+        settings.params.post_processing = postProcessing
+      }
+
+      return settings
     }
 
     const buildRequestParams = () => {
@@ -1524,6 +1645,10 @@ export default {
       try {
         submitting.value = true
 
+        // Build the raw settings to save BEFORE style processing
+        // This preserves the user's original prompt and form values
+        const rawSettingsToSave = buildRawSettingsForSave()
+
         const params = buildRequestParams()
 
         await requestsApi.create({
@@ -1531,8 +1656,8 @@ export default {
           params
         })
 
-        // Save settings for next time (save the actual request, not form state)
-        await saveLastUsedSettings(params)
+        // Save the RAW form settings (before style processing) for next time
+        await saveLastUsedSettings(rawSettingsToSave)
 
         // Add LoRAs to recent list (after successful submission)
         // Note: Cache is automatically populated by server when fetching via CivitAI API
@@ -1625,6 +1750,11 @@ export default {
       }
     )
 
+    // Persist editor mode preference to localStorage
+    watch(editorMode, (newMode) => {
+      localStorage.setItem('generatorEditorMode', newMode)
+    })
+
     onMounted(async () => {
       await fetchModels()
 
@@ -1650,6 +1780,21 @@ export default {
       // Only estimate if we have a model after loading
       if (form.model) {
         estimateKudos()
+      }
+
+      // Restore saved style in Simple mode (only if no initialSettings provided)
+      if (editorMode.value === 'simple' && !props.initialSettings) {
+        const savedStyle = localStorage.getItem('selectedStyle')
+        if (savedStyle) {
+          try {
+            const style = JSON.parse(savedStyle)
+            selectedStyleName.value = style.name
+            selectedStyleData.value = style
+          } catch (e) {
+            console.error('Error parsing saved style:', e)
+            localStorage.removeItem('selectedStyle')
+          }
+        }
       }
 
       // Auto-expand textareas on initial load
@@ -1714,6 +1859,10 @@ export default {
       removeTiFromDetails,
       applyStyle,
       removeStyle,
+      editorMode,
+      showStyleSwitchConfirm,
+      toggleEditorMode,
+      confirmSwitchToAdvanced,
       onAspectLockToggle,
       onDimensionChange,
       swapDimensions,
@@ -1880,6 +2029,24 @@ export default {
   border-color: var(--color-primary);
 }
 
+.btn-mode-toggle {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: var(--color-text-tertiary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-mode-toggle:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+}
+
 .btn-close {
   width: 32px;
   height: 32px;
@@ -1897,6 +2064,7 @@ export default {
 }
 
 .modal-body {
+  position: relative;
   padding: 1.5rem;
   flex: 1;
   overflow-y: auto;
@@ -2736,5 +2904,63 @@ export default {
 .btn-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Style Switch Confirmation Overlay */
+.style-switch-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+.style-switch-confirm {
+  background: var(--color-surface);
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.style-switch-confirm p {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-primary);
+}
+
+.confirm-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.confirm-buttons .btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: white;
+}
+
+.confirm-buttons .btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.confirm-buttons .btn-secondary {
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-color: #333;
+}
+
+.confirm-buttons .btn-secondary:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 </style>
