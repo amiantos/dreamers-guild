@@ -3,7 +3,7 @@
     <!-- Demo Mode Banner -->
     <div v-if="isDemoMode" class="demo-banner">
       <span class="demo-icon">🧪</span>
-      <span class="demo-text">Demo Mode - Data stored locally in your browser</span>
+      <span class="demo-text">Demo Mode (BETA) - Data is stored locally in your browser!</span>
       <button @click="showStorageInfo = true" class="demo-info-btn">Storage Info</button>
     </div>
 
@@ -15,10 +15,11 @@
       size="small"
     >
       <div class="storage-modal-content">
-        <h2>Demo Mode Storage</h2>
+        <h2>Demo Mode (BETA) Info</h2>
         <p class="storage-warning">
           In demo mode, all your images and settings are stored in your browser's IndexedDB.
-          This data can be lost if you clear your browser data.
+          This data can be lost if you clear your browser data. For the full experience, consider
+          installing <a href="https://github.com/amiantos/aislingeach-web">the locally hosted application</a>.
         </p>
         <div v-if="storageInfo" class="storage-stats">
           <div class="stat">
