@@ -24,7 +24,7 @@
             @click="selectAlbum(keyword)"
           >
             <div class="album-cover">
-              <img
+              <AsyncImage
                 v-if="keyword.thumbnail"
                 :src="getThumbnailUrl(keyword.thumbnail)"
                 :alt="keyword.name"
@@ -46,13 +46,15 @@
 
 <script>
 import { computed } from 'vue'
-import { imagesApi } from '../api/client.js'
+import { imagesApi } from '@api'
 import BaseModal from './BaseModal.vue'
+import AsyncImage from './AsyncImage.vue'
 
 export default {
   name: 'AlbumsModal',
   components: {
-    BaseModal
+    BaseModal,
+    AsyncImage
   },
   props: {
     keywords: {

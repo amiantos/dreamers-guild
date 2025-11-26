@@ -96,7 +96,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import { settingsApi } from '../api/client.js'
+import { settingsApi } from '@api'
 import { useModelCache } from '../composables/useModelCache.js'
 
 export default {

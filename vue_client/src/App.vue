@@ -1,5 +1,46 @@
 <template>
   <div class="app">
+    <!-- Demo Mode Banner -->
+    <div v-if="isDemoMode" class="demo-banner">
+      <span class="demo-icon">🧪</span>
+      <span class="demo-text">Demo Mode - Data stored locally in your browser</span>
+      <button @click="showStorageInfo = true" class="demo-info-btn">Storage Info</button>
+    </div>
+
+    <!-- Storage Info Modal -->
+    <BaseModal
+      v-if="showStorageInfo"
+      :show="showStorageInfo"
+      @close="showStorageInfo = false"
+      size="small"
+    >
+      <div class="storage-modal-content">
+        <h2>Demo Mode Storage</h2>
+        <p class="storage-warning">
+          In demo mode, all your images and settings are stored in your browser's IndexedDB.
+          This data can be lost if you clear your browser data.
+        </p>
+        <div v-if="storageInfo" class="storage-stats">
+          <div class="stat">
+            <span class="stat-label">Storage Used:</span>
+            <span class="stat-value">{{ formatBytes(storageInfo.usage) }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Storage Available:</span>
+            <span class="stat-value">{{ formatBytes(storageInfo.quota) }}</span>
+          </div>
+          <div class="storage-bar">
+            <div class="storage-fill" :style="{ width: storageInfo.usagePercent + '%' }"></div>
+          </div>
+        </div>
+        <div class="storage-actions">
+          <button @click="clearAllDemoData" class="btn btn-danger">
+            Clear All Demo Data
+          </button>
+        </div>
+      </div>
+    </BaseModal>
+
     <router-view />
 
     <RequestGeneratorModal
@@ -31,20 +72,67 @@ import { useRoute } from 'vue-router'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
-import { settingsApi } from './api/client.js'
+import BaseModal from './components/BaseModal.vue'
+import { settingsApi } from '@api'
 import { useTheme } from './composables/useTheme.js'
+
+const isDemoMode = typeof __DEMO_MODE__ !== 'undefined' && __DEMO_MODE__
 
 export default {
   name: 'App',
   components: {
     RequestGeneratorModal,
     PinSetupModal,
-    PinEntryModal
+    PinEntryModal,
+    BaseModal
   },
   setup() {
     // Initialize theme
     const { initializeTheme } = useTheme()
     initializeTheme()
+
+    // Demo mode state
+    const showStorageInfo = ref(false)
+    const storageInfo = ref(null)
+
+    // Initialize demo mode if applicable
+    onMounted(async () => {
+      if (isDemoMode) {
+        try {
+          const { initDemoMode, getStorageEstimate } = await import('@api')
+          initDemoMode()
+          storageInfo.value = await getStorageEstimate()
+        } catch (err) {
+          console.error('Error initializing demo mode:', err)
+        }
+      }
+    })
+
+    const formatBytes = (bytes) => {
+      if (!bytes) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    }
+
+    const clearAllDemoData = async () => {
+      if (!confirm('Are you sure you want to clear all demo data? This cannot be undone.')) {
+        return
+      }
+      try {
+        const { clearAllStores, getStorageEstimate } = await import('@api')
+        await clearAllStores()
+        localStorage.removeItem('demoSettings')
+        localStorage.removeItem('demoStyles')
+        storageInfo.value = await getStorageEstimate()
+        alert('All demo data has been cleared.')
+        window.location.reload()
+      } catch (err) {
+        console.error('Error clearing demo data:', err)
+        alert('Failed to clear demo data.')
+      }
+    }
 
     const showRequestModal = ref(false)
     const requestModalRef = ref(null)
@@ -220,6 +308,11 @@ export default {
     provide('clearHiddenAuth', clearHiddenAuth)
 
     return {
+      isDemoMode,
+      showStorageInfo,
+      storageInfo,
+      formatBytes,
+      clearAllDemoData,
       showRequestModal,
       requestModalRef,
       modalInitialSettings,
@@ -240,5 +333,128 @@ export default {
 <style>
 .app {
   min-height: 100vh;
+}
+
+/* Demo Mode Banner */
+.demo-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  color: white;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.demo-icon {
+  font-size: 1.1rem;
+}
+
+.demo-text {
+  flex-shrink: 0;
+}
+
+.demo-info-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s;
+}
+
+.demo-info-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Offset content when demo banner is showing */
+.app:has(.demo-banner) .library-view,
+.app:has(.demo-banner) .settings-view,
+.app:has(.demo-banner) .workers-view {
+  padding-top: 3rem;
+}
+
+/* Storage Modal Content */
+.storage-modal-content {
+  padding: 2rem;
+}
+
+.storage-modal-content h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: var(--color-text-primary);
+}
+
+.storage-warning {
+  color: var(--color-text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.storage-stats {
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.storage-stats .stat {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.storage-stats .stat-label {
+  color: var(--color-text-secondary);
+}
+
+.storage-stats .stat-value {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.storage-bar {
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  margin-top: 1rem;
+  overflow: hidden;
+}
+
+.storage-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #ff9800);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.storage-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #c82333;
 }
 </style>

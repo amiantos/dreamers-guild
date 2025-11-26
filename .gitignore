@@ -5,6 +5,7 @@ data/
 *.db-shm
 *.db-wal
 dist/
+dist-demo/
 .DS_Store
 *.log
 npm-debug.log*

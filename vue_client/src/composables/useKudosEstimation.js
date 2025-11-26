@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { imagesApi } from '../api/client.js'
+import { imagesApi } from '@api'
 
 /**
  * Composable for estimating kudos cost of image generation requests

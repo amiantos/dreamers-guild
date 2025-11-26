@@ -12,7 +12,7 @@
 
           <!-- Main image display -->
           <div class="image-display" :class="{ 'protected': isProtected }">
-            <img :src="imageUrl" :alt="image.prompt_simple" />
+            <AsyncImage :src="imageUrl" :alt="image.prompt_simple" />
             <!-- Protection overlay -->
             <div v-if="isProtected" class="protection-overlay">
               <div class="protection-content">
@@ -44,7 +44,7 @@
                 :class="{ active: img.uuid === image.uuid }"
                 @click="navigateToImage(index)"
               >
-                <img :src="getThumbnailUrl(img.uuid)" :alt="img.prompt_simple || 'Thumbnail'" />
+                <AsyncImage :src="getThumbnailUrl(img.uuid)" :alt="img.prompt_simple || 'Thumbnail'" />
               </div>
             </div>
             <button
@@ -239,17 +239,19 @@
 
 <script>
 import { computed, ref, watch, onMounted, onUnmounted, inject, nextTick } from 'vue'
-import { imagesApi } from '../api/client.js'
+import { imagesApi } from '@api'
 import DeleteImageModal from './DeleteImageModal.vue'
 import AccordionSection from './AccordionSection.vue'
 import InspectorGrid from './InspectorGrid.vue'
+import AsyncImage from './AsyncImage.vue'
 
 export default {
   name: 'ImageModal',
   components: {
     DeleteImageModal,
     AccordionSection,
-    InspectorGrid
+    InspectorGrid,
+    AsyncImage
   },
   props: {
     image: {

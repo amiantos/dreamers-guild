@@ -119,7 +119,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { settingsApi } from '../api/client.js'
+import { settingsApi } from '@api'
 
 export default {
   name: 'WorkersView',

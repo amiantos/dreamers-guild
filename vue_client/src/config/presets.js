@@ -50,3 +50,8 @@ export const presets = [
 export function getRandomPreset() {
   return presets[Math.floor(Math.random() * presets.length)]
 }
+
+export function getDefaultPreset() {
+  // Return the first preset (Jane Eyre) as the default for first-time users
+  return presets[0]
+}

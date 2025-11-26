@@ -160,7 +160,7 @@
           <i class="fa-solid fa-lock"></i>
           <span>Hidden</span>
         </div>
-        <img
+        <AsyncImage
           v-else
           :src="getThumbnailUrl(image.uuid)"
           :alt="image.prompt_simple"
@@ -264,7 +264,7 @@
 <script>
 import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { imagesApi, requestsApi, albumsApi } from '../api/client.js'
+import { imagesApi, requestsApi, albumsApi } from '@api'
 import { useImagePolling } from '../composables/useImagePolling.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
@@ -272,6 +272,7 @@ import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
 import AlbumsModal from '../components/AlbumsModal.vue'
+import AsyncImage from '../components/AsyncImage.vue'
 
 export default {
   name: 'LibraryView',
@@ -281,7 +282,8 @@ export default {
     DeleteRequestModal,
     DeleteAllRequestsModal,
     BatchDeleteModal,
-    AlbumsModal
+    AlbumsModal,
+    AsyncImage
   },
   props: {
     imageId: String // selected image ID from URL

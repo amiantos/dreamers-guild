@@ -42,7 +42,7 @@
 <script setup>
 import { ref } from 'vue';
 import PinInput from './PinInput.vue';
-import { settingsApi } from '../api/client.js';
+import { settingsApi } from '@api';
 
 const emit = defineEmits(['close', 'setup-complete']);
 

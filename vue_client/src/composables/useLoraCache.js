@@ -7,7 +7,7 @@
 
 import { ref, computed } from 'vue'
 import { searchLoras } from '../api/civitai'
-import { settingsApi } from '../api/client'
+import { settingsApi } from '@api'
 
 // Shared state (singleton pattern)
 const results = ref([])

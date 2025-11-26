@@ -144,7 +144,7 @@
 
 <script>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { stylesApi, settingsApi } from '../api/client.js'
+import { stylesApi, settingsApi } from '@api'
 
 export default {
   name: 'StylePicker',

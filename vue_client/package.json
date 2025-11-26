@@ -4,8 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5178",
+    "dev:demo": "VITE_DEMO_MODE=true vite --port 5178",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:demo": "VITE_DEMO_MODE=true vite build --outDir dist-demo",
+    "preview": "vite preview",
+    "preview:demo": "vite preview --outDir dist-demo"
   },
   "dependencies": {
     "axios": "^1.6.2",

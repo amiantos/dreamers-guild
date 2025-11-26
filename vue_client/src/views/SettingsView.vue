@@ -510,7 +510,7 @@
 <script>
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { settingsApi } from '../api/client.js'
+import { settingsApi } from '@api'
 import { useSettingsStore } from '../stores/settingsStore.js'
 import { useTheme } from '../composables/useTheme.js'
 import PinInput from '../components/PinInput.vue'

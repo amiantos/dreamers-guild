@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import { imagesApi } from '../api/client.js'
+import { imagesApi } from '@api'
 
 /**
  * Composable for polling new images based on queue status

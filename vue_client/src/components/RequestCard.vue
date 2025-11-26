@@ -3,7 +3,7 @@
     <div class="card-content">
       <div class="thumbnail-container">
         <div v-if="request.status === 'completed' && thumbnailUrl" class="thumbnail">
-          <img :src="thumbnailUrl" alt="Request thumbnail" />
+          <AsyncImage :src="thumbnailUrl" alt="Request thumbnail" />
         </div>
         <div v-else class="thumbnail placeholder">
           <div class="spinner"></div>
@@ -52,11 +52,15 @@
 
 <script>
 import { computed, ref, onMounted, watch } from 'vue'
-import { imagesApi } from '../api/client.js'
+import { imagesApi } from '@api'
 import { getStatusClass, getStatusText } from '../utils/statusUtils.js'
+import AsyncImage from './AsyncImage.vue'
 
 export default {
   name: 'RequestCard',
+  components: {
+    AsyncImage
+  },
   props: {
     request: {
       type: Object,

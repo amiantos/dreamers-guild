@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { settingsApi } from '../api/client.js'
+import { settingsApi } from '@api'
 
 /**
  * Settings Store - Centralized state management for user settings
