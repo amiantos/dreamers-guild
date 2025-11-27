@@ -16,6 +16,8 @@ class QueueManager {
     this.maxActiveRequests = 5;
     this.activeRequests = new Map(); // requestId -> hordeRequestId
     this.activeDownloads = new Set(); // downloadId -> prevent duplicate processing
+    this.lastPollTime = new Map(); // requestId -> timestamp of last poll
+    this.minPollInterval = 3000; // 3 seconds minimum between polls for same request
     this.isProcessing = false;
     this.isSubmitting = false; // Prevent concurrent submissions
     this.isDownloading = false; // Prevent concurrent downloads
@@ -35,10 +37,10 @@ class QueueManager {
     // Recover any processing requests from database (in case of server restart)
     this.recoverProcessingRequests();
 
-    // Check for pending requests every 3 seconds
+    // Check for pending requests every 2 seconds (individual requests still respect 3-second minimum)
     this.statusCheckInterval = setInterval(() => {
       this.processQueue();
-    }, 3000);
+    }, 2000);
 
     // Check for pending downloads every 2 seconds
     this.downloadCheckInterval = setInterval(() => {
@@ -213,19 +215,24 @@ class QueueManager {
 
     console.log(`[Status] Checking status of ${this.activeRequests.size} active requests`);
 
-    let isFirst = true;
     for (const [requestUuid, hordeId] of this.activeRequests.entries()) {
-      // Add 1 second delay between checks (but not before the first one)
-      if (!isFirst) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      isFirst = false;
-
       // Skip requests that are still being submitted
       if (hordeId === 'submitting') {
         console.log(`[Status] Skipping ${requestUuid.substring(0, 8)}... (still submitting)`);
         continue;
       }
+
+      // Check if enough time has passed since last poll for this request
+      const lastPoll = this.lastPollTime.get(requestUuid) || 0;
+      const timeSincePoll = Date.now() - lastPoll;
+      if (timeSincePoll < this.minPollInterval) {
+        const waitRemaining = this.minPollInterval - timeSincePoll;
+        console.log(`[Status] Skipping ${requestUuid.substring(0, 8)}... (${waitRemaining}ms until next poll)`);
+        continue;
+      }
+
+      // Update last poll time before making the API call
+      this.lastPollTime.set(requestUuid, Date.now());
 
       try {
         console.log(`[Status] → API call to /generate/check/${hordeId} for ${requestUuid.substring(0, 8)}...`);
@@ -244,8 +251,9 @@ class QueueManager {
         // Check if completed
         if (status.done) {
           console.log(`[Status] ✓ Request ${requestUuid.substring(0, 8)}... is DONE, fetching results`);
-          // Remove from active requests FIRST to prevent duplicate processing
+          // Remove from active requests and poll tracking FIRST to prevent duplicate processing
           this.activeRequests.delete(requestUuid);
+          this.lastPollTime.delete(requestUuid);
           await this.handleCompletedRequest(requestUuid, hordeId);
         } else {
           console.log(`[Status] Request ${requestUuid.substring(0, 8)}... still in progress`);
@@ -258,6 +266,7 @@ class QueueManager {
             message: 'Request not found on server'
           });
           this.activeRequests.delete(requestUuid);
+          this.lastPollTime.delete(requestUuid);
         } else {
           console.error(`[Status] ✗ Error checking request ${hordeId}:`, error.message);
         }
@@ -489,14 +498,16 @@ class QueueManager {
         // Cancel on AI Horde
         await hordeApi.cancelRequest(hordeRequestId);
 
-        // Remove from active requests
+        // Remove from active requests and poll tracking
         this.activeRequests.delete(requestId);
+        this.lastPollTime.delete(requestId);
 
         return true;
       } catch (error) {
         console.error(`Error cancelling request ${requestId}:`, error.message);
-        // Still remove from active requests even if cancel failed
+        // Still remove from active requests and poll tracking even if cancel failed
         this.activeRequests.delete(requestId);
+        this.lastPollTime.delete(requestId);
         return false;
       }
     }

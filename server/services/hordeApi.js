@@ -10,6 +10,32 @@ const HORDE_API_BASE = 'https://stablehorde.net/api/v2';
 class HordeAPI {
   constructor() {
     this.baseURL = HORDE_API_BASE;
+    this.lastApiCallTime = 0;
+    this.minApiInterval = 1000; // 1 second minimum between API calls
+    this.throttleQueue = Promise.resolve(); // Queue for serializing API calls
+  }
+
+  /**
+   * Throttle API calls to ensure minimum interval between requests
+   * Uses a promise chain to serialize calls and prevent race conditions
+   */
+  async throttle() {
+    // Chain onto the queue to ensure only one call proceeds at a time
+    const waitPromise = this.throttleQueue.then(async () => {
+      const now = Date.now();
+      const timeSinceLastCall = now - this.lastApiCallTime;
+      if (timeSinceLastCall < this.minApiInterval) {
+        const waitTime = this.minApiInterval - timeSinceLastCall;
+        console.log(`[RateLimit] Waiting ${waitTime}ms before next API call`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      this.lastApiCallTime = Date.now();
+    });
+
+    // Update the queue (catch to prevent unhandled rejection if a call fails)
+    this.throttleQueue = waitPromise.catch(() => {});
+
+    return waitPromise;
   }
 
   /**
@@ -46,6 +72,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Response with request ID
    */
   async postImageAsyncGenerate(params) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.post('/generate/async', params);
@@ -62,6 +89,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Status information
    */
   async getImageAsyncCheck(requestId) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.get(`/generate/check/${requestId}`);
@@ -81,6 +109,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Generated images data
    */
   async getImageAsyncStatus(requestId) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.get(`/generate/status/${requestId}`);
@@ -111,6 +140,7 @@ class HordeAPI {
    * @returns {Promise<Object>} User information
    */
   async getUserInfo() {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.get('/find_user');
@@ -127,6 +157,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Cancellation response
    */
   async cancelRequest(requestId) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.delete(`/generate/status/${requestId}`);
@@ -153,13 +184,17 @@ class HordeAPI {
         return [];
       }
       const client = this.getClient();
-      const promises = workerIds.map(id =>
-        client.get(`/workers/${id}`).then(res => res.data).catch(err => {
+      const results = [];
+      for (const id of workerIds) {
+        await this.throttle();
+        try {
+          const response = await client.get(`/workers/${id}`);
+          results.push(response.data);
+        } catch (err) {
           console.error(`Error fetching worker ${id}:`, err.message);
-          return null;
-        })
-      );
-      const results = await Promise.all(promises);
+          results.push(null);
+        }
+      }
       return results.filter(worker => worker !== null);
     } catch (error) {
       console.error('Error fetching user workers:', error.response?.data || error.message);
@@ -174,6 +209,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Updated worker data
    */
   async updateWorker(workerId, settings) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.put(`/workers/${workerId}`, settings);
@@ -195,13 +231,17 @@ class HordeAPI {
         return [];
       }
       const client = this.getClient();
-      const promises = sharedKeyIds.map(id =>
-        client.get(`/sharedkeys/${id}`).then(res => res.data).catch(err => {
+      const results = [];
+      for (const id of sharedKeyIds) {
+        await this.throttle();
+        try {
+          const response = await client.get(`/sharedkeys/${id}`);
+          results.push(response.data);
+        } catch (err) {
           console.error(`Error fetching shared key ${id}:`, err.message);
-          return null;
-        })
-      );
-      const results = await Promise.all(promises);
+          results.push(null);
+        }
+      }
       return results.filter(key => key !== null);
     } catch (error) {
       console.error('Error fetching shared keys:', error.response?.data || error.message);
@@ -215,6 +255,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Created shared key data
    */
   async createSharedKey(data) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.put('/sharedkeys', data);
@@ -232,6 +273,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Updated shared key data
    */
   async updateSharedKey(keyId, data) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.patch(`/sharedkeys/${keyId}`, data);
@@ -248,6 +290,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Deletion response
    */
   async deleteSharedKey(keyId) {
+    await this.throttle();
     try {
       const client = this.getClient();
       const response = await client.delete(`/sharedkeys/${keyId}`);
