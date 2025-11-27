@@ -46,7 +46,7 @@
 
     <DeleteAllRequestsModal
       v-if="deleteAllModalVisible"
-      :requests="requests"
+      :requests="deletableRequests"
       @close="deleteAllModalVisible = false"
       @delete="confirmDeleteAll"
     />
@@ -1107,8 +1107,19 @@ export default {
 
     const confirmDeleteAll = async (imageAction) => {
       try {
-        await requestsApi.deleteAll(imageAction)
-        requests.value = []
+        // Only delete completed and failed requests, skip processing/downloading
+        const deletableStatuses = ['completed', 'failed']
+        const requestsToDelete = requests.value.filter(r => deletableStatuses.includes(r.status))
+
+        // Delete each request individually
+        for (const request of requestsToDelete) {
+          await requestsApi.delete(request.uuid, imageAction)
+        }
+
+        // Remove only the deleted requests from the list
+        const deletedIds = new Set(requestsToDelete.map(r => r.uuid))
+        requests.value = requests.value.filter(r => !deletedIds.has(r.uuid))
+
         deleteAllModalVisible.value = false
 
         // Refresh the image library to reflect deleted images
@@ -1116,8 +1127,8 @@ export default {
         hasMore.value = true
         await fetchImages()
       } catch (error) {
-        console.error('Error deleting all requests:', error)
-        alert('Failed to delete all requests. Please try again.')
+        console.error('Error deleting requests:', error)
+        alert('Failed to delete requests. Please try again.')
       }
     }
 
@@ -1326,6 +1337,11 @@ export default {
       return 'complete'
     })
 
+    // Only completed/failed requests can be batch deleted
+    const deletableRequests = computed(() => {
+      return requests.value.filter(r => ['completed', 'failed'].includes(r.status))
+    })
+
     // Watch queue status to start/stop image polling
     imagePolling.watchQueueStatus(queueStatus)
 
@@ -1428,6 +1444,7 @@ export default {
       requests,
       queueStatus,
       requestStatusClass,
+      deletableRequests,
       viewRequestImages,
       showDeleteModal,
       confirmDelete,
