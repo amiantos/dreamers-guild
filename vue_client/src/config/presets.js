@@ -11,7 +11,7 @@ export const samplePrompts = [
   },
   {
     prompt: "A penguin dressed like a superhero, wearing a red cape and flying through the air. Cartoon comic illustration in the style of roy lichtenstein and steve ditko, centered on a white background",
-    style: "albedo3.1"
+    style: "deliberate"
   },
   {
     prompt: "Industrial urban scene featuring stark, geometric buildings lining a narrow, reflective canal. Power lines stretch overhead, enhancing the sense of depth in this minimalist black and white illustration.",
