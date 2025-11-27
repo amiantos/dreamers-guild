@@ -591,7 +591,7 @@ export default {
 }
 
 .style-grid.grid-large {
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .style-card {
