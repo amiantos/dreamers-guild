@@ -61,7 +61,7 @@ class HordeAPI {
       baseURL: this.baseURL,
       headers: {
         'Content-Type': 'application/json',
-        'Client-Agent': 'dreamers-guild:1.0.0:github.com/amiantos/dreamers-guild',
+        'Client-Agent': 'dreamers-guild:0.1:github.com/amiantos/dreamers-guild',
         'apikey': this.getApiKey()
       }
     });
