@@ -64,6 +64,12 @@
       @close="handlePinEntryCancel"
       @verified="handlePinVerified"
     />
+
+    <WelcomeModal
+      v-if="showWelcomeModal"
+      :show="showWelcomeModal"
+      @close="handleWelcomeModalClose"
+    />
   </div>
 </template>
 
@@ -74,6 +80,7 @@ import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import BaseModal from './components/BaseModal.vue'
+import WelcomeModal from './components/WelcomeModal.vue'
 import { settingsApi, imagesApi } from '@api'
 import { useTheme } from './composables/useTheme.js'
 
@@ -86,7 +93,8 @@ export default {
     RequestGeneratorModal,
     PinSetupModal,
     PinEntryModal,
-    BaseModal
+    BaseModal,
+    WelcomeModal
   },
   setup() {
     // Initialize theme
@@ -196,6 +204,10 @@ export default {
     const showStorageInfo = ref(false)
     const storageInfo = ref(null)
 
+    // Welcome modal state
+    const showWelcomeModal = ref(false)
+    const WELCOME_DISMISSED_KEY = 'welcomeModalDismissed'
+
     // Initialize demo mode if applicable
     onMounted(async () => {
       if (isDemoMode) {
@@ -207,7 +219,20 @@ export default {
           console.error('Error initializing demo mode:', err)
         }
       }
+
+      // Check if welcome modal should be shown
+      const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
+      if (!dismissed) {
+        showWelcomeModal.value = true
+      }
     })
+
+    const handleWelcomeModalClose = ({ dontShowAgain }) => {
+      showWelcomeModal.value = false
+      if (dontShowAgain) {
+        localStorage.setItem(WELCOME_DISMISSED_KEY, 'true')
+      }
+    }
 
     const formatBytes = (bytes) => {
       if (!bytes) return '0 B'
@@ -425,7 +450,9 @@ export default {
       showPinEntryModal,
       handlePinSetupComplete,
       handlePinVerified,
-      handlePinEntryCancel
+      handlePinEntryCancel,
+      showWelcomeModal,
+      handleWelcomeModalClose
     }
   }
 }

@@ -20,7 +20,8 @@ const DEFAULT_SETTINGS = {
   favorite_styles: '[]',
   hidden_pin_enabled: null,  // null = not configured, 0 = declined, 1 = enabled
   hidden_pin_hash: null,
-  hidden_pin_declined: false
+  hidden_pin_declined: false,
+  welcome_modal_dismissed: false
 }
 
 function getSettings() {
