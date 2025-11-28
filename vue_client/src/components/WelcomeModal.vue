@@ -9,18 +9,18 @@
     <div class="welcome-modal-content">
       <!-- Step 1: AI Horde Introduction (shown for both modes) -->
       <template v-if="step === 1">
-        <h2>Welcome to Dreamers Guild</h2>
+        <h2>Welcome to the Dreamers Guild</h2>
         <p class="welcome-text">
-          Dreamers Guild is a beautiful web interface for generating AI images using <strong>AI Horde</strong>,
+          <strong>Dreamers Guild</strong> is a beautiful web interface for generating AI images using the <strong>AI Horde</strong>,
           a free, crowdsourced GPU network.
         </p>
         <p class="welcome-text">
-          AI Horde allows you to generate images using Stable Diffusion models without needing your own GPU.
+          The AI Horde allows you to generate images using diffusion models without needing your own GPU.
           Volunteers around the world contribute their computing power, and you benefit from their generosity!
         </p>
         <p class="welcome-text">
           <strong>Getting started:</strong> You can generate images immediately as an anonymous user.
-          However, registering for a free API key will give you faster generation times and priority in the queue.
+          However, registering for a free (and anonymous) API key will give you faster generation times and priority in the queue.
         </p>
 
         <!-- Checkbox (only on final step for non-demo, or step 1 for non-demo) -->
@@ -36,18 +36,10 @@
             rel="noopener noreferrer"
             class="btn btn-secondary"
           >
-            AI Horde Website
-          </a>
-          <a
-            href="https://aihorde.net/register"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-secondary"
-          >
-            Get API Key
+            Learn about the AI Horde
           </a>
           <button @click="handleNext" class="btn btn-primary">
-            {{ isDemoMode ? 'Next' : 'Get Started' }}
+            {{ isDemoMode ? 'Continue' : 'Get Started' }}
           </button>
         </div>
       </template>
@@ -76,14 +68,6 @@
         </label>
 
         <div class="button-group">
-          <a
-            href="https://github.com/amiantos/aislingeach-web"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-secondary"
-          >
-            View on GitHub
-          </a>
           <a
             href="https://github.com/amiantos/aislingeach-web#installation"
             target="_blank"
