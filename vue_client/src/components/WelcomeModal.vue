@@ -15,12 +15,12 @@
           a free, crowdsourced GPU network.
         </p>
         <p class="welcome-text">
-          The AI Horde allows you to generate images using diffusion models without needing your own GPU.
+          The AI Horde allows you to freely generate images using diffusion models without needing your own GPU.
           Volunteers around the world contribute their computing power, and you benefit from their generosity!
         </p>
         <p class="welcome-text">
           <strong>Getting started:</strong> You can generate images immediately as an anonymous user.
-          However, registering for a free (and anonymous) API key will give you faster generation times and priority in the queue.
+          However, registering for an API key can lead to faster generation times and priority in the queue.
         </p>
 
         <!-- Checkbox (only on final step for non-demo, or step 1 for non-demo) -->
@@ -122,9 +122,11 @@ const handleClose = () => {
 
 .welcome-modal-content h2 {
   margin: 0 0 1.5rem 0;
+  padding-bottom: 1rem;
   font-size: 1.5rem;
   color: var(--color-text-primary);
   text-align: center;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .welcome-text {
@@ -151,6 +153,7 @@ const handleClose = () => {
 .dont-show-checkbox {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   margin: 1.5rem 0;
   cursor: pointer;
@@ -170,6 +173,8 @@ const handleClose = () => {
   gap: 0.75rem;
   justify-content: center;
   margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .btn {
