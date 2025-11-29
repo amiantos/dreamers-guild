@@ -60,6 +60,13 @@
       @delete="batchDelete"
     />
 
+    <MasonryModal
+      v-if="showMasonryModal"
+      :show="showMasonryModal"
+      :images="selectedImageData"
+      @close="showMasonryModal = false"
+    />
+
     <div class="header">
       <div class="header-content">
         <div class="header-row-1">
@@ -249,6 +256,10 @@
             <i class="fa-solid fa-eye"></i>
             <span>Unhide</span>
           </button>
+          <button @click="openMasonryView" :disabled="selectedCount === 0" class="btn-action btn-masonry" title="Masonry View">
+            <i class="fa-solid fa-grip"></i>
+            <span>Masonry</span>
+          </button>
           <button @click="showBatchDeleteModal = true" :disabled="deletableSelectedImages.length === 0" class="btn-action btn-delete" title="Delete">
             <i class="fa-solid fa-trash"></i>
             <span>Delete</span>
@@ -279,6 +290,7 @@ import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
 import AlbumsModal from '../components/AlbumsModal.vue'
 import AsyncImage from '../components/AsyncImage.vue'
+import MasonryModal from '../components/MasonryModal.vue'
 
 export default {
   name: 'LibraryView',
@@ -289,7 +301,8 @@ export default {
     DeleteAllRequestsModal,
     BatchDeleteModal,
     AlbumsModal,
-    AsyncImage
+    AsyncImage,
+    MasonryModal
   },
   props: {
     imageId: String // selected image ID from URL
@@ -812,6 +825,19 @@ export default {
 
     // Batch action handlers
     const showBatchDeleteModal = ref(false)
+    const showMasonryModal = ref(false)
+
+    // Get full image objects for selected images
+    const selectedImageData = computed(() => {
+      return images.value.filter(img => selectedImages.value.has(img.uuid))
+    })
+
+    // Open masonry view with selected images
+    const openMasonryView = () => {
+      if (selectedImageData.value.length > 0) {
+        showMasonryModal.value = true
+      }
+    }
 
     const batchDelete = async () => {
       showBatchDeleteModal.value = false
@@ -1499,6 +1525,9 @@ export default {
       toggleMultiSelectMode,
       toggleImageSelection,
       showBatchDeleteModal,
+      showMasonryModal,
+      selectedImageData,
+      openMasonryView,
       batchDelete,
       batchFavorite,
       batchUnfavorite,
@@ -2148,6 +2177,10 @@ export default {
 
 .btn-action.btn-hide {
   color: var(--color-text-tertiary);
+}
+
+.btn-action.btn-masonry {
+  color: var(--color-primary);
 }
 
 /* Requests Panel Tab */
