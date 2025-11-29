@@ -11,7 +11,7 @@ router.get('/', (req, res) => {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
     const showFavorites = req.query.favorites === 'true';
-    const includeHidden = req.query.includeHidden === 'true';
+    const showHiddenOnly = req.query.showHiddenOnly === 'true';
 
     // Parse flexible filters if provided
     let filterCriteria = null;
@@ -23,7 +23,7 @@ router.get('/', (req, res) => {
       }
     }
 
-    const globalFilters = { showFavorites, includeHidden };
+    const globalFilters = { showFavorites, showHiddenOnly };
 
     let images, total;
     if (filterCriteria && filterCriteria.length > 0) {
@@ -61,10 +61,10 @@ router.get('/search', (req, res) => {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
     const showFavorites = req.query.favorites === 'true';
-    const includeHidden = req.query.includeHidden === 'true';
+    const showHiddenOnly = req.query.showHiddenOnly === 'true';
 
-    const images = GeneratedImage.findByKeywords(keywords, limit, offset, { showFavorites, includeHidden });
-    const total = GeneratedImage.countByKeywords(keywords, { showFavorites, includeHidden });
+    const images = GeneratedImage.findByKeywords(keywords, limit, offset, { showFavorites, showHiddenOnly });
+    const total = GeneratedImage.countByKeywords(keywords, { showFavorites, showHiddenOnly });
 
     res.json({ data: images, total });
   } catch (error) {

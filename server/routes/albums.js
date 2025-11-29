@@ -596,16 +596,18 @@ function generateAlbumIdFromFilters(filters) {
 /**
  * Generate albums from filters using multi-factor clustering
  * @param {boolean} showFavorites - Only show favorite images
- * @param {boolean} includeHidden - Include hidden images
+ * @param {boolean} showHiddenOnly - Only show hidden images
  * @returns {Array} Array of album objects
  */
-function generateAlbumsForFilters(showFavorites, includeHidden) {
+function generateAlbumsForFilters(showFavorites, showHiddenOnly) {
   // Build base query for filtering
   let baseWhere = '1=1';
   if (showFavorites) {
     baseWhere += ' AND is_favorite = 1';
   }
-  if (!includeHidden) {
+  if (showHiddenOnly) {
+    baseWhere += ' AND is_hidden = 1';
+  } else {
     baseWhere += ' AND is_hidden = 0';
   }
 
@@ -649,7 +651,7 @@ function generateAlbumsForFilters(showFavorites, includeHidden) {
   const loraNameMap = hydrateLoraNames([...allLoraIds]);
 
   // Build global filters for count queries
-  const globalFilters = { showFavorites, includeHidden };
+  const globalFilters = { showFavorites, showHiddenOnly };
 
   // Convert clusters to albums
   const albums = clusters.map(cluster => {
@@ -713,19 +715,19 @@ router.get('/', (req, res) => {
   try {
     // Parse filter params for context-aware albums
     const showFavorites = req.query.favorites === 'true';
-    const includeHidden = req.query.includeHidden === 'true';
+    const showHiddenOnly = req.query.showHiddenOnly === 'true';
 
     // Check cache first
-    const cachedAlbums = albumCache.get(showFavorites, includeHidden);
+    const cachedAlbums = albumCache.get(showFavorites, showHiddenOnly);
     if (cachedAlbums) {
       return res.json(cachedAlbums);
     }
 
     // Cache miss - generate albums
-    const albums = generateAlbumsForFilters(showFavorites, includeHidden);
+    const albums = generateAlbumsForFilters(showFavorites, showHiddenOnly);
 
     // Store in cache
-    albumCache.set(showFavorites, includeHidden, albums);
+    albumCache.set(showFavorites, showHiddenOnly, albums);
 
     res.json(albums);
   } catch (error) {
@@ -740,23 +742,23 @@ router.get('/', (req, res) => {
  */
 export async function warmAlbumCache() {
   const filterCombinations = [
-    { favorites: false, includeHidden: false }, // Default view
-    { favorites: false, includeHidden: true },  // With hidden
-    { favorites: true, includeHidden: false },  // Favorites only
-    { favorites: true, includeHidden: true }    // Favorites with hidden
+    { favorites: false, showHiddenOnly: false }, // Default view
+    { favorites: false, showHiddenOnly: true },  // Hidden only
+    { favorites: true, showHiddenOnly: false },  // Favorites only
+    { favorites: true, showHiddenOnly: true }    // Hidden favorites only
   ];
 
   for (const filters of filterCombinations) {
     try {
       // Generate and cache albums for this filter combination
-      const albums = generateAlbumsForFilters(filters.favorites, filters.includeHidden);
+      const albums = generateAlbumsForFilters(filters.favorites, filters.showHiddenOnly);
 
       // Only cache if we generated albums
       if (albums.length > 0) {
-        albumCache.set(filters.favorites, filters.includeHidden, albums);
+        albumCache.set(filters.favorites, filters.showHiddenOnly, albums);
       }
     } catch (error) {
-      console.error(`[AlbumCache] Error warming cache for favorites=${filters.favorites}, includeHidden=${filters.includeHidden}:`, error.message);
+      console.error(`[AlbumCache] Error warming cache for favorites=${filters.favorites}, showHiddenOnly=${filters.showHiddenOnly}:`, error.message);
     }
   }
 }

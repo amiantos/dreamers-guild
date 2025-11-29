@@ -14,23 +14,23 @@ class AlbumCache {
   /**
    * Generate a cache key from filter parameters
    */
-  getCacheKey(showFavorites, includeHidden) {
-    return `favorites:${showFavorites}_hidden:${includeHidden}`;
+  getCacheKey(showFavorites, showHiddenOnly) {
+    return `favorites:${showFavorites}_hiddenOnly:${showHiddenOnly}`;
   }
 
   /**
    * Get cached albums for given filters
    */
-  get(showFavorites, includeHidden) {
-    const key = this.getCacheKey(showFavorites, includeHidden);
+  get(showFavorites, showHiddenOnly) {
+    const key = this.getCacheKey(showFavorites, showHiddenOnly);
     return this.cache.get(key) || null;
   }
 
   /**
    * Store albums in cache
    */
-  set(showFavorites, includeHidden, albums) {
-    const key = this.getCacheKey(showFavorites, includeHidden);
+  set(showFavorites, showHiddenOnly, albums) {
+    const key = this.getCacheKey(showFavorites, showHiddenOnly);
     this.cache.set(key, albums);
     this.cacheTimestamps.set(key, Date.now());
   }
@@ -46,8 +46,8 @@ class AlbumCache {
   /**
    * Invalidate a specific cache entry
    */
-  invalidateKey(showFavorites, includeHidden) {
-    const key = this.getCacheKey(showFavorites, includeHidden);
+  invalidateKey(showFavorites, showHiddenOnly) {
+    const key = this.getCacheKey(showFavorites, showHiddenOnly);
     this.cache.delete(key);
     this.cacheTimestamps.delete(key);
   }

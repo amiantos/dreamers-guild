@@ -32,8 +32,11 @@ function buildFilter(filters) {
     if (filters.showFavoritesOnly && !image.is_favorite) {
       return false
     }
-    if (!filters.showHidden && image.is_hidden) {
-      return false
+    // Filter by hidden status: showHidden means show ONLY hidden images
+    if (filters.showHidden) {
+      if (!image.is_hidden) return false
+    } else {
+      if (image.is_hidden) return false
     }
 
     // Apply flexible filter criteria if present
@@ -82,8 +85,11 @@ function searchFilter(keywords, filters) {
     if (filters.showFavoritesOnly && !image.is_favorite) {
       return false
     }
-    if (!filters.showHidden && image.is_hidden) {
-      return false
+    // Filter by hidden status: showHidden means show ONLY hidden images
+    if (filters.showHidden) {
+      if (!image.is_hidden) return false
+    } else {
+      if (image.is_hidden) return false
     }
 
     const prompt = (image.prompt_simple || '').toLowerCase()

@@ -49,7 +49,7 @@ export const imagesApi = {
    * @param {number} offset - Pagination offset
    * @param {Object} options - Filter options
    * @param {boolean} options.showFavoritesOnly - Only show favorites
-   * @param {boolean} options.showHidden - Include hidden images
+   * @param {boolean} options.showHidden - Only show hidden images
    * @param {Array} options.filterCriteria - Array of {type, value} filters
    */
   getAll(limit = 100, offset = 0, options = {}) {
@@ -58,7 +58,7 @@ export const imagesApi = {
       url += '&favorites=true'
     }
     if (options.showHidden) {
-      url += '&includeHidden=true'
+      url += '&showHiddenOnly=true'
     }
     if (options.filterCriteria && options.filterCriteria.length > 0) {
       url += `&filters=${encodeURIComponent(JSON.stringify(options.filterCriteria))}`
@@ -76,7 +76,7 @@ export const imagesApi = {
       url += '&favorites=true'
     }
     if (filters.showHidden) {
-      url += '&includeHidden=true'
+      url += '&showHiddenOnly=true'
     }
     return apiClient.get(url)
   },
@@ -199,7 +199,7 @@ export const albumsApi = {
       params.push('favorites=true')
     }
     if (filters.showHidden) {
-      params.push('includeHidden=true')
+      params.push('showHiddenOnly=true')
     }
     if (params.length > 0) {
       url += '?' + params.join('&')

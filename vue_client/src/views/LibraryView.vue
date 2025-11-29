@@ -106,7 +106,7 @@
                   <span>Multi-Select Mode</span>
                 </div>
                 <div class="menu-item" @click="toggleHiddenImages">
-                  <span>{{ filters.showHidden ? 'Hide Hidden Images' : 'Show Hidden Images' }}</span>
+                  <span>{{ filters.showHidden ? 'Exit Hidden View' : 'Show Hidden Only' }}</span>
                 </div>
               </div>
             </div>

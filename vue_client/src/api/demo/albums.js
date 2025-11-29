@@ -443,7 +443,12 @@ export const albumsApi = {
     // Filter images based on user filters
     const filteredImages = allImages.filter(img => {
       if (filters.showFavoritesOnly && !img.is_favorite) return false
-      if (!filters.showHidden && img.is_hidden) return false
+      // Filter by hidden status: showHidden means show ONLY hidden images
+      if (filters.showHidden) {
+        if (!img.is_hidden) return false
+      } else {
+        if (img.is_hidden) return false
+      }
       return true
     })
 

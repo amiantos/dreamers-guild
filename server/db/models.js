@@ -117,8 +117,10 @@ export const GeneratedImage = {
       query += ` AND is_favorite = 1`;
     }
 
-    // Exclude hidden images unless includeHidden is true
-    if (!filters.includeHidden) {
+    // Filter by hidden status
+    if (filters.showHiddenOnly) {
+      query += ` AND is_hidden = 1`;
+    } else {
       query += ` AND is_hidden = 0`;
     }
 
@@ -136,7 +138,9 @@ export const GeneratedImage = {
       query += ` AND is_favorite = 1`;
     }
 
-    if (!filters.includeHidden) {
+    if (filters.showHiddenOnly) {
+      query += ` AND is_hidden = 1`;
+    } else {
       query += ` AND is_hidden = 0`;
     }
 
@@ -179,7 +183,9 @@ export const GeneratedImage = {
       query += ` AND is_favorite = 1`;
     }
 
-    if (!filters.includeHidden) {
+    if (filters.showHiddenOnly) {
+      query += ` AND is_hidden = 1`;
+    } else {
       query += ` AND is_hidden = 0`;
     }
 
@@ -204,7 +210,9 @@ export const GeneratedImage = {
       query += ` AND is_favorite = 1`;
     }
 
-    if (!filters.includeHidden) {
+    if (filters.showHiddenOnly) {
+      query += ` AND is_hidden = 1`;
+    } else {
       query += ` AND is_hidden = 0`;
     }
 
@@ -219,7 +227,7 @@ export const GeneratedImage = {
    *   Supported types: 'keyword', 'lora_id', 'model', 'request_id'
    * @param {number} limit - Max results
    * @param {number} offset - Pagination offset
-   * @param {Object} globalFilters - Global filters (showFavorites, includeHidden)
+   * @param {Object} globalFilters - Global filters (showFavorites, showHiddenOnly)
    */
   findByFilters(filterCriteria, limit = 100, offset = 0, globalFilters = {}) {
     if (!filterCriteria || filterCriteria.length === 0) {
@@ -253,7 +261,9 @@ export const GeneratedImage = {
     if (globalFilters.showFavorites) {
       query += ` AND is_favorite = 1`;
     }
-    if (!globalFilters.includeHidden) {
+    if (globalFilters.showHiddenOnly) {
+      query += ` AND is_hidden = 1`;
+    } else {
       query += ` AND is_hidden = 0`;
     }
 
@@ -299,7 +309,9 @@ export const GeneratedImage = {
     if (globalFilters.showFavorites) {
       query += ` AND is_favorite = 1`;
     }
-    if (!globalFilters.includeHidden) {
+    if (globalFilters.showHiddenOnly) {
+      query += ` AND is_hidden = 1`;
+    } else {
       query += ` AND is_hidden = 0`;
     }
 
