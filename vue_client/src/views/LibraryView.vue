@@ -757,11 +757,38 @@ export default {
       }
     }
 
+    // Navigate to next image after removing one from the list
+    // Call this AFTER the image has been removed from images.value
+    const navigateAfterRemoval = (removedIndex) => {
+      if (images.value.length === 0) {
+        closeImage()
+      } else {
+        let newIndex = removedIndex
+        if (newIndex >= images.value.length) {
+          newIndex = images.value.length - 1
+        }
+        const newImage = images.value[newIndex]
+        if (newImage) {
+          selectedImage.value = newImage
+          router.replace(`/image/${newImage.uuid}`)
+        } else {
+          closeImage()
+        }
+      }
+    }
+
     const deleteImage = async (imageId) => {
       try {
+        const imageIndex = images.value.findIndex(img => img.uuid === imageId)
+        const wasSelected = selectedImage.value?.uuid === imageId
+
         await imagesApi.delete(imageId)
         images.value = images.value.filter(img => img.uuid !== imageId)
-        selectedImage.value = null
+
+        if (wasSelected) {
+          navigateAfterRemoval(imageIndex)
+        }
+
         // Refresh keywords since counts and keywords may have changed
         fetchKeywords()
       } catch (error) {
@@ -936,63 +963,24 @@ export default {
           )
 
           if (shouldRemove) {
-            // Remove the image from the array
             images.value.splice(imageIndex, 1)
 
-            // If this is the currently selected image, navigate or close
             if (selectedImage.value && selectedImage.value.uuid === updates.uuid) {
-              if (images.value.length === 0) {
-                // No more images, close the modal
-                closeImage()
-              } else {
-                // Navigate to the next image (or previous if we were at the end)
-                let newIndex = imageIndex
-                if (newIndex >= images.value.length) {
-                  newIndex = images.value.length - 1
-                }
-                const newImage = images.value[newIndex]
-                if (newImage) {
-                  selectedImage.value = newImage
-                  router.replace(`/image/${newImage.uuid}`)
-                } else {
-                  closeImage()
-                }
-              }
+              navigateAfterRemoval(imageIndex)
             }
           }
 
-          // Refresh keywords if favorite or hidden status changed
           fetchKeywords()
         } else if ('is_favorite' in updates) {
-          // Check if favorite status changed and image should be removed from current view
           const shouldRemove = (
-            // Image was unfavorited and we're in favorites gallery
             (updates.is_favorite === 0 && filters.value.showFavoritesOnly)
           )
 
           if (shouldRemove) {
-            // Remove the image from the array
             images.value.splice(imageIndex, 1)
 
-            // If this is the currently selected image, navigate or close
             if (selectedImage.value && selectedImage.value.uuid === updates.uuid) {
-              if (images.value.length === 0) {
-                // No more images, close the modal
-                closeImage()
-              } else {
-                // Navigate to the next image (or previous if we were at the end)
-                let newIndex = imageIndex
-                if (newIndex >= images.value.length) {
-                  newIndex = images.value.length - 1
-                }
-                const newImage = images.value[newIndex]
-                if (newImage) {
-                  selectedImage.value = newImage
-                  router.replace(`/image/${newImage.uuid}`)
-                } else {
-                  closeImage()
-                }
-              }
+              navigateAfterRemoval(imageIndex)
             }
           }
 
