@@ -54,7 +54,8 @@
 
     <BatchDeleteModal
       v-if="showBatchDeleteModal"
-      :count="selectedCount"
+      :count="deletableSelectedImages.length"
+      :skipped-count="skippedFavoriteCount"
       @close="showBatchDeleteModal = false"
       @delete="batchDelete"
     />
@@ -248,7 +249,7 @@
             <i class="fa-solid fa-eye"></i>
             <span>Unhide</span>
           </button>
-          <button @click="showBatchDeleteModal = true" :disabled="selectedCount === 0" class="btn-action btn-delete" title="Delete">
+          <button @click="showBatchDeleteModal = true" :disabled="deletableSelectedImages.length === 0" class="btn-action btn-delete" title="Delete">
             <i class="fa-solid fa-trash"></i>
             <span>Delete</span>
           </button>
@@ -709,6 +710,18 @@ export default {
 
     const selectedCount = computed(() => selectedImages.value.size)
 
+    const deletableSelectedImages = computed(() => {
+      return images.value.filter(img =>
+        selectedImages.value.has(img.uuid) && !img.is_favorite
+      )
+    })
+
+    const skippedFavoriteCount = computed(() => {
+      return images.value.filter(img =>
+        selectedImages.value.has(img.uuid) && img.is_favorite
+      ).length
+    })
+
     const navigateImage = (direction) => {
       const currentIndex = currentImageIndex.value
       let newIndex = currentIndex + direction
@@ -804,13 +817,22 @@ export default {
       showBatchDeleteModal.value = false
 
       try {
-        const imageIds = Array.from(selectedImages.value)
-        const deleteCount = imageIds.length
+        // Only delete non-favorited images
+        const imageIds = deletableSelectedImages.value.map(img => img.uuid)
 
+        if (imageIds.length === 0) {
+          // All selected images are favorites, nothing to delete
+          selectedImages.value.clear()
+          isMultiSelectMode.value = false
+          return
+        }
+
+        const deleteCount = imageIds.length
         await imagesApi.batchDelete(imageIds)
 
         // Remove deleted images from the array
-        images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
+        const deletedSet = new Set(imageIds)
+        images.value = images.value.filter(img => !deletedSet.has(img.uuid))
 
         // Update total count
         totalCount.value = Math.max(0, totalCount.value - deleteCount)
@@ -1472,6 +1494,8 @@ export default {
       isMultiSelectMode,
       selectedImages,
       selectedCount,
+      deletableSelectedImages,
+      skippedFavoriteCount,
       toggleMultiSelectMode,
       toggleImageSelection,
       showBatchDeleteModal,

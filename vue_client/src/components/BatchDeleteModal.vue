@@ -8,6 +8,9 @@
 
       <div class="modal-body">
         <p>Are you sure you want to delete {{ count }} image{{ count !== 1 ? 's' : '' }}?</p>
+        <p v-if="skippedCount > 0" class="info-text">
+          (Skipping {{ skippedCount }} favorited image{{ skippedCount !== 1 ? 's' : '' }})
+        </p>
         <p class="warning-text">This action cannot be undone.</p>
 
         <div class="option-buttons">
@@ -33,6 +36,10 @@ export default {
     count: {
       type: Number,
       required: true
+    },
+    skippedCount: {
+      type: Number,
+      default: 0
     }
   },
   emits: ['close', 'delete']
@@ -104,6 +111,13 @@ export default {
   color: var(--color-danger);
   font-size: 0.875rem;
   margin-top: 0.5rem;
+}
+
+.info-text {
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0;
 }
 
 .option-buttons {
