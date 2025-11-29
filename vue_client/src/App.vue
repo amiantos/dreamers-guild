@@ -593,7 +593,8 @@ export default {
 /* Offset content when demo banner is showing */
 .app:has(.demo-banner) .library-view,
 .app:has(.demo-banner) .settings-view,
-.app:has(.demo-banner) .workers-view {
+.app:has(.demo-banner) .workers-view,
+.app:has(.demo-banner) .shared-keys-view {
   padding-top: 3rem;
 }
 

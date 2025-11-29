@@ -257,7 +257,7 @@ export default {
 }
 
 .help-text {
-  margin-bottom: 2rem;
+  margin: 0 0 2rem 0;
   font-size: 0.95rem;
   color: var(--color-text-tertiary);
   line-height: 1.6;

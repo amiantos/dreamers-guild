@@ -5,6 +5,7 @@ import App from './App.vue'
 import LibraryView from './views/LibraryView.vue'
 import SettingsView from './views/SettingsView.vue'
 import WorkersView from './views/WorkersView.vue'
+import SharedKeysView from './views/SharedKeysView.vue'
 import './assets/colors.css'
 
 const router = createRouter({
@@ -30,6 +31,11 @@ const router = createRouter({
       path: '/settings/workers',
       name: 'workers',
       component: WorkersView
+    },
+    {
+      path: '/settings/shared-keys',
+      name: 'shared-keys',
+      component: SharedKeysView
     }
   ]
 })
