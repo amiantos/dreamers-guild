@@ -128,7 +128,10 @@ class HordeAPI {
    */
   async downloadImage(url) {
     try {
-      const response = await axios.get(url, { responseType: 'arraybuffer' });
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 30000 // 30 second timeout
+      });
       return Buffer.from(response.data);
     } catch (error) {
       console.error('Error downloading image:', error.message);

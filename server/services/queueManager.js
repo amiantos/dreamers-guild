@@ -8,6 +8,16 @@ import path from 'path';
 import sharp from 'sharp';
 
 /**
+ * Helper to add timeout to a promise
+ */
+function withTimeout(promise, ms, operation) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(`${operation} timed out after ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+/**
  * Queue Manager - Handles sequential processing of AI Horde requests
  * Based on the iOS GenerationTracker implementation
  */
@@ -384,8 +394,12 @@ class QueueManager {
           const imageData = await hordeApi.downloadImage(download.uri);
           console.log(`[Download] ← Received ${imageData.length} bytes`);
 
-          // Detect image format using sharp
-          const metadata = await sharp(imageData).metadata();
+          // Detect image format using sharp (with timeout)
+          const metadata = await withTimeout(
+            sharp(imageData).metadata(),
+            30000,
+            'Image metadata detection'
+          );
           const imageFormat = metadata.format; // e.g., 'png', 'webp', 'jpeg'
           console.log(`[Download] Detected image format: ${imageFormat}`);
 
@@ -399,15 +413,19 @@ class QueueManager {
           console.log(`[Download] Saving image to ${imageUuid}.${imageExtension}`);
           fs.writeFileSync(imagePath, imageData);
 
-          // Generate square thumbnail (512x512) in WEBP format
+          // Generate square thumbnail (512x512) in WEBP format (with timeout)
           console.log(`[Download] Generating thumbnail ${imageUuid}_thumb.webp`);
-          await sharp(imageData)
-            .resize(512, 512, {
-              fit: 'cover',
-              position: 'center'
-            })
-            .webp({ quality: 85 })
-            .toFile(thumbnailPath);
+          await withTimeout(
+            sharp(imageData)
+              .resize(512, 512, {
+                fit: 'cover',
+                position: 'center'
+              })
+              .webp({ quality: 85 })
+              .toFile(thumbnailPath),
+            30000,
+            'Thumbnail generation'
+          );
 
           // Get request info for metadata
           const request = HordeRequest.findById(download.request_id);
@@ -450,7 +468,25 @@ class QueueManager {
           console.error(`[Download] Image download failed and will not be retried`);
           // Remove from active downloads (note: pending download was already deleted to prevent duplicates)
           this.activeDownloads.delete(download.uuid);
+
+          // Check if all downloads for this request are now complete (even with this failure)
+          const remainingDownloads = HordePendingDownload.findAll()
+            .filter(d => d.request_id === download.request_id);
+
+          if (remainingDownloads.length === 0) {
+            console.log(`[Download] All downloads complete for request ${download.request_id.substring(0, 8)}... (some may have failed)`);
+            HordeRequest.update(download.request_id, {
+              status: 'completed',
+              message: 'Downloads finished'
+            });
+
+            // Invalidate album cache since processing is complete
+            albumCache.invalidate();
+          }
         }
+
+        // Wait 1 second between downloads to give the connection breathing room
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     } finally {
       this.isDownloading = false;
