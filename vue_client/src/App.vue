@@ -68,6 +68,8 @@
     <WelcomeModal
       v-if="showWelcomeModal"
       :show="showWelcomeModal"
+      :sharedKeyMode="!!sharedKeyInfo"
+      :sharedKeyName="sharedKeyInfo?.name"
       @close="handleWelcomeModalClose"
     />
   </div>
@@ -75,7 +77,7 @@
 
 <script>
 import { ref, provide, nextTick, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
@@ -102,6 +104,10 @@ export default {
     initializeTheme()
 
     const route = useRoute()
+    const router = useRouter()
+
+    // Shared key state (for ?api_key= links)
+    const sharedKeyInfo = ref(null)
 
     // Dynamic page title based on route
     const updatePageTitle = async () => {
@@ -219,16 +225,13 @@ export default {
           console.error('Error initializing demo mode:', err)
         }
       }
-
-      // Check if welcome modal should be shown
-      const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
-      if (!dismissed) {
-        showWelcomeModal.value = true
-      }
+      // Note: Welcome modal is shown after settings load and shared key check
+      // See loadSettings() -> processSharedKeyFromUrl()
     })
 
     const handleWelcomeModalClose = ({ dontShowAgain }) => {
       showWelcomeModal.value = false
+      sharedKeyInfo.value = null // Clear shared key info after modal closes
       if (dontShowAgain) {
         localStorage.setItem(WELCOME_DISMISSED_KEY, 'true')
       }
@@ -283,12 +286,93 @@ export default {
 
     const loadSettings = async () => {
       try {
+        console.log('[Settings] Loading settings...')
         const data = await settingsApi.get()
+        console.log('[Settings] Loaded:', data)
         settings.value = data
         settingsLoaded.value = true
+
+        // Check for shared API key in URL
+        await processSharedKeyFromUrl(data)
       } catch (error) {
-        console.error('Error loading settings:', error)
+        console.error('[Settings] Error loading settings:', error)
         settingsLoaded.value = true // Mark as loaded even on error to prevent blocking
+        // Still try to show welcome modal
+        const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
+        if (!dismissed) {
+          showWelcomeModal.value = true
+        }
+      }
+    }
+
+    const processSharedKeyFromUrl = async (currentSettings) => {
+      // Try route.query first, fall back to URLSearchParams for initial page load
+      const urlParams = new URLSearchParams(window.location.search)
+      const apiKeyParam = route.query.api_key || urlParams.get('api_key')
+      console.log('[SharedKey] Checking for api_key param:', apiKeyParam, '(route.query:', route.query.api_key, ', URL:', urlParams.get('api_key'), ')')
+
+      if (!apiKeyParam) {
+        // No shared key in URL - show regular welcome modal if not dismissed
+        const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
+        if (!dismissed) {
+          showWelcomeModal.value = true
+        }
+        return
+      }
+
+      // If user already has an API key, ignore the query param
+      if (currentSettings.hasApiKey) {
+        console.log('[SharedKey] User already has API key, ignoring param')
+        // Remove the query param from URL
+        const query = { ...route.query }
+        delete query.api_key
+        router.replace({ path: route.path, query })
+        // Still show welcome modal if not dismissed
+        const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
+        if (!dismissed) {
+          showWelcomeModal.value = true
+        }
+        return
+      }
+
+      // Validate the shared key
+      try {
+        console.log('[SharedKey] Validating shared key...')
+        const keyInfo = await settingsApi.validateSharedKey(apiKeyParam)
+        console.log('[SharedKey] Validation result:', keyInfo)
+        if (keyInfo.valid) {
+          // Save the shared key as the user's API key
+          await settingsApi.update({ apiKey: apiKeyParam })
+          console.log('[SharedKey] Saved shared key as API key')
+
+          // Store shared key info to show in welcome modal
+          sharedKeyInfo.value = {
+            name: keyInfo.name,
+            kudos: keyInfo.kudos,
+            expiry: keyInfo.expiry
+          }
+          console.log('[SharedKey] Set sharedKeyInfo:', sharedKeyInfo.value)
+
+          // Show the welcome modal with shared key info
+          showWelcomeModal.value = true
+
+          // Remove the query param from URL
+          const query = { ...route.query }
+          delete query.api_key
+          router.replace({ path: route.path, query })
+        }
+      } catch (error) {
+        console.error('[SharedKey] Error validating shared key:', error)
+        alert('The shared API key link is invalid or expired.')
+        // Remove the invalid query param from URL
+        const query = { ...route.query }
+        delete query.api_key
+        router.replace({ path: route.path, query })
+        // Still show welcome modal if not dismissed
+        const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
+        if (!dismissed) {
+          showWelcomeModal.value = true
+        }
       }
     }
 
@@ -452,7 +536,8 @@ export default {
       handlePinVerified,
       handlePinEntryCancel,
       showWelcomeModal,
-      handleWelcomeModalClose
+      handleWelcomeModalClose,
+      sharedKeyInfo
     }
   }
 }

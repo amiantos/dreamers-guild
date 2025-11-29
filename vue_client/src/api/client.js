@@ -153,6 +153,11 @@ export const settingsApi = {
     return apiClient.delete(`/settings/horde-shared-keys/${keyId}`).then(res => res.data)
   },
 
+  // Validate a shared key (for incoming ?api_key= links)
+  validateSharedKey(keyId) {
+    return apiClient.get(`/settings/validate-shared-key/${keyId}`).then(res => res.data)
+  },
+
   // PIN management
   setupHiddenPin(pin, declined = false) {
     return apiClient.post('/settings/hidden-pin/setup', { pin, declined }).then(res => res.data)

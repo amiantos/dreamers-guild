@@ -126,6 +126,25 @@ router.delete('/horde-shared-keys/:keyId', async (req, res) => {
   }
 });
 
+// Validate a shared key (public endpoint - no auth required)
+// Used when someone visits with ?api_key=<shared_key_id> in the URL
+router.get('/validate-shared-key/:keyId', async (req, res) => {
+  try {
+    const { keyId } = req.params;
+    const keyInfo = await hordeApi.validateSharedKey(keyId);
+    res.json({
+      valid: true,
+      id: keyInfo.id,
+      name: keyInfo.name,
+      kudos: keyInfo.kudos,
+      expiry: keyInfo.expiry
+    });
+  } catch (error) {
+    console.error('Error validating shared key:', error);
+    res.status(404).json({ valid: false, error: 'Shared key not found or invalid' });
+  }
+});
+
 // Setup hidden gallery PIN (first time) or decline protection
 router.post('/hidden-pin/setup', async (req, res) => {
   try {

@@ -128,6 +128,34 @@ export async function deleteHordeSharedKey(keyId) {
   })
 }
 
+// Validate a shared key without requiring authentication
+// Uses anonymous API key since the user doesn't have one yet
+export async function validateSharedKey(keyId) {
+  await throttle()
+
+  const url = `${HORDE_API_BASE}/sharedkeys/${keyId}`
+  const response = await fetch(url, {
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': '0000000000',
+      'Client-Agent': 'dreamers-guild-demo:0.1:github.com/amiantos/dreamers-guild'
+    }
+  })
+
+  if (!response.ok) {
+    throw new Error('Shared key not found or invalid')
+  }
+
+  const data = await response.json()
+  return {
+    valid: true,
+    id: data.id,
+    name: data.name,
+    kudos: data.kudos,
+    expiry: data.expiry
+  }
+}
+
 export async function getHordeModels() {
   return hordeRequest('/status/models?type=image')
 }

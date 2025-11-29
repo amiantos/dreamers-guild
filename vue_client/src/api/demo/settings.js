@@ -5,7 +5,8 @@ import {
   getHordeSharedKeys,
   createHordeSharedKey,
   updateHordeSharedKey,
-  deleteHordeSharedKey
+  deleteHordeSharedKey,
+  validateSharedKey
 } from './horde.js'
 
 const SETTINGS_KEY = 'demoSettings'
@@ -119,6 +120,11 @@ export const settingsApi = {
 
   deleteHordeSharedKey(keyId) {
     return deleteHordeSharedKey(keyId)
+  },
+
+  // Validate a shared key (for incoming ?api_key= links)
+  validateSharedKey(keyId) {
+    return validateSharedKey(keyId)
   },
 
   async setupHiddenPin(pin, declined = false) {

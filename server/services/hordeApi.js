@@ -304,6 +304,32 @@ class HordeAPI {
       throw error;
     }
   }
+
+  /**
+   * Validate a shared key without requiring user authentication
+   * Uses anonymous API key to fetch shared key details
+   * @param {string} keyId - The shared key ID to validate
+   * @returns {Promise<Object>} Shared key details if valid
+   */
+  async validateSharedKey(keyId) {
+    await this.throttle();
+    try {
+      // Use anonymous client - shared key lookup is public
+      const client = axios.create({
+        baseURL: this.baseURL,
+        headers: {
+          'Content-Type': 'application/json',
+          'Client-Agent': 'dreamers-guild:0.1:github.com/amiantos/dreamers-guild',
+          'apikey': '0000000000'
+        }
+      });
+      const response = await client.get(`/sharedkeys/${keyId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error validating shared key ${keyId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  }
 }
 
 export default new HordeAPI();

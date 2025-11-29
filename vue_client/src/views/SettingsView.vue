@@ -891,7 +891,7 @@ export default {
     }
 
     const copyShareUrl = (keyId) => {
-      const url = `https://artbot.site/?api_key=${keyId}`
+      const url = `https://dreamers-guild.org/?api_key=${keyId}`
       navigator.clipboard.writeText(url).then(() => {
         alert('Share URL copied to clipboard!')
       }).catch(error => {

@@ -7,8 +7,31 @@
     :showClose="false"
   >
     <div class="welcome-modal-content">
+      <!-- Step 0: Shared Key Welcome (only shown when coming from shared key link) -->
+      <template v-if="sharedKeyMode && step === 0">
+        <h2>Welcome to the Dreamers Guild!</h2>
+        <p class="welcome-text">
+          Someone has shared their <strong>AI Horde API key</strong> with you! This key has been automatically configured for your use.
+        </p>
+        <p class="welcome-text shared-key-name">
+          Key name: <strong>{{ sharedKeyName || 'Shared Key' }}</strong>
+        </p>
+        <p class="welcome-text">
+          With this shared key, you'll get <strong>priority access</strong> to the AI Horde's crowdsourced GPU network, which means faster image generation times!
+        </p>
+        <p class="welcome-text">
+          The key owner has generously allocated their kudos (the AI Horde's resource currency) for you to use.
+        </p>
+
+        <div class="button-group">
+          <button @click="handleNext" class="btn btn-primary">
+            Continue
+          </button>
+        </div>
+      </template>
+
       <!-- Step 1: AI Horde Introduction (shown for both modes) -->
-      <template v-if="step === 1">
+      <template v-else-if="step === 1">
         <h2>Welcome to the Dreamers Guild</h2>
         <p class="welcome-text">
           <strong>Dreamers Guild</strong> is a beautiful web interface for generating AI images using the <strong>AI Horde</strong>,
@@ -86,26 +109,56 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 
 const props = defineProps({
   show: {
     type: Boolean,
     default: false
+  },
+  sharedKeyMode: {
+    type: Boolean,
+    default: false
+  },
+  sharedKeyName: {
+    type: String,
+    default: ''
   }
 })
 
 const emit = defineEmits(['close'])
 
 const isDemoMode = typeof __DEMO_MODE__ !== 'undefined' && __DEMO_MODE__
-const step = ref(1)
+// Start at step 0 if shared key mode, otherwise step 1
+const step = ref(props.sharedKeyMode ? 0 : 1)
 const dontShowAgain = ref(false)
 
+// Watch for sharedKeyMode changes to reset step when modal opens with shared key
+watch(() => props.sharedKeyMode, (newValue) => {
+  if (newValue) {
+    step.value = 0
+  } else {
+    step.value = 1
+  }
+}, { immediate: false })
+
+// Also reset step when modal is shown
+watch(() => props.show, (newValue) => {
+  if (newValue) {
+    step.value = props.sharedKeyMode ? 0 : 1
+  }
+})
+
 const handleNext = () => {
-  if (isDemoMode) {
+  if (step.value === 0) {
+    // From shared key step, go to step 1 (AI Horde intro)
+    step.value = 1
+  } else if (isDemoMode && step.value === 1) {
+    // From step 1 in demo mode, go to step 2
     step.value = 2
   } else {
+    // Otherwise close the modal
     handleClose()
   }
 }
@@ -137,6 +190,14 @@ const handleClose = () => {
 
 .welcome-text strong {
   color: var(--color-text-primary);
+}
+
+.shared-key-name {
+  background: var(--color-surface);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid var(--color-border);
 }
 
 .limitations-list {
