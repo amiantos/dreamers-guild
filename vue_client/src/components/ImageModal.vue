@@ -616,6 +616,15 @@ export default {
         return
       }
 
+      // Don't handle shortcuts when typing in input fields
+      const target = e.target
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        // Only allow Escape to still work
+        if (e.key !== 'Escape') {
+          return
+        }
+      }
+
       if (e.key === 'Escape') {
         if (showDetails.value) {
           closeDetails()
