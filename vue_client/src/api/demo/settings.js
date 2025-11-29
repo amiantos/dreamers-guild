@@ -127,6 +127,25 @@ export const settingsApi = {
     return validateSharedKey(keyId)
   },
 
+  // Get current shared key info (if the user's API key is a shared key)
+  async getCurrentSharedKeyInfo() {
+    const settings = getSettings()
+    if (!settings.horde_api_key) return null
+    try {
+      const response = await fetch(`https://aihorde.net/api/v2/sharedkeys/${settings.horde_api_key}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': settings.horde_api_key,
+          'Client-Agent': 'dreamers-guild-demo:0.1:github.com/amiantos/dreamers-guild'
+        }
+      })
+      if (!response.ok) return null
+      return response.json()
+    } catch {
+      return null
+    }
+  },
+
   async setupHiddenPin(pin, declined = false) {
     const settings = getSettings()
 

@@ -145,6 +145,31 @@ router.get('/validate-shared-key/:keyId', async (req, res) => {
   }
 });
 
+// Get current shared key info (if the user's API key is a shared key)
+router.get('/current-shared-key-info', async (req, res) => {
+  try {
+    const keyInfo = await hordeApi.getCurrentSharedKeyInfo();
+    if (keyInfo) {
+      res.json({
+        id: keyInfo.id,
+        username: keyInfo.username,
+        name: keyInfo.name,
+        kudos: keyInfo.kudos,
+        utilized: keyInfo.utilized,
+        max_image_pixels: keyInfo.max_image_pixels,
+        max_image_steps: keyInfo.max_image_steps,
+        max_text_tokens: keyInfo.max_text_tokens,
+        expiry: keyInfo.expiry
+      });
+    } else {
+      res.json(null);
+    }
+  } catch (error) {
+    console.error('Error fetching current shared key info:', error);
+    res.json(null);
+  }
+});
+
 // Setup hidden gallery PIN (first time) or decline protection
 router.post('/hidden-pin/setup', async (req, res) => {
   try {

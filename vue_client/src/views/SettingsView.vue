@@ -35,102 +35,146 @@
           <div v-if="loadingUserInfo" class="loading">Loading account info...</div>
 
           <div v-else-if="userInfo" class="account-info-expanded">
-            <!-- Basic Info -->
-            <div class="info-group">
-              <h3 class="info-group-title">Profile</h3>
-              <div class="info-row">
-                <span class="label">Username:</span>
-                <span class="value">{{ userInfo.username }}</span>
-              </div>
-              <div class="info-row" v-if="userInfo.account_age">
-                <span class="label">Account Age:</span>
-                <span class="value">{{ Math.floor(userInfo.account_age / 86400) }} days</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Status:</span>
-                <div class="status-badges">
-                  <span class="badge badge-trusted" v-if="userInfo.trusted">Trusted</span>
-                  <span class="badge badge-moderator" v-if="userInfo.moderator">Moderator</span>
-                  <span class="badge badge-customizer" v-if="userInfo.customizer">Customizer</span>
-                  <span class="badge badge-service" v-if="userInfo.service">Service Account</span>
-                  <span class="badge badge-education" v-if="userInfo.education">Education</span>
-                  <span class="badge badge-special" v-if="userInfo.special">Special</span>
+            <!-- Shared Key User Info -->
+            <template v-if="isSharedKeyUser && currentSharedKeyInfo">
+              <div class="info-group">
+                <h3 class="info-group-title">Shared Key</h3>
+                <div class="info-row">
+                  <span class="label">Key Name:</span>
+                  <span class="value">{{ currentSharedKeyInfo.name }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Key From:</span>
+                  <span class="value">{{ currentSharedKeyInfo.username }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Kudos Remaining:</span>
+                  <span class="value kudos">
+                    {{ currentSharedKeyInfo.kudos === -1 ? 'Unlimited' : (currentSharedKeyInfo.kudos?.toLocaleString() || 0) }}
+                  </span>
                 </div>
               </div>
-            </div>
 
-            <!-- Kudos Information -->
-            <div class="info-group">
-              <h3 class="info-group-title">Kudos</h3>
-              <div class="info-row">
-                <span class="label">Total Kudos:</span>
-                <span class="value kudos">{{ userInfo.kudos?.toLocaleString() || 0 }}</span>
-              </div>
-              <div v-if="userInfo.kudos_details" class="info-subgroup">
-                <div class="info-row info-row-small">
-                  <span class="label">Accumulated:</span>
-                  <span class="value">{{ userInfo.kudos_details.accumulated?.toLocaleString() || 0 }}</span>
+              <div class="info-group">
+                <h3 class="info-group-title">Limits</h3>
+                <div class="info-row">
+                  <span class="label">Max Image Pixels:</span>
+                  <span class="value">{{ currentSharedKeyInfo.max_image_pixels === -1 ? 'Unlimited' : (currentSharedKeyInfo.max_image_pixels?.toLocaleString() || 'Unlimited') }}</span>
                 </div>
-                <div class="info-row info-row-small">
-                  <span class="label">Received:</span>
-                  <span class="value">{{ userInfo.kudos_details.received?.toLocaleString() || 0 }}</span>
+                <div class="info-row">
+                  <span class="label">Max Image Steps:</span>
+                  <span class="value">{{ currentSharedKeyInfo.max_image_steps === -1 ? 'Unlimited' : (currentSharedKeyInfo.max_image_steps?.toLocaleString() || 'Unlimited') }}</span>
                 </div>
-                <div class="info-row info-row-small" v-if="userInfo.kudos_details.gifted">
-                  <span class="label">Gifted:</span>
-                  <span class="value">{{ userInfo.kudos_details.gifted?.toLocaleString() || 0 }}</span>
+                <div class="info-row">
+                  <span class="label">Max Text Tokens:</span>
+                  <span class="value">{{ currentSharedKeyInfo.max_text_tokens === -1 ? 'Unlimited' : (currentSharedKeyInfo.max_text_tokens?.toLocaleString() || 'Unlimited') }}</span>
                 </div>
-                <div class="info-row info-row-small" v-if="userInfo.kudos_details.donated">
-                  <span class="label">Donated:</span>
-                  <span class="value">{{ userInfo.kudos_details.donated?.toLocaleString() || 0 }}</span>
+                <div class="info-row">
+                  <span class="label">Expires:</span>
+                  <span class="value">{{ currentSharedKeyInfo.expiry ? new Date(currentSharedKeyInfo.expiry).toLocaleDateString() : 'Never' }}</span>
                 </div>
               </div>
-            </div>
+            </template>
 
-            <!-- Usage Stats -->
-            <div class="info-group">
-              <h3 class="info-group-title">Usage</h3>
-              <div class="info-row">
-                <span class="label">Image Requests:</span>
-                <span class="value">{{ userInfo.records?.request?.image?.toLocaleString() || 0 }}</span>
+            <!-- Regular User Info -->
+            <template v-else>
+              <!-- Basic Info -->
+              <div class="info-group">
+                <h3 class="info-group-title">Profile</h3>
+                <div class="info-row">
+                  <span class="label">Username:</span>
+                  <span class="value">{{ userInfo.username }}</span>
+                </div>
+                <div class="info-row" v-if="userInfo.account_age">
+                  <span class="label">Account Age:</span>
+                  <span class="value">{{ Math.floor(userInfo.account_age / 86400) }} days</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Status:</span>
+                  <div class="status-badges">
+                    <span class="badge badge-trusted" v-if="userInfo.trusted">Trusted</span>
+                    <span class="badge badge-moderator" v-if="userInfo.moderator">Moderator</span>
+                    <span class="badge badge-customizer" v-if="userInfo.customizer">Customizer</span>
+                    <span class="badge badge-service" v-if="userInfo.service">Service Account</span>
+                    <span class="badge badge-education" v-if="userInfo.education">Education</span>
+                    <span class="badge badge-special" v-if="userInfo.special">Special</span>
+                  </div>
+                </div>
               </div>
-              <div class="info-row" v-if="userInfo.records?.request?.text">
-                <span class="label">Text Requests:</span>
-                <span class="value">{{ userInfo.records.request.text?.toLocaleString() || 0 }}</span>
-              </div>
-              <div class="info-row">
-                <span class="label">Megapixelsteps:</span>
-                <span class="value">{{ userInfo.records?.usage?.megapixelsteps?.toLocaleString() || 0 }}</span>
-              </div>
-              <div class="info-row" v-if="userInfo.records?.usage?.tokens">
-                <span class="label">Tokens:</span>
-                <span class="value">{{ userInfo.records.usage.tokens?.toLocaleString() || 0 }}</span>
-              </div>
-              <div class="info-row" v-if="userInfo.concurrency">
-                <span class="label">Concurrency:</span>
-                <span class="value">{{ userInfo.concurrency }}</span>
-              </div>
-            </div>
 
-            <!-- Contribution Stats -->
-            <div class="info-group" v-if="userInfo.records?.contribution">
-              <h3 class="info-group-title">Contributions</h3>
-              <div class="info-row">
-                <span class="label">Image Fulfillments:</span>
-                <span class="value">{{ userInfo.records.fulfillment?.image?.toLocaleString() || 0 }}</span>
+              <!-- Kudos Information -->
+              <div class="info-group">
+                <h3 class="info-group-title">Kudos</h3>
+                <div class="info-row">
+                  <span class="label">Total Kudos:</span>
+                  <span class="value kudos">{{ userInfo.kudos?.toLocaleString() || 0 }}</span>
+                </div>
+                <div v-if="userInfo.kudos_details" class="info-subgroup">
+                  <div class="info-row info-row-small">
+                    <span class="label">Accumulated:</span>
+                    <span class="value">{{ userInfo.kudos_details.accumulated?.toLocaleString() || 0 }}</span>
+                  </div>
+                  <div class="info-row info-row-small">
+                    <span class="label">Received:</span>
+                    <span class="value">{{ userInfo.kudos_details.received?.toLocaleString() || 0 }}</span>
+                  </div>
+                  <div class="info-row info-row-small" v-if="userInfo.kudos_details.gifted">
+                    <span class="label">Gifted:</span>
+                    <span class="value">{{ userInfo.kudos_details.gifted?.toLocaleString() || 0 }}</span>
+                  </div>
+                  <div class="info-row info-row-small" v-if="userInfo.kudos_details.donated">
+                    <span class="label">Donated:</span>
+                    <span class="value">{{ userInfo.kudos_details.donated?.toLocaleString() || 0 }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="info-row" v-if="userInfo.records?.fulfillment?.text">
-                <span class="label">Text Fulfillments:</span>
-                <span class="value">{{ userInfo.records.fulfillment.text?.toLocaleString() || 0 }}</span>
+
+              <!-- Usage Stats -->
+              <div class="info-group">
+                <h3 class="info-group-title">Usage</h3>
+                <div class="info-row">
+                  <span class="label">Image Requests:</span>
+                  <span class="value">{{ userInfo.records?.request?.image?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row" v-if="userInfo.records?.request?.text">
+                  <span class="label">Text Requests:</span>
+                  <span class="value">{{ userInfo.records.request.text?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Megapixelsteps:</span>
+                  <span class="value">{{ userInfo.records?.usage?.megapixelsteps?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row" v-if="userInfo.records?.usage?.tokens">
+                  <span class="label">Tokens:</span>
+                  <span class="value">{{ userInfo.records.usage.tokens?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row" v-if="userInfo.concurrency">
+                  <span class="label">Concurrency:</span>
+                  <span class="value">{{ userInfo.concurrency }}</span>
+                </div>
               </div>
-              <div class="info-row">
-                <span class="label">Megapixelsteps:</span>
-                <span class="value">{{ userInfo.records.contribution?.megapixelsteps?.toLocaleString() || 0 }}</span>
+
+              <!-- Contribution Stats -->
+              <div class="info-group" v-if="userInfo.records?.contribution">
+                <h3 class="info-group-title">Contributions</h3>
+                <div class="info-row">
+                  <span class="label">Image Fulfillments:</span>
+                  <span class="value">{{ userInfo.records.fulfillment?.image?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row" v-if="userInfo.records?.fulfillment?.text">
+                  <span class="label">Text Fulfillments:</span>
+                  <span class="value">{{ userInfo.records.fulfillment.text?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Megapixelsteps:</span>
+                  <span class="value">{{ userInfo.records.contribution?.megapixelsteps?.toLocaleString() || 0 }}</span>
+                </div>
+                <div class="info-row" v-if="userInfo.records?.contribution?.tokens">
+                  <span class="label">Tokens:</span>
+                  <span class="value">{{ userInfo.records.contribution.tokens?.toLocaleString() || 0 }}</span>
+                </div>
               </div>
-              <div class="info-row" v-if="userInfo.records?.contribution?.tokens">
-                <span class="label">Tokens:</span>
-                <span class="value">{{ userInfo.records.contribution.tokens?.toLocaleString() || 0 }}</span>
-              </div>
-            </div>
+            </template>
           </div>
 
           <div v-else-if="userInfoError" class="error-message">
@@ -147,8 +191,8 @@
           </div>
         </div>
 
-        <!-- Workers Section -->
-        <div class="section" v-if="settings.hasApiKey && userInfo && userInfo.worker_count > 0">
+        <!-- Workers Section (hidden for shared key users) -->
+        <div class="section" v-if="settings.hasApiKey && userInfo && userInfo.worker_count > 0 && !isSharedKeyUser">
           <h2>Workers</h2>
           <p class="help-text">
             You have {{ userInfo.worker_count }} worker{{ userInfo.worker_count > 1 ? 's' : '' }} registered.
@@ -158,8 +202,8 @@
           </button>
         </div>
 
-        <!-- Shared Keys Section -->
-        <div class="section" v-if="settings.hasApiKey && userInfo">
+        <!-- Shared Keys Section (hidden for shared key users) -->
+        <div class="section" v-if="settings.hasApiKey && userInfo && !isSharedKeyUser">
           <h2>Shared Keys</h2>
           <p class="help-text">
             Shared keys allow you to share a limited amount of kudos with others.
@@ -551,7 +595,7 @@
 </template>
 
 <script>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { settingsApi } from '@api'
 import { useSettingsStore } from '../stores/settingsStore.js'
@@ -565,6 +609,7 @@ export default {
   setup() {
     const router = useRouter()
     const settingsStore = useSettingsStore()
+    const clearHiddenAuth = inject('clearHiddenAuth')
     const { currentTheme, toggleTheme } = useTheme()
     const settings = ref({})
     const apiKey = ref('')
@@ -572,7 +617,13 @@ export default {
     const userInfo = ref(null)
     const loadingUserInfo = ref(false)
     const userInfoError = ref(null)
+    const currentSharedKeyInfo = ref(null)
     const savingPrefs = ref(false)
+
+    // Computed property to check if user is using a shared key
+    const isSharedKeyUser = computed(() => {
+      return userInfo.value?.username?.includes('Shared Key:')
+    })
 
     // Shared keys state
     const sharedKeys = ref([])
@@ -667,9 +718,10 @@ export default {
         apiKey.value = ''
         alert('API key saved successfully!')
 
-        // Load user info after saving key
+        // Load user info and shared keys after saving key
         if (settings.value.hasApiKey) {
           loadUserInfo()
+          loadSharedKeys()
         }
       } catch (error) {
         console.error('Error saving API key:', error)
@@ -688,6 +740,17 @@ export default {
         await settingsApi.update({ apiKey: '' })
         userInfo.value = null
         localStorage.removeItem('userInfo')
+
+        // Clear account-specific caches
+        settingsStore.resetWorkerPreferences()
+        if (clearHiddenAuth) {
+          clearHiddenAuth()
+        }
+
+        // Clear component state for account-specific data
+        sharedKeys.value = []
+        sharedKeysError.value = null
+
         signOutModalOpen.value = false
         await loadSettings()
       } catch (error) {
@@ -707,6 +770,17 @@ export default {
         userInfo.value = response
         // Cache user info to localStorage for instant loading next time
         localStorage.setItem('userInfo', JSON.stringify(response))
+
+        // If this is a shared key user, fetch the shared key details
+        if (response?.username?.includes('Shared Key:')) {
+          try {
+            currentSharedKeyInfo.value = await settingsApi.getCurrentSharedKeyInfo()
+          } catch (error) {
+            console.error('Error loading shared key info:', error)
+          }
+        } else {
+          currentSharedKeyInfo.value = null
+        }
       } catch (error) {
         console.error('Error loading user info:', error)
         userInfoError.value = 'Failed to load account information. Check your API key.'
@@ -1071,6 +1145,8 @@ export default {
       userInfo,
       loadingUserInfo,
       userInfoError,
+      currentSharedKeyInfo,
+      isSharedKeyUser,
       savingPrefs,
       saveApiKey,
       refreshUserInfo,

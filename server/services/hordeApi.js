@@ -306,6 +306,26 @@ class HordeAPI {
   }
 
   /**
+   * Get the current shared key info if the user's API key is a shared key
+   * @returns {Promise<Object|null>} Shared key details or null if not a shared key
+   */
+  async getCurrentSharedKeyInfo() {
+    await this.throttle();
+    try {
+      const apiKey = this.getApiKey();
+      if (!apiKey || apiKey === '0000000000') {
+        return null;
+      }
+      const client = this.getClient();
+      const response = await client.get(`/sharedkeys/${apiKey}`);
+      return response.data;
+    } catch (error) {
+      // Not a shared key or not found - return null
+      return null;
+    }
+  }
+
+  /**
    * Validate a shared key without requiring user authentication
    * Uses anonymous API key to fetch shared key details
    * @param {string} keyId - The shared key ID to validate

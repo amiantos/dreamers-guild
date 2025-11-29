@@ -158,6 +158,11 @@ export const settingsApi = {
     return apiClient.get(`/settings/validate-shared-key/${keyId}`).then(res => res.data)
   },
 
+  // Get current shared key info (if the user's API key is a shared key)
+  getCurrentSharedKeyInfo() {
+    return apiClient.get('/settings/current-shared-key-info').then(res => res.data)
+  },
+
   // PIN management
   setupHiddenPin(pin, declined = false) {
     return apiClient.post('/settings/hidden-pin/setup', { pin, declined }).then(res => res.data)
