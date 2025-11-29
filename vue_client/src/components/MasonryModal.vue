@@ -11,10 +11,15 @@
         class="masonry-item"
         :style="item.style"
       >
-        <AsyncImage
+        <img
           :src="getImageUrl(item.image.uuid)"
           :alt="item.image.prompt_simple"
-          class="masonry-image"
+          :style="{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            objectPosition: 'center'
+          }"
         />
       </div>
     </div>
@@ -24,11 +29,9 @@
 <script>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { imagesApi } from '@api'
-import AsyncImage from './AsyncImage.vue'
 
 export default {
   name: 'MasonryModal',
-  components: { AsyncImage },
   props: {
     show: {
       type: Boolean,
@@ -62,83 +65,69 @@ export default {
       return { width: 512, height: 512 }
     }
 
-    // BSP (Binary Space Partitioning) layout algorithm
-    // Recursively subdivides the viewport to create a collage that fills all space
-    const bspLayout = (images, rect) => {
-      if (images.length === 0) return []
-
-      // Base case: single image fills its rectangle
-      if (images.length === 1) {
-        return [{ image: images[0], rect }]
-      }
-
-      // Decide split direction based on rectangle shape
-      const rectAspect = rect.width / rect.height
-      const splitVertically = rectAspect >= 1 // wide rect = vertical split (side by side)
-
-      // Calculate total aspect for proportional splitting
-      const totalAspect = images.reduce((sum, img) => sum + img.aspect, 0)
-
-      // Find optimal split point - aim for roughly equal visual weight
-      let cumAspect = 0
-      let splitIdx = 1
-
-      for (let i = 0; i < images.length - 1; i++) {
-        cumAspect += images[i].aspect
-        const ratio = cumAspect / totalAspect
-        // Find split point closest to 50%, but ensure at least 1 image per side
-        if (ratio >= 0.4) {
-          splitIdx = i + 1
-          break
+    // Interleave arrays for variety (landscape, portrait, square, repeat...)
+    const interleaveArrays = (...arrays) => {
+      const result = []
+      const maxLen = Math.max(...arrays.map(a => a.length))
+      for (let i = 0; i < maxLen; i++) {
+        for (const arr of arrays) {
+          if (i < arr.length) {
+            result.push(arr[i])
+          }
         }
       }
-
-      const group1 = images.slice(0, splitIdx)
-      const group2 = images.slice(splitIdx)
-
-      // Calculate split position based on aspect ratios of each group
-      const aspect1 = group1.reduce((s, img) => s + img.aspect, 0)
-      const aspect2 = group2.reduce((s, img) => s + img.aspect, 0)
-
-      let rect1, rect2
-
-      if (splitVertically) {
-        // Split left/right
-        const ratio = aspect1 / (aspect1 + aspect2)
-        const splitX = rect.x + rect.width * ratio
-        rect1 = { x: rect.x, y: rect.y, width: rect.width * ratio, height: rect.height }
-        rect2 = { x: splitX, y: rect.y, width: rect.width * (1 - ratio), height: rect.height }
-      } else {
-        // Split top/bottom
-        const ratio = aspect1 / (aspect1 + aspect2)
-        const splitY = rect.y + rect.height * ratio
-        rect1 = { x: rect.x, y: rect.y, width: rect.width, height: rect.height * ratio }
-        rect2 = { x: rect.x, y: splitY, width: rect.width, height: rect.height * (1 - ratio) }
-      }
-
-      // Recurse on both halves
-      return [
-        ...bspLayout(group1, rect1),
-        ...bspLayout(group2, rect2)
-      ]
+      return result
     }
 
-    // Main layout calculation using BSP treemap
+    // Check if two rectangles overlap
+    const rectsOverlap = (r1, r2) => {
+      return !(r1.x + r1.width <= r2.x ||
+               r2.x + r2.width <= r1.x ||
+               r1.y + r1.height <= r2.y ||
+               r2.y + r2.height <= r1.y)
+    }
+
+    // Check if rectangle is within bounds
+    const isInBounds = (rect, width, height, padding) => {
+      return rect.x >= padding &&
+             rect.y >= padding &&
+             rect.x + rect.width <= width - padding &&
+             rect.y + rect.height <= height - padding
+    }
+
+    // Generate positions in spiral pattern from center
+    const generateSpiralPositions = (centerX, centerY, maxRadius, step = 15) => {
+      const positions = [{ x: centerX, y: centerY }]
+
+      let radius = step
+      while (radius < maxRadius) {
+        // Number of points at this radius (more points as radius increases)
+        const circumference = 2 * Math.PI * radius
+        const numPoints = Math.max(8, Math.floor(circumference / step))
+
+        for (let i = 0; i < numPoints; i++) {
+          const angle = (i / numPoints) * Math.PI * 2
+          positions.push({
+            x: centerX + Math.cos(angle) * radius,
+            y: centerY + Math.sin(angle) * radius
+          })
+        }
+        radius += step
+      }
+
+      return positions
+    }
+
+    // Spiral packing from center
     const calculateLayout = (images, vpWidth, vpHeight) => {
       if (!images || images.length === 0) return []
 
-      const padding = 8
-      const overlap = 2 // Slight overlap for seamless edges
+      const padding = 16
+      const gap = 6
+      const centerX = vpWidth / 2
+      const centerY = vpHeight / 2
 
-      // Initial rectangle (full viewport minus padding)
-      const initialRect = {
-        x: padding,
-        y: padding,
-        width: vpWidth - padding * 2,
-        height: vpHeight - padding * 2
-      }
-
-      // Prepare image data with aspect ratios
+      // Get image data with aspects
       const imageData = images.map(img => {
         const dims = extractDimensions(img)
         return {
@@ -147,20 +136,109 @@ export default {
         }
       })
 
-      // Run BSP layout algorithm
-      const placements = bspLayout(imageData, initialRect)
+      // Categorize by aspect ratio
+      const landscape = imageData.filter(img => img.aspect > 1.2)
+      const portrait = imageData.filter(img => img.aspect < 0.8)
+      const square = imageData.filter(img => img.aspect >= 0.8 && img.aspect <= 1.2)
 
-      // Convert to positioned items with slight overlap for seamless appearance
-      return placements.map(({ image, rect }) => ({
-        image: image.image,
-        style: {
-          position: 'absolute',
-          left: `${rect.x - overlap}px`,
-          top: `${rect.y - overlap}px`,
-          width: `${rect.width + overlap * 2}px`,
-          height: `${rect.height + overlap * 2}px`
+      // Interleave for variety
+      const ordered = interleaveArrays(landscape, portrait, square)
+
+      const count = ordered.length
+      if (count === 0) return []
+
+      // Calculate base size - aim to fill ~70% of viewport area
+      const availableArea = (vpWidth - padding * 2) * (vpHeight - padding * 2) * 0.7
+      const areaPerImage = availableArea / count
+      const baseSize = Math.sqrt(areaPerImage)
+
+      // Detect canvas orientation for sizing bias
+      const canvasAspect = vpWidth / vpHeight
+      const isLandscapeCanvas = canvasAspect > 1.2
+      const isPortraitCanvas = canvasAspect < 0.8
+
+      // Size each image based on its aspect ratio
+      const sized = ordered.map(img => {
+        let w, h
+
+        // Base dimensions from aspect ratio
+        if (img.aspect >= 1) {
+          w = baseSize * Math.sqrt(img.aspect)
+          h = w / img.aspect
+        } else {
+          h = baseSize / Math.sqrt(img.aspect)
+          w = h * img.aspect
         }
-      }))
+
+        // Boost size for images matching canvas orientation
+        let sizeBoost = 1.0
+        if (isLandscapeCanvas && img.aspect > 1.2) sizeBoost = 1.15
+        if (isPortraitCanvas && img.aspect < 0.8) sizeBoost = 1.15
+
+        w *= sizeBoost
+        h *= sizeBoost
+
+        return {
+          ...img,
+          width: w,
+          height: h
+        }
+      })
+
+      // Generate spiral positions
+      const maxRadius = Math.max(vpWidth, vpHeight)
+      const spiralPositions = generateSpiralPositions(centerX, centerY, maxRadius, 12)
+
+      // Place images
+      const placed = []
+
+      for (const img of sized) {
+        let wasPlaced = false
+        let currentWidth = img.width
+        let currentHeight = img.height
+
+        // Try progressively smaller scales until image fits
+        const scaleFactors = [1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
+
+        for (const scale of scaleFactors) {
+          if (wasPlaced) break
+
+          currentWidth = img.width * scale
+          currentHeight = img.height * scale
+
+          for (const pos of spiralPositions) {
+            const rect = {
+              x: pos.x - currentWidth / 2,
+              y: pos.y - currentHeight / 2,
+              width: currentWidth + gap,
+              height: currentHeight + gap
+            }
+
+            // Check bounds and overlaps
+            if (isInBounds(rect, vpWidth, vpHeight, padding)) {
+              const overlaps = placed.some(p => rectsOverlap(rect, p.rect))
+
+              if (!overlaps) {
+                placed.push({
+                  image: img.image,
+                  rect,
+                  style: {
+                    position: 'absolute',
+                    left: `${rect.x}px`,
+                    top: `${rect.y}px`,
+                    width: `${currentWidth}px`,
+                    height: `${currentHeight}px`
+                  }
+                })
+                wasPlaced = true
+                break
+              }
+            }
+          }
+        }
+      }
+
+      return placed
     }
 
     // Computed layout based on current images and viewport
@@ -247,12 +325,6 @@ export default {
 .masonry-item {
   overflow: hidden;
   border-radius: 4px;
-}
-
-.masonry-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .btn-close {
