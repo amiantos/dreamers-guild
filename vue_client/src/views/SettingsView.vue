@@ -9,7 +9,7 @@
       </div>
 
       <div class="settings-content">
-        <div class="section">
+        <div class="section" v-if="!settings.hasApiKey">
           <h2>AI Horde API Key</h2>
           <p class="help-text">
             Enter your AI Horde API key to use your account. Get your key from
@@ -137,9 +137,14 @@
             {{ userInfoError }}
           </div>
 
-          <button @click="refreshUserInfo" class="btn btn-secondary" :disabled="loadingUserInfo">
-            {{ loadingUserInfo ? 'Refreshing...' : 'Refresh' }}
-          </button>
+          <div class="account-actions">
+            <button @click="refreshUserInfo" class="btn btn-secondary" :disabled="loadingUserInfo">
+              {{ loadingUserInfo ? 'Refreshing...' : 'Refresh' }}
+            </button>
+            <button @click="showSignOutModal" class="btn btn-secondary btn-sign-out">
+              Sign Out
+            </button>
+          </div>
         </div>
 
         <!-- Workers Section -->
@@ -415,6 +420,20 @@
       </div>
     </div>
 
+    <!-- Sign Out Confirmation Modal -->
+    <BaseModal :show="signOutModalOpen" size="small" @close="signOutModalOpen = false">
+      <div class="modal-body sign-out-modal">
+        <h2>Delete API Key?</h2>
+        <p class="warning-text">
+          Be sure you have your API key saved somewhere else before you clear it here, as it may not be recoverable in some circumstances.
+        </p>
+        <div class="modal-actions">
+          <button @click="signOutModalOpen = false" class="btn btn-secondary">Cancel</button>
+          <button @click="deleteApiKey" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </BaseModal>
+
     <!-- Shared Key Modal -->
     <div v-if="sharedKeyModalOpen" class="modal-overlay" @click.self="sharedKeyModalOpen = false">
       <div class="modal-content">
@@ -538,10 +557,11 @@ import { settingsApi } from '@api'
 import { useSettingsStore } from '../stores/settingsStore.js'
 import { useTheme } from '../composables/useTheme.js'
 import PinInput from '../components/PinInput.vue'
+import BaseModal from '../components/BaseModal.vue'
 
 export default {
   name: 'SettingsView',
-  components: { PinInput },
+  components: { PinInput, BaseModal },
   setup() {
     const router = useRouter()
     const settingsStore = useSettingsStore()
@@ -575,6 +595,9 @@ export default {
     })
     const keyFormError = ref('')
     const savingKey = ref(false)
+
+    // Sign out modal state
+    const signOutModalOpen = ref(false)
 
     // PIN management state
     const changePinModalOpen = ref(false)
@@ -653,6 +676,23 @@ export default {
         alert('Failed to save API key. Please try again.')
       } finally {
         saving.value = false
+      }
+    }
+
+    const showSignOutModal = () => {
+      signOutModalOpen.value = true
+    }
+
+    const deleteApiKey = async () => {
+      try {
+        await settingsApi.update({ apiKey: '' })
+        userInfo.value = null
+        localStorage.removeItem('userInfo')
+        signOutModalOpen.value = false
+        await loadSettings()
+      } catch (error) {
+        console.error('Error deleting API key:', error)
+        alert('Failed to delete API key. Please try again.')
       }
     }
 
@@ -1036,6 +1076,10 @@ export default {
       refreshUserInfo,
       saveWorkerPrefs,
       goBack,
+      // Sign out
+      signOutModalOpen,
+      showSignOutModal,
+      deleteApiKey,
       // Shared keys
       sharedKeys,
       loadingSharedKeys,
@@ -1797,6 +1841,39 @@ export default {
 
 .checkbox-label span {
   user-select: none;
+}
+
+/* Account actions */
+.account-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.btn-sign-out {
+  color: var(--color-danger-ios);
+}
+
+/* Sign out modal */
+.sign-out-modal {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.sign-out-modal h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: var(--color-text-primary);
+}
+
+.warning-text {
+  color: var(--color-text-tertiary);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+.sign-out-modal .modal-actions {
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
