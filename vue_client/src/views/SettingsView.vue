@@ -11,21 +11,23 @@
       <div class="settings-content">
         <div class="section" v-if="!settings.hasApiKey">
           <h2>AI Horde API Key</h2>
-          <p class="help-text">
-            Enter your AI Horde API key to use your account. Get your key from
-            <a href="https://stablehorde.net/" target="_blank" rel="noopener">stablehorde.net</a>
-          </p>
+          <div class="section-content">
+            <p class="help-text">
+              Enter your AI Horde API key to use your account. Get your key from
+              <a href="https://stablehorde.net/" target="_blank" rel="noopener">stablehorde.net</a>
+            </p>
 
-          <div class="form-group">
-            <input
-              type="password"
-              v-model="apiKey"
-              placeholder="Enter your API key..."
-              class="api-key-input"
-            />
-            <button @click="saveApiKey" class="btn btn-primary" :disabled="saving">
-              {{ saving ? 'Saving...' : 'Save API Key' }}
-            </button>
+            <div class="form-group">
+              <input
+                type="password"
+                v-model="apiKey"
+                placeholder="Enter your API key..."
+                class="api-key-input"
+              />
+              <button @click="saveApiKey" class="btn btn-primary" :disabled="saving">
+                {{ saving ? 'Saving...' : 'Save API Key' }}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -110,6 +112,15 @@
                     <i class="fa-solid fa-key"></i> Manage Shared Keys
                   </button>
                 </div>
+                <!-- Refresh Sign Out  Buttons -->
+                <div class="management-buttons">
+                  <button @click="refreshUserInfo" class="btn btn-secondary btn-manage" :disabled="loadingUserInfo">
+                    {{ loadingUserInfo ? 'Refreshing...' : 'Refresh Info' }}
+                  </button>
+                  <button @click="showSignOutModal" class="btn btn-secondary btn-manage btn-sign-out">
+                    Sign Out
+                  </button>
+                </div>
               </div>
 
               <!-- Kudos Information -->
@@ -190,23 +201,10 @@
           <div v-else-if="userInfoError" class="error-message">
             {{ userInfoError }}
           </div>
-
-          <div class="account-actions">
-            <button @click="refreshUserInfo" class="btn btn-secondary" :disabled="loadingUserInfo">
-              {{ loadingUserInfo ? 'Refreshing...' : 'Refresh' }}
-            </button>
-            <button @click="showSignOutModal" class="btn btn-secondary btn-sign-out">
-              Sign Out
-            </button>
-          </div>
         </div>
 
         <div class="section">
           <h2>AI Horde Preferences</h2>
-          <p class="help-text">
-            These settings control which workers can process your image generation requests and how they handle your prompts.
-          </p>
-
           <div class="preferences-grid">
             <div class="preference-item">
               <div class="preference-label">
@@ -269,10 +267,6 @@
 
         <div class="section">
           <h2>Appearance</h2>
-          <p class="help-text">
-            Customize the app's appearance.
-          </p>
-
           <div class="preferences-grid">
             <div class="preference-item">
               <div class="preference-label">
@@ -289,11 +283,10 @@
 
         <div class="section">
           <h2>Hidden Gallery Protection</h2>
-          <p class="help-text">
-            Protect your hidden images with a 4-digit PIN.
-          </p>
-
           <div v-if="settings.hasPinProtection" class="pin-status">
+            <p class="help-text">
+              Protect your hidden images with a 4-digit PIN.
+            </p>
             <div class="status-indicator">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <circle cx="10" cy="10" r="9" stroke="#587297" stroke-width="2"/>
@@ -796,38 +789,38 @@ export default {
 <style scoped>
 .settings-view {
   min-height: 100vh;
-  background: var(--color-bg-quaternary);
+  background: var(--color-surface);
   color: var(--color-text-primary);
 }
 
 .settings-container {
-  max-width: 800px;
+  max-width: 700px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
 .settings-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
   padding-bottom: 1.5rem;
-  border-bottom: 2px solid #333;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #333;
 }
 
 .settings-header h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 600;
 }
 
 .btn-back {
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   background: transparent;
   color: var(--color-text-tertiary);
   border: 1px solid #333;
   border-radius: 6px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -845,21 +838,20 @@ export default {
 .settings-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 0;
 }
 
 .section {
-  background: var(--color-surface);
-  border-radius: 12px;
-  padding: 2rem;
-  border: 1px solid #333;
+  margin-bottom: 1.5rem;
 }
 
 .section h2 {
   margin: 0 0 0.75rem 0;
-  font-size: 1.5rem;
-  color: var(--color-text-primary);
+  font-size: 0.9rem;
   font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  letter-spacing: 0.05em;
 }
 
 .section-title {
@@ -872,10 +864,10 @@ export default {
 }
 
 .help-text {
-  margin: 0 0 1.5rem 0;
-  font-size: 0.95rem;
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
   color: var(--color-text-tertiary);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .help-text a {
@@ -954,7 +946,7 @@ export default {
 }
 
 .loading {
-  padding: 1.5rem;
+  padding: 1rem;
   text-align: center;
   color: var(--color-text-tertiary);
 }
@@ -963,7 +955,7 @@ export default {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .info-row {
@@ -979,7 +971,7 @@ export default {
 
 .info-row .label {
   color: var(--color-text-tertiary);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .info-row .value {
@@ -1001,10 +993,40 @@ export default {
   margin-bottom: 1rem;
 }
 
-.preferences-grid {
+.section-content {
+  padding: 1rem;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
+}
+
+.section-content .help-text {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.section-content .help-text:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.preferences-grid {
   padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.preferences-grid .help-text {
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.pin-status .help-text {
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .preference-item {
@@ -1098,9 +1120,9 @@ export default {
 }
 
 .pin-status {
+  padding: 1rem;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
-  padding: 1rem;
 }
 
 .status-indicator {
@@ -1109,7 +1131,7 @@ export default {
   gap: 0.75rem;
   margin-bottom: 1rem;
   color: var(--color-text-primary);
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .status-indicator svg {
@@ -1211,15 +1233,15 @@ export default {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 1rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .info-group {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .info-group:last-child {
@@ -1228,12 +1250,8 @@ export default {
 }
 
 .info-group-title {
-  margin: 0 0 0.75rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 0.5rem;
 }
 
 .info-subgroup {
@@ -1308,8 +1326,10 @@ export default {
 /* Account actions */
 .account-actions {
   display: flex;
-  justify-content: space-between;
   gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
 }
 
 .btn-sign-out {
@@ -1350,11 +1370,7 @@ export default {
   }
 
   .settings-header h1 {
-    font-size: 1.5rem;
-  }
-
-  .section {
-    padding: 1.5rem;
+    font-size: 1.25rem;
   }
 
   .form-group {
