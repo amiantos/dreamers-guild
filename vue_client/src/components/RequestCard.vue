@@ -20,7 +20,7 @@
               <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
               <template v-if="statusMessage">
                 <span class="divider">•</span>
-                <span class="status-message">{{ statusMessage }}</span>
+                <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
               </template>
             </div>
           </div>
@@ -128,9 +128,14 @@ export default {
     const statusText = computed(() => getStatusText(props.request.status))
 
     const statusMessage = computed(() => {
-      // For completed/failed requests, don't show additional message
-      if (['completed', 'failed'].includes(props.request.status)) {
+      // For completed requests, don't show additional message
+      if (props.request.status === 'completed') {
         return null
+      }
+
+      // For failed requests, show the error message
+      if (props.request.status === 'failed') {
+        return props.request.message || 'Request failed'
       }
 
       // Show queue position if available
@@ -260,6 +265,10 @@ export default {
 
 .status-message {
   color: var(--color-text-secondary);
+}
+
+.status-message-error {
+  color: var(--color-danger-tailwind);
 }
 
 .request-status {

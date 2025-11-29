@@ -196,11 +196,16 @@ class QueueManager {
           // Remove from active requests on error
           this.activeRequests.delete(request.uuid);
 
+          // Extract error message from AI Horde API response
           let errorMessage = 'Failed to submit request';
-          if (error.response?.status === 401) {
+          if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          } else if (error.response?.status === 401) {
             errorMessage = 'Invalid API key';
           } else if (error.response?.status === 403) {
             errorMessage = 'Access forbidden';
+          } else if (error.message) {
+            errorMessage = error.message;
           }
 
           HordeRequest.update(request.uuid, {
@@ -277,6 +282,16 @@ class QueueManager {
           });
           this.activeRequests.delete(requestUuid);
           this.lastPollTime.delete(requestUuid);
+        } else if (error.response?.status >= 400) {
+          // API returned an error status, mark as failed with the message
+          const errorMessage = error.response?.data?.message || error.message || 'Error checking request status';
+          console.log(`[Status] ✗ Request ${hordeId} failed: ${errorMessage}`);
+          HordeRequest.update(requestUuid, {
+            status: 'failed',
+            message: errorMessage
+          });
+          this.activeRequests.delete(requestUuid);
+          this.lastPollTime.delete(requestUuid);
         } else {
           console.error(`[Status] ✗ Error checking request ${hordeId}:`, error.message);
         }
@@ -348,9 +363,10 @@ class QueueManager {
       console.log(`[Complete] ✓ Request ${requestUuid.substring(0, 8)}... completed, ${downloadCount} images ready for download`);
     } catch (error) {
       console.error(`[Complete] ✗ Error handling completed request ${requestUuid.substring(0, 8)}...:`, error.message);
+      const errorMessage = error.response?.data?.message || error.message || 'Error retrieving images';
       HordeRequest.update(requestUuid, {
         status: 'failed',
-        message: 'Error retrieving images'
+        message: errorMessage
       });
     }
   }
