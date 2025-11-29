@@ -163,9 +163,12 @@
           <div v-if="loadingSharedKeys" class="loading">Loading shared keys...</div>
 
           <div v-else-if="sharedKeys.length > 0" class="shared-keys-list">
-            <div v-for="key in sharedKeys" :key="key.id" class="shared-key-card">
+            <div v-for="key in sharedKeys" :key="key.id" class="shared-key-card" :class="{ 'shared-key-expired': isExpired(key.expiry) }">
               <div class="shared-key-header">
-                <div class="shared-key-name">{{ key.name || 'Unnamed Key' }}</div>
+                <div class="shared-key-name">
+                  {{ key.name || 'Unnamed Key' }}
+                  <span v-if="isExpired(key.expiry)" class="expired-badge">Expired</span>
+                </div>
                 <div class="shared-key-actions">
                   <button @click="copySharedKey(key.id)" class="btn-icon" title="Copy Key">
                     <i class="fa-solid fa-copy"></i>
@@ -182,6 +185,9 @@
                 </div>
               </div>
               <div class="shared-key-id">ID: {{ key.id }}</div>
+              <div v-if="key.expiry" class="shared-key-expiry" :class="{ 'expired': isExpired(key.expiry) }">
+                {{ isExpired(key.expiry) ? 'Expired' : 'Expires' }}: {{ formatExpiryDate(key.expiry) }}
+              </div>
               <div class="shared-key-stats">
                 <div class="stat-item">
                   <span class="stat-label">Kudos:</span>
@@ -494,6 +500,24 @@
               min="0"
             />
           </div>
+          <div class="form-group-vertical">
+            <label>Expiry</label>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="keyForm.no_expiry" @change="handleUnlimitedChange('expiry')" />
+                <span>No Expiry</span>
+              </label>
+            </div>
+            <input
+              v-if="!keyForm.no_expiry"
+              type="number"
+              v-model.number="keyForm.expiry"
+              placeholder="Days (1-30)"
+              class="input-field"
+              min="1"
+              max="30"
+            />
+          </div>
           <p v-if="keyFormError" class="error-message">{{ keyFormError }}</p>
           <div class="modal-actions">
             <button @click="sharedKeyModalOpen = false" class="btn btn-secondary">Cancel</button>
@@ -545,7 +569,9 @@ export default {
       max_text_tokens: null,
       unlimited_pixels: true,
       unlimited_steps: true,
-      unlimited_tokens: true
+      unlimited_tokens: true,
+      expiry: null,
+      no_expiry: true
     })
     const keyFormError = ref('')
     const savingKey = ref(false)
@@ -671,6 +697,16 @@ export default {
       router.push('/settings/workers')
     }
 
+    const isExpired = (expiryDate) => {
+      if (!expiryDate) return false
+      return new Date(expiryDate) < new Date()
+    }
+
+    const formatExpiryDate = (expiryDate) => {
+      if (!expiryDate) return null
+      return new Date(expiryDate).toLocaleDateString()
+    }
+
     const createNewSharedKey = () => {
       editingKey.value = null
       keyForm.value = {
@@ -682,7 +718,9 @@ export default {
         max_text_tokens: null,
         unlimited_pixels: true,
         unlimited_steps: true,
-        unlimited_tokens: true
+        unlimited_tokens: true,
+        expiry: null,
+        no_expiry: true
       }
       keyFormError.value = ''
       sharedKeyModalOpen.value = true
@@ -699,7 +737,9 @@ export default {
         max_text_tokens: (key.max_text_tokens === -1 ? null : key.max_text_tokens) || null,
         unlimited_pixels: key.max_image_pixels === -1 || !key.max_image_pixels,
         unlimited_steps: key.max_image_steps === -1 || !key.max_image_steps,
-        unlimited_tokens: key.max_text_tokens === -1 || !key.max_text_tokens
+        unlimited_tokens: key.max_text_tokens === -1 || !key.max_text_tokens,
+        expiry: null,
+        no_expiry: !key.expiry
       }
       keyFormError.value = ''
       sharedKeyModalOpen.value = true
@@ -718,6 +758,9 @@ export default {
       }
       if (type === 'tokens' && keyForm.value.unlimited_tokens) {
         keyForm.value.max_text_tokens = null
+      }
+      if (type === 'expiry' && keyForm.value.no_expiry) {
+        keyForm.value.expiry = null
       }
     }
 
@@ -757,6 +800,10 @@ export default {
           data.max_text_tokens = -1
         } else if (keyForm.value.max_text_tokens) {
           data.max_text_tokens = keyForm.value.max_text_tokens
+        }
+
+        if (!keyForm.value.no_expiry && keyForm.value.expiry) {
+          data.expiry = keyForm.value.expiry
         }
 
         if (editingKey.value) {
@@ -1005,6 +1052,8 @@ export default {
       deleteSharedKey,
       copySharedKey,
       copyShareUrl,
+      isExpired,
+      formatExpiryDate,
       // Workers
       goToWorkers,
       // Theme
@@ -1546,6 +1595,33 @@ export default {
   border-radius: 8px;
   padding: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.shared-key-card.shared-key-expired {
+  border-color: var(--color-danger-ios, #dc3545);
+  background-color: rgba(220, 53, 69, 0.1);
+}
+
+.shared-key-expiry {
+  font-size: 0.85rem;
+  color: var(--color-text-tertiary);
+  margin-bottom: 0.75rem;
+}
+
+.shared-key-expiry.expired {
+  color: var(--color-danger-ios, #dc3545);
+  font-weight: 500;
+}
+
+.expired-badge {
+  background-color: var(--color-danger-ios, #dc3545);
+  color: white;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  margin-left: 0.5rem;
+  text-transform: uppercase;
+  font-weight: 600;
 }
 
 .shared-key-header {
