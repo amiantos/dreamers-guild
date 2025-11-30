@@ -11,6 +11,7 @@
 
     <div class="card-content">
       <div class="thumbnail-container">
+        <!-- Completed with thumbnail -->
         <div
           v-if="request.status === 'completed' && thumbnailUrl"
           class="thumbnail clickable"
@@ -21,6 +22,14 @@
             <i class="fa-solid fa-eye"></i>
           </div>
         </div>
+        <!-- Failed state - show alert icon -->
+        <div v-else-if="request.status === 'failed'" class="thumbnail placeholder error">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <!-- Completed but no images -->
+        <div v-else-if="request.status === 'completed'" class="thumbnail placeholder">
+        </div>
+        <!-- Processing states - show spinner -->
         <div v-else class="thumbnail placeholder">
           <div class="spinner"></div>
         </div>
@@ -206,6 +215,9 @@ export default {
       if (props.request.status === 'submitting') return 'indeterminate'
       if (props.request.status === 'completed') return 'completed'
       if (props.request.status === 'failed') return 'failed'
+      // Keep sliding animation until images start completing
+      const finished = props.request.finished || 0
+      if (finished === 0) return 'indeterminate'
       return ''
     })
 
@@ -295,6 +307,15 @@ export default {
   justify-content: center;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
+}
+
+.thumbnail.placeholder.error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.thumbnail.placeholder.error i {
+  color: var(--color-danger-tailwind);
+  font-size: 1.5rem;
 }
 
 .thumbnail.clickable {
