@@ -40,11 +40,14 @@ async function startPollingRequest(requestUuid, hordeRequestId) {
         processing: status.processing,
         finished: status.finished,
         is_possible: status.is_possible,
-        kudos: status.kudos
+        total_kudos_cost: status.kudos || 0
       }
 
       // Update status based on processing state
       if (status.processing > 0) {
+        updatedRequest.status = 'processing'
+      } else if (request.status === 'submitting') {
+        // Transition from submitting to processing once we get a response
         updatedRequest.status = 'processing'
       }
 
@@ -54,11 +57,25 @@ async function startPollingRequest(requestUuid, hordeRequestId) {
         // Stop polling FIRST to prevent race condition where another poll
         // fires while we're still processing images
         stopPollingRequest(requestUuid)
+
+        // Set downloading status
+        await db.put('requests', { ...updatedRequest, status: 'downloading' })
+
         const result = await getGenerationResult(hordeRequestId)
         await processGenerationResult(requestUuid, result)
       }
     } catch (error) {
       console.error('Polling error:', error)
+      // Mark request as failed
+      const request = await db.get('requests', requestUuid)
+      if (request && request.status !== 'completed') {
+        await db.put('requests', {
+          ...request,
+          status: 'failed',
+          message: error.message || 'Request failed'
+        })
+        stopPollingRequest(requestUuid)
+      }
     }
   }
 
@@ -201,11 +218,13 @@ export const requestsApi = {
         full_request: JSON.stringify(hordeRequestData),
         prompt: promptSimple,
         n: imageCount,
-        status: 'pending',
-        queue_position: null,
+        status: 'submitting',
+        queue_position: 0,
+        wait_time: 0,
         waiting: 0,
         processing: 0,
         finished: 0,
+        total_kudos_cost: 0,
         date_created: now
       }
 
@@ -216,7 +235,24 @@ export const requestsApi = {
       return { data: request }
     } catch (error) {
       console.error('[Demo] Error creating request:', error)
-      throw new Error(error.message || 'Failed to submit generation request')
+      // Create a failed request record so user can see the error
+      const failedRequest = {
+        uuid,
+        full_request: JSON.stringify(data.params || data),
+        prompt: data.params?.prompt?.split('###')[0]?.trim() || data.prompt || 'Unknown',
+        n: data.params?.params?.n || 1,
+        status: 'failed',
+        message: error.message || 'Failed to submit generation request',
+        queue_position: 0,
+        wait_time: 0,
+        waiting: 0,
+        processing: 0,
+        finished: 0,
+        total_kudos_cost: 0,
+        date_created: new Date().toISOString()
+      }
+      await db.put('requests', failedRequest)
+      return { data: failedRequest }
     }
   },
 
