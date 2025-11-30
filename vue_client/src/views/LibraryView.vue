@@ -32,7 +32,7 @@
             class="btn-clear-history"
           >
             <i class="fa-solid fa-trash"></i>
-            Clear Request History
+            Clear Dream History
           </button>
         </div>
       </div>
