@@ -1,10 +1,25 @@
 <template>
   <div class="request-card">
+    <!-- Delete button in top-right corner -->
+    <button
+      @click="$emit('delete', request.uuid)"
+      class="delete-btn"
+      title="Delete request"
+    >
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
     <div class="card-content">
-      <!-- Desktop thumbnail (hidden on mobile via CSS) -->
       <div class="thumbnail-container">
-        <div v-if="request.status === 'completed' && thumbnailUrl" class="thumbnail">
+        <div
+          v-if="request.status === 'completed' && thumbnailUrl"
+          class="thumbnail clickable"
+          @click="$emit('view-images', request.uuid)"
+        >
           <AsyncImage :src="thumbnailUrl" alt="Request thumbnail" />
+          <div class="thumbnail-overlay">
+            <i class="fa-solid fa-eye"></i>
+          </div>
         </div>
         <div v-else class="thumbnail placeholder">
           <div class="spinner"></div>
@@ -12,12 +27,19 @@
       </div>
 
       <div class="card-body">
-        <!-- Header: Prompt + Meta + Badge -->
+        <!-- Header: Prompt + Meta -->
         <div class="request-header">
           <div class="request-info">
             <h3 class="prompt">{{ truncatedPrompt }}</h3>
             <div class="meta">
-              <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
+              <!-- Show image count only when completed, otherwise show status -->
+              <template v-if="request.status === 'completed'">
+                <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
+              </template>
+              <template v-else-if="statusMessage">
+                <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
+              </template>
+
               <template v-if="kudosCost > 0">
                 <span class="divider">•</span>
                 <span class="kudos">{{ formattedKudos }} kudos</span>
@@ -26,56 +48,26 @@
           </div>
         </div>
 
-        <!-- Progress Row (for active states) -->
-        <div v-if="showProgressBar" class="progress-row">
+        <!-- Progress Row (always visible) -->
+        <div class="progress-row">
           <div class="progress-container">
-            <div class="progress-bar">
+            <div class="progress-bar" :class="{ 'progress-bar-failed': request.status === 'failed' }">
               <div
                 class="progress-fill"
                 :class="progressBarClass"
                 :style="{ width: progressPercent + '%' }"
               ></div>
             </div>
-            <span class="progress-text">{{ progressText }}</span>
+            <!-- Retry action for failed requests -->
+            <span
+              v-if="request.status === 'failed'"
+              class="progress-action retry"
+              @click="$emit('retry', request.uuid)"
+            >Retry</span>
           </div>
-        </div>
-
-        <!-- Status Message Row (for pending/failed) -->
-        <div v-else-if="statusMessage" class="status-row">
-          <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
         </div>
       </div>
     </div>
-    <!-- Bottom Row: Mobile thumbnail + Actions -->
-        <div class="bottom-row">
-          <div class="request-actions">
-            <button
-              v-if="request.status === 'completed'"
-              @click="$emit('view-images', request.uuid)"
-              class="btn btn-primary"
-              title="View Images"
-            >
-              <i class="fa-solid fa-eye btn-icon-mobile"></i>
-              <span class="btn-label">View Images</span>
-            </button>
-            <button
-              v-if="request.status === 'failed'"
-              @click="$emit('retry', request.uuid)"
-              class="btn btn-secondary"
-              title="Retry"
-            >
-              <i class="fa-solid fa-rotate-right"></i>
-              <span class="btn-label">Retry</span>
-            </button>
-            <button
-              @click="$emit('delete', request.uuid)"
-              class="btn btn-icon btn-delete"
-              title="Delete request"
-            >
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </div>
-        </div>
   </div>
 </template>
 
@@ -149,6 +141,9 @@ export default {
     const statusText = computed(() => getStatusText(props.request.status))
 
     const statusMessage = computed(() => {
+      const finished = props.request.finished || 0
+      const total = props.request.n || 0
+
       // For completed requests, don't show additional message
       if (props.request.status === 'completed') {
         return null
@@ -159,10 +154,25 @@ export default {
         return props.request.message || 'Request failed'
       }
 
+      // For submitting status
+      if (props.request.status === 'submitting') {
+        return 'Submitting...'
+      }
+
+      // For downloading status
+      if (props.request.status === 'downloading') {
+        return `Downloading ${finished}/${total}`
+      }
+
       // Show queue position if available
       if (props.request.queue_position > 0) {
         const waitTime = props.request.wait_time > 0 ? ` (~${formatWaitTime(props.request.wait_time)})` : ''
-        return `Queue position ${props.request.queue_position}${waitTime}`
+        return `Queue position ${props.request.queue_position}${waitTime} • ${finished}/${total}`
+      }
+
+      // For processing status without queue position
+      if (props.request.status === 'processing') {
+        return `Processing ${finished}/${total}`
       }
 
       // Otherwise show the message if available
@@ -207,15 +217,8 @@ export default {
     const progressBarClass = computed(() => {
       if (props.request.status === 'submitting') return 'indeterminate'
       if (props.request.status === 'downloading') return 'downloading'
+      if (props.request.status === 'failed') return 'failed'
       return ''
-    })
-
-    const progressText = computed(() => {
-      const finished = props.request.finished || 0
-      const total = props.request.n || 0
-      if (props.request.status === 'submitting') return 'Submitting...'
-      if (props.request.status === 'downloading') return `Downloading ${finished}/${total}`
-      return `${finished}/${total} completed`
     })
 
     return {
@@ -231,8 +234,7 @@ export default {
       formattedKudos,
       progressPercent,
       showProgressBar,
-      progressBarClass,
-      progressText
+      progressBarClass
     }
   }
 }
@@ -240,8 +242,12 @@ export default {
 
 <style scoped>
 /* ==============================================
-   BASE STYLES (Mobile-first)
+   BASE STYLES
    ============================================== */
+
+.request-card {
+  position: relative;
+}
 
 .card-content {
   display: flex;
@@ -256,22 +262,42 @@ export default {
   gap: 0.5rem;
 }
 
+/* Delete button - top right corner */
+.delete-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: opacity 0.2s, color 0.2s;
+  font-size: 0.9rem;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+  color: var(--color-danger-tailwind);
+}
+
 /* Thumbnail */
 .thumbnail-container {
   flex-shrink: 0;
 }
 
 .thumbnail {
-  width: 80px;
-  height: 80px;
+  width: 70px;
+  height: 70px;
   border-radius: 8px;
   overflow: hidden;
   background: var(--color-bg-elevated);
-}
-
-.thumbnail-small {
-  width: 60px;
-  height: 60px;
 }
 
 .thumbnail img {
@@ -288,19 +314,39 @@ export default {
   border: 1px solid var(--color-border);
 }
 
+.thumbnail.clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 8px;
+}
+
+.thumbnail-overlay i {
+  color: white;
+  font-size: 1.25rem;
+}
+
+.thumbnail.clickable:hover .thumbnail-overlay {
+  opacity: 1;
+}
+
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--color-border);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-}
-
-.spinner-small {
-  width: 18px;
-  height: 18px;
-  border-width: 2px;
 }
 
 @keyframes spin {
@@ -313,6 +359,7 @@ export default {
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
+  padding-right: 0.7rem; /* Space for delete button */
 }
 
 .request-info {
@@ -321,7 +368,7 @@ export default {
 }
 
 .prompt {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
   margin: 0 0 0.25rem 0;
   color: var(--color-text-primary);
@@ -338,48 +385,20 @@ export default {
   font-size: 0.8rem;
   color: var(--color-text-tertiary);
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .divider {
   color: var(--color-border-lighter);
 }
 
-/* Status Badge */
-.request-status {
-  flex-shrink: 0;
-}
-
-.status-badge {
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.status-pending {
-  background-color: var(--color-pending-bg);
+/* Status message inline */
+.status-message {
   color: var(--color-text-secondary);
 }
 
-.status-processing {
-  background-color: var(--color-info-bg);
-  color: var(--color-info-tailwind);
-}
-
-.status-completed {
-  background-color: var(--color-success-bg);
-  color: var(--color-success-tailwind);
-}
-
-.status-failed {
-  background-color: var(--color-danger-bg);
+.status-message-error {
   color: var(--color-danger-tailwind);
-}
-
-/* Progress Bar */
-.progress-row {
-  margin-top: 0.25rem;
 }
 
 .progress-container {
@@ -390,21 +409,30 @@ export default {
 
 .progress-bar {
   flex: 1;
-  height: 6px;
+  height: 4px;
   background: var(--color-border);
-  border-radius: 3px;
+  border-radius: 2px;
   overflow: hidden;
+}
+
+.progress-bar-failed {
+  background: rgba(239, 68, 68, 0.3);
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--color-info-tailwind);
-  border-radius: 3px;
+  background: var(--color-primary);
+  border-radius: 2px;
   transition: width 0.3s ease;
 }
 
 .progress-fill.downloading {
   background: var(--color-success-tailwind);
+}
+
+.progress-fill.failed {
+  background: var(--color-danger-tailwind);
+  width: 100% !important;
 }
 
 .progress-fill.indeterminate {
@@ -417,175 +445,42 @@ export default {
   100% { transform: translateX(400%); }
 }
 
-.progress-text {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
+/* Retry action text */
+.progress-action {
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
   white-space: nowrap;
+  transition: opacity 0.2s;
 }
 
-/* Status Message Row */
-.status-row {
-  margin-top: 0.25rem;
+.progress-action:hover {
+  opacity: 0.8;
 }
 
-.status-message {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
-}
-
-.status-message-error {
+.progress-action.retry {
   color: var(--color-danger-tailwind);
 }
 
-/* Bottom Row (thumbnail + actions) */
-.bottom-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-/* Actions */
-.request-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.btn {
-  padding: 0.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-icon {
-  width: 36px;
-  height: 36px;
-}
-
-.btn-primary {
-  background: var(--color-btn-primary-bg);
-  color: var(--color-btn-primary-text);
-}
-
-.btn-primary:hover {
-  background: var(--color-btn-primary-hover);
-}
-
-.btn-secondary {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  gap: 0.5rem;
-}
-
-.btn-secondary:hover {
-  background: var(--color-bg-elevated);
-  border-color: var(--color-border-light);
-}
-
-.btn-delete {
-  background: transparent;
-  color: var(--color-text-tertiary);
-  border: 1px solid var(--color-border);
-}
-
-.btn-delete:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
-}
-
 /* ==============================================
-   MOBILE: Icon-only buttons, show mobile thumbnail
-   ============================================== */
-
-/* Hide desktop thumbnail, show mobile thumbnail */
-.desktop-only {
-  display: none;
-}
-
-.mobile-only {
-  display: block;
-}
-
-/* Hide button labels on mobile, show icons */
-.btn-label {
-  display: none;
-}
-
-.btn-icon-mobile {
-  display: inline;
-}
-
-/* Make primary/secondary buttons icon-only on mobile */
-.btn-primary,
-.btn-secondary {
-  width: 36px;
-  height: 36px;
-  padding: 0.5rem;
-}
-
-/* ==============================================
-   DESKTOP (>768px): Horizontal layout
+   DESKTOP (>768px)
    ============================================== */
 
 @media (min-width: 769px) {
-  .card-content {
-    flex-direction: row;
-    gap: 1rem;
-  }
-
-  /* Show desktop thumbnail, hide mobile thumbnail */
-  .desktop-only {
-    display: block;
-  }
-
-  .mobile-only {
-    display: none;
-  }
-
-  /* Show button labels on desktop */
-  .btn-label {
-    display: inline;
-  }
-
-  .btn-icon-mobile {
-    display: none;
-  }
-
-  /* Full buttons on desktop */
-  .btn-primary,
-  .btn-secondary {
-    width: auto;
-    height: auto;
-    padding: 0.5rem 1rem;
+  .thumbnail {
+    width: 80px;
+    height: 80px;
   }
 
   .prompt {
-    font-size: 1.05rem;
+    font-size: 1rem;
     -webkit-line-clamp: 1;
+    margin-bottom:8px;
   }
 
-  .status-badge {
-    padding: 0.35rem 0.7rem;
-    font-size: 0.8rem;
-  }
-
-  .bottom-row {
-    justify-content: flex-start;
-  }
-
-  .request-actions {
-    justify-content: flex-start;
+  /* Progress Bar */
+  .progress-row {
+    margin-top: 0.25rem;
   }
 }
 </style>
