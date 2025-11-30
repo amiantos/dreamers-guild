@@ -195,14 +195,14 @@
                     <i class="fa-solid fa-copy"></i>
                     <span>{{ copied ? 'Copied!' : 'Copy' }}</span>
                   </button>
-                  <a
-                    :href="imageUrl"
-                    :download="`dreamers-guild-${image.uuid}.png`"
+                  <button
+                    @click="downloadImage"
                     class="btn-action btn-primary"
+                    title="Download image"
                   >
                     <i class="fa-solid fa-download"></i>
                     <span>Download</span>
-                  </a>
+                  </button>
                 </div>
                 <button
                   @click="showDeleteModal = true"
@@ -702,6 +702,40 @@ export default {
       }
     }
 
+    const downloadImage = async () => {
+      try {
+        let srcUrl = imageUrl.value
+
+        // Resolve demo-blob:// URLs
+        if (srcUrl?.startsWith('demo-blob://')) {
+          const { resolveBlobUrl } = await import('@api')
+          srcUrl = await resolveBlobUrl(srcUrl)
+          if (!srcUrl) {
+            throw new Error('Failed to resolve image URL')
+          }
+        }
+
+        // Fetch the image and create a blob
+        const response = await fetch(srcUrl)
+        const blob = await response.blob()
+        const blobUrl = URL.createObjectURL(blob)
+
+        // Create a temporary anchor and trigger download
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = `dreamers-guild-${props.image.uuid}.webp`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // Clean up the blob URL
+        URL.revokeObjectURL(blobUrl)
+      } catch (error) {
+        console.error('Failed to download image:', error)
+        alert('Failed to download image')
+      }
+    }
+
     // Check if image should be protected
     const isProtected = computed(() => {
       return props.image.is_hidden && checkHiddenAuth && !checkHiddenAuth()
@@ -766,6 +800,7 @@ export default {
       closeDetails,
       copyToClipboard,
       copyImageToClipboard,
+      downloadImage,
       copied,
       copyButtonText,
       showDeleteModal,
