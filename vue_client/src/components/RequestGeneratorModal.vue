@@ -552,7 +552,7 @@
         <div class="modal-footer">
           <!-- Kudos Estimate or Error -->
           <div class="kudos-estimate" v-if="kudosEstimate !== null || estimateError !== null">
-            <span v-if="kudosEstimate !== null" class="kudos-label">Kudos Cost: ~{{ kudosEstimate.toLocaleString() }} kudos for {{ form.n.toLocaleString() }} images, ~{{ (kudosEstimate / form.n).toFixed(0).toLocaleString() }} per image</span>
+            <span v-if="kudosEstimate !== null" class="kudos-label">~{{ kudosEstimate.toLocaleString() }} kudos for {{ form.n.toLocaleString() }} images, ~{{ (kudosEstimate / form.n).toFixed(0).toLocaleString() }} per image</span>
             <span v-else-if="estimateError !== null" class="kudos-error">{{ estimateError }}</span>
           </div>
 
@@ -2953,6 +2953,55 @@ export default {
 .btn-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Mobile full screen modal */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .modal-wrapper {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .modal-header {
+    padding: 1rem;
+  }
+
+  .modal-body {
+    padding: 1rem;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .modal-footer {
+    padding: 0.75rem 1rem 1rem 1rem;
+  }
+
+  .basic-settings-section,
+  .generation-settings-section,
+  .dimensions-section,
+  .advanced-options-section,
+  .loras-section,
+  .tis-section,
+  .post-processing-section,
+  .inline-styles-section {
+    padding: 0.75rem;
+  }
+
+  .section-title {
+    margin: 1rem 0 0.75rem 0;
+  }
 }
 
 </style>
