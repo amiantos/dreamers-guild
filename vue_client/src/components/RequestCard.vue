@@ -40,7 +40,7 @@
                 <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
               </template>
 
-              <template v-if="kudosCost > 0">
+              <template v-if="showKudos">
                 <span class="divider">•</span>
                 <span class="kudos">{{ formattedKudos }} kudos</span>
               </template>
@@ -94,7 +94,7 @@ export default {
     const actualImageCount = ref(null)
 
     const truncatedPrompt = computed(() => {
-      const maxLength = 100
+      const maxLength = 300
       if (props.request.prompt && props.request.prompt.length > maxLength) {
         return props.request.prompt.substring(0, maxLength) + '...'
       }
@@ -154,9 +154,9 @@ export default {
         return props.request.message || 'Request failed'
       }
 
-      // For submitting status
-      if (props.request.status === 'submitting') {
-        return 'Submitting...'
+      // For submitting status or no status yet
+      if (props.request.status === 'submitting' || !props.request.status) {
+        return 'Submitting to AI Horde...'
       }
 
       // For downloading status
@@ -175,8 +175,19 @@ export default {
         return `Processing ${finished}/${total}`
       }
 
-      // Otherwise show the message if available
-      return props.request.message || null
+      // Default fallback
+      return props.request.message || 'Submitting to AI Horde...'
+    })
+
+    // Hide kudos when still queued or submitting
+    const showKudos = computed(() => {
+      if (!props.request.status || props.request.status === 'submitting') {
+        return false
+      }
+      if (props.request.queue_position > 0) {
+        return false
+      }
+      return kudosCost.value > 0
     })
 
     const formatWaitTime = (seconds) => {
@@ -216,7 +227,7 @@ export default {
 
     const progressBarClass = computed(() => {
       if (props.request.status === 'submitting') return 'indeterminate'
-      if (props.request.status === 'downloading') return 'downloading'
+      if (props.request.status === 'completed') return 'completed'
       if (props.request.status === 'failed') return 'failed'
       return ''
     })
@@ -232,6 +243,7 @@ export default {
       imageCount,
       kudosCost,
       formattedKudos,
+      showKudos,
       progressPercent,
       showProgressBar,
       progressBarClass
@@ -421,13 +433,13 @@ export default {
 
 .progress-fill {
   height: 100%;
-  background: var(--color-primary);
+  background: var(--color-warning);
   border-radius: 2px;
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, background-color 0.3s ease;
 }
 
-.progress-fill.downloading {
-  background: var(--color-success-tailwind);
+.progress-fill.completed {
+  background: var(--color-primary);
 }
 
 .progress-fill.failed {
@@ -474,8 +486,8 @@ export default {
 
   .prompt {
     font-size: 1rem;
-    -webkit-line-clamp: 1;
-    margin-bottom:8px;
+    -webkit-line-clamp: 2;
+    margin-bottom: 8px;
   }
 
   /* Progress Bar */
