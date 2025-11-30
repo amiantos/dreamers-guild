@@ -2372,6 +2372,22 @@ export default {
   .request-card-item {
     padding: 0.75rem;
   }
+
+  /* Smaller FABs on mobile */
+  .fab {
+    width: 42px;
+    height: 42px;
+    font-size: 1.5rem;
+    bottom: 1rem;
+  }
+
+  .fab-new {
+    right: 1rem;
+  }
+
+  .fab-settings {
+    left: 1rem;
+  }
 }
 
 </style>
