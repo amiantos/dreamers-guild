@@ -2253,11 +2253,11 @@ export default {
 
 .btn-clear-history {
   width: 100%;
-  padding: 1rem;
-  background: var(--color-surface-hover);
-  border: 1px solid #444;
-  border-radius: 8px;
-  color: var(--color-text-tertiary);
+  padding: 0.75rem 1.5rem;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 9999px;
+  color: white;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
@@ -2269,9 +2269,7 @@ export default {
 }
 
 .btn-clear-history:hover {
-  background: #3a3a3a;
-  border-color: var(--color-danger-hover);
-  color: var(--color-danger-hover);
+  background: var(--color-primary-hover);
 }
 
 .btn-clear-history:active {
@@ -2294,13 +2292,27 @@ export default {
 }
 
 .requests-grid {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.request-card-item:not(:last-child) {
-  border-bottom: 1px solid #333;
-  padding-bottom: 1rem;
+.request-card-item {
+  background: var(--color-bg-secondary);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+@media (min-width: 769px) {
+  .requests-grid {
+    align-items: center;
+  }
+
+  .request-card-item,
+  .btn-clear-history {
+    max-width: 800px;
+    width: 100%;
+  }
 }
 
 /* Mobile responsive */
@@ -2331,6 +2343,19 @@ export default {
 
   .header-row-2 {
     order: 3;
+  }
+
+  /* Requests panel mobile adjustments */
+  .panel-content {
+    padding: 1rem;
+  }
+
+  .requests-grid {
+    gap: 0.5rem;
+  }
+
+  .request-card-item {
+    padding: 0.75rem;
   }
 }
 

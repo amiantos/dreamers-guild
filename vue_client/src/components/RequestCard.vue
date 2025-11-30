@@ -1,57 +1,70 @@
 <template>
   <div class="request-card">
+    <!-- Delete button in top-right corner -->
+    <button
+      @click="$emit('delete', request.uuid)"
+      class="delete-btn"
+      title="Delete request"
+    >
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
     <div class="card-content">
       <div class="thumbnail-container">
-        <div v-if="request.status === 'completed' && thumbnailUrl" class="thumbnail">
+        <!-- Completed with thumbnail -->
+        <div
+          v-if="request.status === 'completed' && thumbnailUrl"
+          class="thumbnail clickable"
+          @click="$emit('view-images', request.uuid)"
+        >
           <AsyncImage :src="thumbnailUrl" alt="Request thumbnail" />
+          <div class="thumbnail-overlay">
+            <i class="fa-solid fa-eye"></i>
+          </div>
         </div>
+        <!-- Failed state - show alert icon -->
+        <div v-else-if="request.status === 'failed'" class="thumbnail placeholder error">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <!-- Completed but no images -->
+        <div v-else-if="request.status === 'completed'" class="thumbnail placeholder">
+        </div>
+        <!-- Processing states - show spinner -->
         <div v-else class="thumbnail placeholder">
           <div class="spinner"></div>
         </div>
       </div>
 
       <div class="card-body">
-        <div class="request-header">
-          <div class="request-info">
-            <h3 class="prompt">{{ truncatedPrompt }}</h3>
-            <div class="meta">
-              <span class="date">{{ formattedDate }}</span>
-              <span class="divider">•</span>
-              <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
-              <template v-if="statusMessage">
-                <span class="divider">•</span>
-                <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
-              </template>
-            </div>
-          </div>
-          <div class="request-status">
-            <span class="status-badge" :class="statusClass">{{ statusText }}</span>
-          </div>
-        </div>
+        <h3 class="prompt">{{ truncatedPrompt }}</h3>
+        <div class="meta">
+          <!-- Show image count only when completed, otherwise show status -->
+          <template v-if="request.status === 'completed'">
+            <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
+          </template>
+          <template v-else-if="statusMessage">
+            <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
+          </template>
 
-        <div class="request-actions">
-          <button
-            v-if="request.status === 'completed'"
-            @click="$emit('view-images', request.uuid)"
-            class="btn btn-primary"
-          >
-            View Images
-          </button>
-          <button
+          <template v-if="showKudos">
+            <span class="divider">•</span>
+            <span class="kudos">{{ formattedKudos }} kudos</span>
+          </template>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" :class="{ 'progress-bar-failed': request.status === 'failed' }">
+            <div
+              class="progress-fill"
+              :class="progressBarClass"
+              :style="{ width: progressPercent + '%' }"
+            ></div>
+          </div>
+          <!-- Retry action for failed requests -->
+          <span
             v-if="request.status === 'failed'"
+            class="progress-action retry"
             @click="$emit('retry', request.uuid)"
-            class="btn btn-secondary"
-          >
-            <i class="fa-solid fa-rotate-right"></i>
-            Retry
-          </button>
-          <button
-            @click="$emit('delete', request.uuid)"
-            class="btn btn-icon btn-delete"
-            title="Delete request"
-          >
-            <i class="fa-solid fa-trash"></i>
-          </button>
+          >Retry</span>
         </div>
       </div>
     </div>
@@ -61,7 +74,6 @@
 <script>
 import { computed, ref, onMounted, watch } from 'vue'
 import { imagesApi } from '@api'
-import { getStatusClass, getStatusText } from '../utils/statusUtils.js'
 import AsyncImage from './AsyncImage.vue'
 
 export default {
@@ -81,16 +93,11 @@ export default {
     const actualImageCount = ref(null)
 
     const truncatedPrompt = computed(() => {
-      const maxLength = 100
+      const maxLength = 300
       if (props.request.prompt && props.request.prompt.length > maxLength) {
         return props.request.prompt.substring(0, maxLength) + '...'
       }
       return props.request.prompt || 'Untitled request'
-    })
-
-    const formattedDate = computed(() => {
-      const date = new Date(props.request.date_created)
-      return date.toLocaleString()
     })
 
     // Fetch first image thumbnail for completed requests
@@ -123,11 +130,10 @@ export default {
       fetchThumbnail()
     })
 
-    const statusClass = computed(() => getStatusClass(props.request.status))
-
-    const statusText = computed(() => getStatusText(props.request.status))
-
     const statusMessage = computed(() => {
+      const finished = props.request.finished || 0
+      const total = props.request.n || 0
+
       // For completed requests, don't show additional message
       if (props.request.status === 'completed') {
         return null
@@ -138,14 +144,40 @@ export default {
         return props.request.message || 'Request failed'
       }
 
+      // For submitting status or no status yet
+      if (props.request.status === 'submitting' || !props.request.status) {
+        return 'Submitting to AI Horde...'
+      }
+
+      // For downloading status
+      if (props.request.status === 'downloading') {
+        return `Downloading ${finished}/${total}`
+      }
+
       // Show queue position if available
       if (props.request.queue_position > 0) {
         const waitTime = props.request.wait_time > 0 ? ` (~${formatWaitTime(props.request.wait_time)})` : ''
         return `Queue position ${props.request.queue_position}${waitTime}`
       }
 
-      // Otherwise show the message if available
-      return props.request.message || null
+      // For processing status without queue position
+      if (props.request.status === 'processing') {
+        return `Processing ${finished}/${total}`
+      }
+
+      // Default fallback
+      return props.request.message || 'Submitting to AI Horde...'
+    })
+
+    // Hide kudos when still queued or submitting
+    const showKudos = computed(() => {
+      if (!props.request.status || props.request.status === 'submitting') {
+        return false
+      }
+      if (props.request.queue_position > 0) {
+        return false
+      }
+      return kudosCost.value > 0
     })
 
     const formatWaitTime = (seconds) => {
@@ -159,41 +191,105 @@ export default {
       return actualImageCount.value !== null ? actualImageCount.value : props.request.n
     })
 
+    // Kudos cost display
+    const kudosCost = computed(() => {
+      return props.request.total_kudos_cost || 0
+    })
+
+    const formattedKudos = computed(() => {
+      const cost = kudosCost.value
+      if (cost >= 1000) {
+        return (cost / 1000).toFixed(1) + 'k'
+      }
+      return cost.toString()
+    })
+
+    // Progress tracking for active requests
+    const progressPercent = computed(() => {
+      if (!props.request.n || props.request.n === 0) return 0
+      const finished = props.request.finished || 0
+      return Math.round((finished / props.request.n) * 100)
+    })
+
+    const progressBarClass = computed(() => {
+      if (props.request.status === 'submitting') return 'indeterminate'
+      if (props.request.status === 'completed') return 'completed'
+      if (props.request.status === 'failed') return 'failed'
+      // Keep sliding animation until images start completing
+      const finished = props.request.finished || 0
+      if (finished === 0) return 'indeterminate'
+      return ''
+    })
+
     return {
       thumbnailUrl,
       truncatedPrompt,
-      formattedDate,
-      statusClass,
-      statusText,
       statusMessage,
-      formatWaitTime,
-      imageCount
+      imageCount,
+      formattedKudos,
+      showKudos,
+      progressPercent,
+      progressBarClass
     }
   }
 }
 </script>
 
 <style scoped>
+/* ==============================================
+   BASE STYLES
+   ============================================== */
+
 .request-card {
-
-}
-
-.request-card:hover {
-
+  position: relative;
 }
 
 .card-content {
   display: flex;
-  gap: 1.5rem;
+  gap: 0.75rem;
 }
 
+.card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Delete button - top right corner */
+.delete-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  transition: opacity 0.2s, color 0.2s;
+  font-size: 0.9rem;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+  color: var(--color-danger-tailwind);
+}
+
+/* Thumbnail */
 .thumbnail-container {
   flex-shrink: 0;
 }
 
 .thumbnail {
-  width: 100px;
-  height: 100px;
+  width: 70px;
+  height: 70px;
   border-radius: 8px;
   overflow: hidden;
   background: var(--color-bg-elevated);
@@ -213,10 +309,45 @@ export default {
   border: 1px solid var(--color-border);
 }
 
+.thumbnail.placeholder.error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.thumbnail.placeholder.error i {
+  color: var(--color-danger-tailwind);
+  font-size: 1.5rem;
+}
+
+.thumbnail.clickable {
+  cursor: pointer;
+  position: relative;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 8px;
+}
+
+.thumbnail-overlay i {
+  color: white;
+  font-size: 1.25rem;
+}
+
+.thumbnail.clickable:hover .thumbnail-overlay {
+  opacity: 1;
+}
+
 .spinner {
-  width: 30px;
-  height: 30px;
-  border: 3px solid var(--color-border);
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -226,43 +357,33 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-.card-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.request-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.request-info {
-  flex: 1;
-  min-width: 0;
-}
-
 .prompt {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  margin: 0 0 0.5rem 0;
+  margin: 0;
+  padding-right: 1.5rem; /* Space for delete button */
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .meta {
   display: flex;
   gap: 0.5rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-tertiary);
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .divider {
   color: var(--color-border-lighter);
 }
 
+/* Status message inline */
 .status-message {
   color: var(--color-text-secondary);
 }
@@ -271,93 +392,88 @@ export default {
   color: var(--color-danger-tailwind);
 }
 
-.request-status {
-  flex-shrink: 0;
-}
-
-.status-badge {
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.status-pending {
-  background-color: var(--color-pending-bg);
-  color: var(--color-text-secondary);
-}
-
-.status-processing {
-  background-color: var(--color-info-bg);
-  color: var(--color-info-tailwind);
-}
-
-.status-completed {
-  background-color: var(--color-success-bg);
-  color: var(--color-success-tailwind);
-}
-
-.status-failed {
-  background-color: var(--color-danger-bg);
-  color: var(--color-danger-tailwind);
-}
-
-.request-actions {
+.progress-container {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
 }
 
-.btn {
-  padding: 0.6rem 1.2rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-failed {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-warning);
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.progress-fill.completed {
+  background: var(--color-primary);
+}
+
+.progress-fill.failed {
+  background: var(--color-danger-tailwind);
+  width: 100% !important;
+}
+
+.progress-fill.indeterminate {
+  width: 30% !important;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* Retry action text */
+.progress-action {
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+  position: relative;
 }
 
-.btn-icon {
-  padding: 0.6rem;
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.progress-action:hover {
+  opacity: 0.8;
 }
 
-.btn-primary {
-  background: var(--color-btn-primary-bg);
-  color: var(--color-btn-primary-text);
+.progress-action.retry {
+  color: var(--color-danger-tailwind);
 }
 
-.btn-primary:hover {
-  background: var(--color-btn-primary-hover);
-}
+/* ==============================================
+   DESKTOP (>768px)
+   ============================================== */
 
-.btn-secondary {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+@media (min-width: 769px) {
+  .card-body {
+    gap: 0.7rem;
+  }
 
-.btn-secondary:hover {
-  background: var(--color-bg-elevated);
-  border-color: var(--color-border-light);
-}
+  .thumbnail {
+    width: 80px;
+    height: 80px;
+  }
 
-.btn-delete {
-  background: transparent;
-  color: var(--color-text-tertiary);
-  border: 1px solid var(--color-border);
-}
-
-.btn-delete:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
+  .prompt {
+    font-size: 1rem;
+    line-height: 1.3rem;
+    -webkit-line-clamp: 2;
+    padding-bottom:0px;
+    margin-bottom:-3px;
+  }
 }
 </style>
