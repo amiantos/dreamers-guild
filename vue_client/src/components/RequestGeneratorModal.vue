@@ -3000,7 +3000,7 @@ export default {
   }
 
   .inline-styles-section {
-    min-height: 300px;
+    min-height: 600px;
   }
 
   .section-title {
