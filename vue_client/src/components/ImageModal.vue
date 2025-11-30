@@ -1393,8 +1393,12 @@ export default {
 
   .lightbox-container {
     border-radius: 0;
+    /* Fallback for older browsers */
     height: 100vh;
     max-height: 100vh;
+    /* Dynamic viewport height for iOS Safari */
+    height: 100dvh;
+    max-height: 100dvh;
   }
 
   .inspector-sidebar {

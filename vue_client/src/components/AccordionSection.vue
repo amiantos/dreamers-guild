@@ -79,12 +79,8 @@ export default {
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
   text-align: left;
-}
-
-.accordion-header:hover {
-  background: var(--color-surface-hover);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .accordion-title {
