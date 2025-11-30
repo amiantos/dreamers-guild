@@ -1837,9 +1837,24 @@ export default {
 
 .image-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
+  width: 100%;
   background: var(--color-bg-base);
+}
+
+/* Tablet: scale from 4 to max 5 columns */
+@media (min-width: 500px) {
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(max(calc(100% / 5 - 4px), 110px), 1fr));
+  }
+}
+
+/* Desktop: scale up to max 7 columns */
+@media (min-width: 1401px) {
+  .image-grid {
+    grid-template-columns: repeat(auto-fill, minmax(calc(100% / 7 - 4px), 1fr));
+  }
 }
 
 .image-item {
