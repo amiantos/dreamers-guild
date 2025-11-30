@@ -11,7 +11,7 @@
           </button>
 
           <!-- Main image display -->
-          <div class="image-display" :class="{ 'protected': isProtected }">
+          <div class="image-display" :class="{ 'protected': isProtected }" @click="enterFullscreen">
             <AsyncImage :src="imageUrl" :alt="image.prompt_simple" />
             <!-- Protection overlay -->
             <div v-if="isProtected" class="protection-overlay">
@@ -245,6 +245,32 @@
       </div>
     </div>
   </div>
+
+  <!-- Mobile Fullscreen Image Viewer -->
+  <div v-if="isFullscreen && !isDesktop" class="fullscreen-overlay">
+    <div
+      class="fullscreen-image-container"
+      @touchstart="handleTouchStart"
+      @touchmove="handleTouchMove"
+      @touchend="handleTouchEnd"
+      @click="toggleFabs"
+    >
+      <AsyncImage :src="imageUrl" :alt="image.prompt_simple" class="fullscreen-image" />
+    </div>
+    <transition name="fade">
+      <div v-show="showFabs" class="fullscreen-fabs">
+        <button @click.stop="toggleFavorite" class="fab" :class="{ active: isFavorite }">
+          <i :class="['fa-solid', isFavorite ? 'fa-star' : 'fa-star']"></i>
+        </button>
+        <button @click.stop="toggleHidden" class="fab" :class="{ active: isHidden }">
+          <i :class="['fa-solid', isHidden ? 'fa-eye-slash' : 'fa-eye']"></i>
+        </button>
+        <button @click.stop="showDeleteModal = true" class="fab fab-danger">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+    </transition>
+  </div>
 </template>
 
 <script>
@@ -299,6 +325,15 @@ export default {
     const canScrollPrev = ref(false)
     const canScrollNext = ref(false)
     const isDesktop = ref(window.innerWidth > 1024)
+
+    // Fullscreen mode state (mobile only)
+    const isFullscreen = ref(false)
+    const showFabs = ref(true)
+    let fabTimeout = null
+    const touchStartX = ref(0)
+    const touchStartY = ref(0)
+    const touchCurrentX = ref(0)
+    const touchCurrentY = ref(0)
 
     // Watch for prop changes when navigating between images
     watch(() => props.image, (newImage) => {
@@ -758,6 +793,73 @@ export default {
       isDesktop.value = window.innerWidth > 1024
     }
 
+    // Fullscreen mode functions
+    const resetFabTimer = () => {
+      showFabs.value = true
+      if (fabTimeout) clearTimeout(fabTimeout)
+      fabTimeout = setTimeout(() => {
+        showFabs.value = false
+      }, 3000)
+    }
+
+    const toggleFabs = () => {
+      if (showFabs.value) {
+        showFabs.value = false
+        if (fabTimeout) clearTimeout(fabTimeout)
+      } else {
+        resetFabTimer()
+      }
+    }
+
+    const enterFullscreen = () => {
+      if (isDesktop.value || isProtected.value) return
+      isFullscreen.value = true
+      resetFabTimer()
+    }
+
+    const closeFullscreen = () => {
+      isFullscreen.value = false
+      if (fabTimeout) clearTimeout(fabTimeout)
+    }
+
+    const handleTouchStart = (e) => {
+      touchStartX.value = e.touches[0].clientX
+      touchStartY.value = e.touches[0].clientY
+      touchCurrentX.value = touchStartX.value
+      touchCurrentY.value = touchStartY.value
+    }
+
+    const handleTouchMove = (e) => {
+      touchCurrentX.value = e.touches[0].clientX
+      touchCurrentY.value = e.touches[0].clientY
+    }
+
+    const handleTouchEnd = () => {
+      const deltaX = touchCurrentX.value - touchStartX.value
+      const deltaY = touchCurrentY.value - touchStartY.value
+      const absX = Math.abs(deltaX)
+      const absY = Math.abs(deltaY)
+
+      const SWIPE_THRESHOLD = 50
+
+      // Swipe down to close (vertical swipe dominant)
+      if (absY > absX && deltaY > SWIPE_THRESHOLD) {
+        closeFullscreen()
+        return
+      }
+
+      // Swipe left/right to navigate (horizontal swipe dominant)
+      if (absX > absY && absX > SWIPE_THRESHOLD) {
+        if (deltaX < 0 && props.canNavigateNext) {
+          emit('navigate', 1)
+          resetFabTimer()
+        } else if (deltaX > 0 && props.canNavigatePrev) {
+          emit('navigate', -1)
+          resetFabTimer()
+        }
+      }
+    }
+
     onMounted(() => {
       window.addEventListener('keydown', handleKeydown)
       window.addEventListener('resize', handleResize)
@@ -776,6 +878,8 @@ export default {
       if (filmstripTrack.value) {
         filmstripTrack.value.removeEventListener('scroll', updateScrollButtons)
       }
+      // Clear fullscreen FAB timeout
+      if (fabTimeout) clearTimeout(fabTimeout)
     })
 
     return {
@@ -820,7 +924,16 @@ export default {
       canScrollPrev,
       canScrollNext,
       // Responsive
-      isDesktop
+      isDesktop,
+      // Fullscreen mode
+      isFullscreen,
+      showFabs,
+      enterFullscreen,
+      closeFullscreen,
+      toggleFabs,
+      handleTouchStart,
+      handleTouchMove,
+      handleTouchEnd
     }
   }
 }
@@ -1414,5 +1527,92 @@ export default {
     top: 0.5rem;
     right: 0.5rem;
   }
+
+  .image-display {
+    cursor: pointer;
+  }
+}
+
+/* Fullscreen Image Viewer */
+.fullscreen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #000;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullscreen-image-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.fullscreen-image-container :deep(img) {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.fullscreen-fabs {
+  position: fixed;
+  bottom: calc(2rem + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1rem;
+  z-index: 2001;
+}
+
+.fab {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: white;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.fab.active {
+  background: var(--color-primary);
+}
+
+.fab:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.fab.active:active {
+  background: var(--color-primary-hover);
+}
+
+.fab-danger:active {
+  background: rgba(220, 38, 38, 0.6);
+}
+
+/* Fade transition for FABs */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
