@@ -10,7 +10,7 @@
               @click="toggleEditorMode"
               :title="editorMode === 'simple' ? 'Switch to Advanced mode' : 'Switch to Simple mode'"
             >
-              {{ editorMode === 'simple' ? 'Advanced Mode' : 'Style Mode' }}
+              {{ editorMode === 'simple' ? 'Advanced' : 'Styles' }}
             </button>
             <button class="btn-reset" @click="resetForm" :title="editorMode === 'simple' ? 'Random prompt' : 'Clear form'">
               <i v-if="editorMode === 'simple'" class="fas fa-shuffle"></i>
@@ -2964,8 +2964,12 @@ export default {
   .modal-content {
     max-width: 100%;
     width: 100%;
+    /* Fallback for older browsers */
     height: 100vh;
     max-height: 100vh;
+    /* Dynamic viewport height for iOS Safari */
+    height: 100dvh;
+    max-height: 100dvh;
     border-radius: 0;
   }
 
