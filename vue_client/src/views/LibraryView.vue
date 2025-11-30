@@ -2266,11 +2266,11 @@ export default {
 
 .btn-clear-history {
   width: 100%;
-  padding: 1rem;
-  background: var(--color-surface-hover);
-  border: 1px solid #444;
-  border-radius: 8px;
-  color: var(--color-text-tertiary);
+  padding: 0.75rem 1.5rem;
+  background: var(--color-primary);
+  border: none;
+  border-radius: 9999px;
+  color: white;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
@@ -2282,9 +2282,7 @@ export default {
 }
 
 .btn-clear-history:hover {
-  background: #3a3a3a;
-  border-color: var(--color-danger-hover);
-  color: var(--color-danger-hover);
+  background: var(--color-primary-hover);
 }
 
 .btn-clear-history:active {
