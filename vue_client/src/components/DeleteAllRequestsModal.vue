@@ -2,36 +2,36 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>{{ hasOngoingRequests ? 'Cancel All Requests' : 'Delete All Requests' }}</h2>
+        <h2>{{ hasOngoingRequests ? 'Cancel All Dreams' : 'Delete All Dreams' }}</h2>
         <button class="btn-close" @click="$emit('close')">×</button>
       </div>
 
       <div class="modal-body">
         <!-- Simple confirmation for when there are ongoing requests -->
         <template v-if="hasOngoingRequests">
-          <p>Cancel all ongoing requests and delete all completed requests?</p>
+          <p>Cancel all ongoing dreams and delete all completed dreams?</p>
 
           <div class="option-buttons">
             <button @click="$emit('delete', 'cancel')" class="btn btn-confirm">
-              <div class="btn-title">Yes, Cancel All Requests</div>
-              <div class="btn-description">Stop all processing and remove all requests</div>
+              <div class="btn-title">Yes, Cancel All Dreams</div>
+              <div class="btn-description">Stop all processing and remove all dreams</div>
             </button>
 
             <button @click="$emit('close')" class="btn btn-cancel">
-              <div class="btn-title">No, Keep Requests</div>
-              <div class="btn-description">Don't cancel or delete any requests</div>
+              <div class="btn-title">No, Keep Dreams</div>
+              <div class="btn-description">Don't cancel or delete any dreams</div>
             </button>
           </div>
         </template>
 
         <!-- Detailed options when all requests are completed/failed -->
         <template v-else>
-          <p>What would you like to do with the images from all requests?</p>
+          <p>What would you like to do with the images from all dreams?</p>
 
           <div class="option-buttons">
             <button @click="$emit('delete', 'prune')" class="btn btn-prune">
               <div class="btn-title">Prune Images</div>
-              <div class="btn-description">Delete non-favorited/hidden images from all requests</div>
+              <div class="btn-description">Delete non-favorited/hidden images from all dreams</div>
             </button>
 
             <button @click="$emit('delete', 'hide')" class="btn btn-hide">
@@ -41,12 +41,12 @@
 
             <button @click="$emit('delete', 'keep')" class="btn btn-keep">
               <div class="btn-title">Keep All Images</div>
-              <div class="btn-description">Preserve all images from all requests</div>
+              <div class="btn-description">Preserve all images from all dreams</div>
             </button>
 
             <button @click="$emit('close')" class="btn btn-cancel">
               <div class="btn-title">Cancel</div>
-              <div class="btn-description">Don't delete any requests</div>
+              <div class="btn-description">Don't delete any dreams</div>
             </button>
           </div>
         </template>

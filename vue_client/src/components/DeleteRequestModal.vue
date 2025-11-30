@@ -2,31 +2,31 @@
   <div class="modal-overlay" @click.self="$emit('close')">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>{{ isOngoingRequest ? 'Cancel Request' : 'Delete Request' }}</h2>
+        <h2>{{ isOngoingRequest ? 'Cancel Dream' : 'Delete Dream' }}</h2>
         <button class="btn-close" @click="$emit('close')">×</button>
       </div>
 
       <div class="modal-body">
         <!-- Simple confirmation for ongoing requests -->
         <template v-if="isOngoingRequest">
-          <p>Cancel this ongoing request?</p>
+          <p>Cancel this ongoing dream?</p>
 
           <div class="option-buttons">
             <button @click="$emit('delete', 'cancel')" class="btn btn-confirm">
-              <div class="btn-title">Yes, Cancel Request</div>
-              <div class="btn-description">Stop processing and remove this request</div>
+              <div class="btn-title">Yes, Cancel Dream</div>
+              <div class="btn-description">Stop processing and remove this dream</div>
             </button>
 
             <button @click="$emit('close')" class="btn btn-cancel">
-              <div class="btn-title">No, Keep Request</div>
-              <div class="btn-description">Don't cancel this request</div>
+              <div class="btn-title">No, Keep Dream</div>
+              <div class="btn-description">Don't cancel this dream</div>
             </button>
           </div>
         </template>
 
         <!-- Detailed options for completed requests -->
         <template v-else>
-          <p>What would you like to do with the images from this request?</p>
+          <p>What would you like to do with the images from this dream?</p>
 
           <div class="option-buttons">
             <button @click="$emit('delete', 'prune')" class="btn btn-prune">
@@ -46,7 +46,7 @@
 
             <button @click="$emit('close')" class="btn btn-cancel">
               <div class="btn-title">Cancel</div>
-              <div class="btn-description">Don't delete this request</div>
+              <div class="btn-description">Don't delete this dream</div>
             </button>
           </div>
         </template>

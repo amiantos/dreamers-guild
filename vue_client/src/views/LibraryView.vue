@@ -80,10 +80,10 @@
               <button @click="applySearch" class="btn-search">Search</button>
             </div>
 
-            <!-- Favorites Toggle Button -->
+            <!-- Favorites Toggle Button (hidden on mobile) -->
             <button
               @click="toggleFavorites"
-              class="btn-favorites-toggle"
+              class="btn-favorites-toggle hide-mobile"
               :class="{ active: filters.showFavoritesOnly }"
               title="Show Favorites"
               aria-label="Show Favorites"
@@ -91,8 +91,8 @@
               <i class="fa-solid fa-star" aria-hidden="true"></i>
             </button>
 
-            <!-- Albums Modal Toggle Button -->
-            <button @click="toggleAlbumsModal" class="btn-albums-toggle" title="Albums" aria-label="Open Albums">
+            <!-- Albums Modal Toggle Button (hidden on mobile) -->
+            <button @click="toggleAlbumsModal" class="btn-albums-toggle hide-mobile" title="Albums" aria-label="Open Albums">
               <i class="fa-solid fa-images" aria-hidden="true"></i>
             </button>
 
@@ -102,10 +102,20 @@
                 <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
               </button>
               <div v-if="showMenu" class="menu-dropdown">
+                <div class="menu-item show-mobile-only" @click="toggleFavorites">
+                  <i class="fa-solid fa-star" :class="{ active: filters.showFavoritesOnly }" aria-hidden="true"></i>
+                  <span>{{ filters.showFavoritesOnly ? 'Show All' : 'Show Favorites' }}</span>
+                </div>
+                <div class="menu-item show-mobile-only" @click="toggleAlbumsModal">
+                  <i class="fa-solid fa-images" aria-hidden="true"></i>
+                  <span>Albums</span>
+                </div>
                 <div class="menu-item" @click="toggleMultiSelectMode">
+                  <i class="fa-solid fa-check-double" aria-hidden="true"></i>
                   <span>Multi-Select Mode</span>
                 </div>
                 <div class="menu-item" @click="toggleHiddenImages">
+                  <i class="fa-solid" :class="filters.showHidden ? 'fa-eye' : 'fa-eye-slash'" aria-hidden="true"></i>
                   <span>{{ filters.showHidden ? 'Exit Hidden View' : 'Show Hidden Only' }}</span>
                 </div>
               </div>
@@ -261,7 +271,7 @@
     <div v-if="selectedCount === 0" class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
       <div class="tab-content">
         <span class="status-dot" :class="requestStatusClass"></span>
-        <span class="tab-text">Requests</span>
+        <span class="tab-text">Dreams</span>
       </div>
     </div>
   </div>
@@ -1568,13 +1578,13 @@ export default {
 }
 
 .btn-albums-toggle {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
-  background: transparent;
+  background: var(--color-surface);
   border: 1px solid #333;
   color: var(--color-text-tertiary);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -1592,7 +1602,7 @@ export default {
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   flex: 1;
   min-width: 0;
   justify-content: flex-end;
@@ -1725,13 +1735,13 @@ export default {
 }
 
 .btn-favorites-toggle {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
-  background: transparent;
+  background: var(--color-surface);
   border: 1px solid #333;
   color: var(--color-text-tertiary);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -1756,13 +1766,13 @@ export default {
 }
 
 .btn-menu {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 6px;
-  background: transparent;
+  background: var(--color-surface);
   border: 1px solid #333;
   color: var(--color-text-tertiary);
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -1783,7 +1793,7 @@ export default {
   background: var(--color-surface);
   border: 1px solid #333;
   border-radius: 8px;
-  min-width: 183px;
+  min-width: 200px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   z-index: 100;
   overflow: hidden;
@@ -1807,6 +1817,15 @@ export default {
 .menu-item i {
   width: 20px;
   color: var(--color-text-tertiary);
+}
+
+.menu-item i.active {
+  color: var(--color-warning);
+}
+
+/* Mobile-only menu items hidden on desktop */
+.show-mobile-only {
+  display: none;
 }
 
 .loading,
@@ -2373,6 +2392,15 @@ export default {
     padding: 0.75rem;
   }
 
+  /* Hide standalone buttons, show in menu */
+  .hide-mobile {
+    display: none !important;
+  }
+
+  .show-mobile-only {
+    display: flex !important;
+  }
+
   /* Smaller FABs on mobile */
   .fab {
     width: 42px;
@@ -2387,6 +2415,22 @@ export default {
 
   .fab-settings {
     left: 1rem;
+  }
+
+  /* Smaller requests tab on mobile */
+  .panel-tab .tab-content {
+    padding: 0.5rem 1rem;
+    gap: 0.5rem;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .tab-text {
+    font-size: 0.85rem;
   }
 }
 
