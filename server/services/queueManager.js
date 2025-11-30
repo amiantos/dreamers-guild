@@ -252,12 +252,16 @@ class QueueManager {
       try {
         console.log(`[Status] → API call to /generate/check/${hordeId} for ${requestUuid.substring(0, 8)}...`);
         const status = await hordeApi.getImageAsyncCheck(hordeId);
-        console.log(`[Status] ← Response: done=${status.done}, queue_position=${status.queue_position || 0}, wait_time=${status.wait_time || 0}, finished=${status.finished || 0}/${status.processing || 0}`);
+        console.log(`[Status] ← Response: done=${status.done}, queue_position=${status.queue_position || 0}, wait_time=${status.wait_time || 0}, finished=${status.finished || 0}/${status.processing || 0}, kudos=${status.kudos || 0}`);
 
-        // Update request status
+        // Update request status with progress info
         HordeRequest.update(requestUuid, {
           queuePosition: status.queue_position || 0,
           waitTime: status.wait_time || 0,
+          finished: status.finished || 0,
+          waiting: status.waiting || 0,
+          processing: status.processing || 0,
+          totalKudosCost: status.kudos || 0,
           message: status.queue_position > 0
             ? `In queue (position: ${status.queue_position})`
             : 'Processing...'

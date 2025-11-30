@@ -2294,13 +2294,15 @@ export default {
 }
 
 .requests-grid {
-  display: grid;
-  gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.request-card-item:not(:last-child) {
-  border-bottom: 1px solid #333;
-  padding-bottom: 1rem;
+.request-card-item {
+  background: var(--color-bg-secondary);
+  border-radius: 8px;
+  padding: 1rem;
 }
 
 /* Mobile responsive */
@@ -2331,6 +2333,19 @@ export default {
 
   .header-row-2 {
     order: 3;
+  }
+
+  /* Requests panel mobile adjustments */
+  .panel-content {
+    padding: 1rem;
+  }
+
+  .requests-grid {
+    gap: 0.5rem;
+  }
+
+  .request-card-item {
+    padding: 0.75rem;
   }
 }
 

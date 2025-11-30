@@ -59,6 +59,9 @@ export const HordeRequest = {
     if (data.waitTime !== undefined) { fields.push('wait_time = ?'); values.push(data.waitTime); }
     if (data.totalKudosCost !== undefined) { fields.push('total_kudos_cost = ?'); values.push(data.totalKudosCost); }
     if (data.hordeId !== undefined) { fields.push('horde_id = ?'); values.push(data.hordeId); }
+    if (data.finished !== undefined) { fields.push('finished = ?'); values.push(data.finished); }
+    if (data.waiting !== undefined) { fields.push('waiting = ?'); values.push(data.waiting); }
+    if (data.processing !== undefined) { fields.push('processing = ?'); values.push(data.processing); }
 
     if (fields.length === 0) return this.findById(uuid);
 

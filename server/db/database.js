@@ -115,6 +115,9 @@ function initDatabase() {
 
   // Run migrations for horde_requests table
   addColumnIfNotExists('horde_requests', 'horde_id', 'TEXT', 'AI Horde request ID for status checking');
+  addColumnIfNotExists('horde_requests', 'finished', 'INTEGER DEFAULT 0', 'Number of finished images');
+  addColumnIfNotExists('horde_requests', 'waiting', 'INTEGER DEFAULT 0', 'Number of images waiting in queue');
+  addColumnIfNotExists('horde_requests', 'processing', 'INTEGER DEFAULT 0', 'Number of images being processed');
 
   // Migration: Delete any trashed images (soft-delete cleanup)
   // This permanently removes images that were previously soft-deleted

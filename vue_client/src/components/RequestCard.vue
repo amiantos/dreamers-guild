@@ -1,6 +1,7 @@
 <template>
   <div class="request-card">
     <div class="card-content">
+      <!-- Desktop thumbnail (hidden on mobile via CSS) -->
       <div class="thumbnail-container">
         <div v-if="request.status === 'completed' && thumbnailUrl" class="thumbnail">
           <AsyncImage :src="thumbnailUrl" alt="Request thumbnail" />
@@ -11,50 +12,70 @@
       </div>
 
       <div class="card-body">
+        <!-- Header: Prompt + Meta + Badge -->
         <div class="request-header">
           <div class="request-info">
             <h3 class="prompt">{{ truncatedPrompt }}</h3>
             <div class="meta">
-              <span class="date">{{ formattedDate }}</span>
-              <span class="divider">•</span>
               <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
-              <template v-if="statusMessage">
+              <template v-if="kudosCost > 0">
                 <span class="divider">•</span>
-                <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
+                <span class="kudos">{{ formattedKudos }} kudos</span>
               </template>
             </div>
           </div>
-          <div class="request-status">
-            <span class="status-badge" :class="statusClass">{{ statusText }}</span>
+        </div>
+
+        <!-- Progress Row (for active states) -->
+        <div v-if="showProgressBar" class="progress-row">
+          <div class="progress-container">
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :class="progressBarClass"
+                :style="{ width: progressPercent + '%' }"
+              ></div>
+            </div>
+            <span class="progress-text">{{ progressText }}</span>
           </div>
         </div>
 
-        <div class="request-actions">
-          <button
-            v-if="request.status === 'completed'"
-            @click="$emit('view-images', request.uuid)"
-            class="btn btn-primary"
-          >
-            View Images
-          </button>
-          <button
-            v-if="request.status === 'failed'"
-            @click="$emit('retry', request.uuid)"
-            class="btn btn-secondary"
-          >
-            <i class="fa-solid fa-rotate-right"></i>
-            Retry
-          </button>
-          <button
-            @click="$emit('delete', request.uuid)"
-            class="btn btn-icon btn-delete"
-            title="Delete request"
-          >
-            <i class="fa-solid fa-trash"></i>
-          </button>
+        <!-- Status Message Row (for pending/failed) -->
+        <div v-else-if="statusMessage" class="status-row">
+          <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
         </div>
       </div>
     </div>
+    <!-- Bottom Row: Mobile thumbnail + Actions -->
+        <div class="bottom-row">
+          <div class="request-actions">
+            <button
+              v-if="request.status === 'completed'"
+              @click="$emit('view-images', request.uuid)"
+              class="btn btn-primary"
+              title="View Images"
+            >
+              <i class="fa-solid fa-eye btn-icon-mobile"></i>
+              <span class="btn-label">View Images</span>
+            </button>
+            <button
+              v-if="request.status === 'failed'"
+              @click="$emit('retry', request.uuid)"
+              class="btn btn-secondary"
+              title="Retry"
+            >
+              <i class="fa-solid fa-rotate-right"></i>
+              <span class="btn-label">Retry</span>
+            </button>
+            <button
+              @click="$emit('delete', request.uuid)"
+              class="btn btn-icon btn-delete"
+              title="Delete request"
+            >
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
   </div>
 </template>
 
@@ -159,6 +180,44 @@ export default {
       return actualImageCount.value !== null ? actualImageCount.value : props.request.n
     })
 
+    // Kudos cost display
+    const kudosCost = computed(() => {
+      return props.request.total_kudos_cost || 0
+    })
+
+    const formattedKudos = computed(() => {
+      const cost = kudosCost.value
+      if (cost >= 1000) {
+        return (cost / 1000).toFixed(1) + 'k'
+      }
+      return cost.toString()
+    })
+
+    // Progress tracking for active requests
+    const progressPercent = computed(() => {
+      if (!props.request.n || props.request.n === 0) return 0
+      const finished = props.request.finished || 0
+      return Math.round((finished / props.request.n) * 100)
+    })
+
+    const showProgressBar = computed(() => {
+      return ['submitting', 'processing', 'downloading'].includes(props.request.status)
+    })
+
+    const progressBarClass = computed(() => {
+      if (props.request.status === 'submitting') return 'indeterminate'
+      if (props.request.status === 'downloading') return 'downloading'
+      return ''
+    })
+
+    const progressText = computed(() => {
+      const finished = props.request.finished || 0
+      const total = props.request.n || 0
+      if (props.request.status === 'submitting') return 'Submitting...'
+      if (props.request.status === 'downloading') return `Downloading ${finished}/${total}`
+      return `${finished}/${total} completed`
+    })
+
     return {
       thumbnailUrl,
       truncatedPrompt,
@@ -167,36 +226,52 @@ export default {
       statusText,
       statusMessage,
       formatWaitTime,
-      imageCount
+      imageCount,
+      kudosCost,
+      formattedKudos,
+      progressPercent,
+      showProgressBar,
+      progressBarClass,
+      progressText
     }
   }
 }
 </script>
 
 <style scoped>
-.request-card {
-
-}
-
-.request-card:hover {
-
-}
+/* ==============================================
+   BASE STYLES (Mobile-first)
+   ============================================== */
 
 .card-content {
   display: flex;
-  gap: 1.5rem;
+  gap: 0.75rem;
 }
 
+.card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Thumbnail */
 .thumbnail-container {
   flex-shrink: 0;
 }
 
 .thumbnail {
-  width: 100px;
-  height: 100px;
+  width: 80px;
+  height: 80px;
   border-radius: 8px;
   overflow: hidden;
   background: var(--color-bg-elevated);
+}
+
+.thumbnail-small {
+  width: 60px;
+  height: 60px;
 }
 
 .thumbnail img {
@@ -214,29 +289,30 @@ export default {
 }
 
 .spinner {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border: 3px solid var(--color-border);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
+.spinner-small {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
-.card-body {
-  flex: 1;
-  min-width: 0;
-}
-
+/* Header */
 .request-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.75rem;
 }
 
 .request-info {
@@ -245,16 +321,21 @@ export default {
 }
 
 .prompt {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 500;
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.25rem 0;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .meta {
   display: flex;
   gap: 0.5rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--color-text-tertiary);
   flex-wrap: wrap;
 }
@@ -263,23 +344,17 @@ export default {
   color: var(--color-border-lighter);
 }
 
-.status-message {
-  color: var(--color-text-secondary);
-}
-
-.status-message-error {
-  color: var(--color-danger-tailwind);
-}
-
+/* Status Badge */
 .request-status {
   flex-shrink: 0;
 }
 
 .status-badge {
-  padding: 0.4rem 0.8rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .status-pending {
@@ -302,28 +377,98 @@ export default {
   color: var(--color-danger-tailwind);
 }
 
-.request-actions {
+/* Progress Bar */
+.progress-row {
+  margin-top: 0.25rem;
+}
+
+.progress-container {
   display: flex;
+  align-items: center;
   gap: 0.75rem;
 }
 
+.progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--color-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-info-tailwind);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-fill.downloading {
+  background: var(--color-success-tailwind);
+}
+
+.progress-fill.indeterminate {
+  width: 30% !important;
+  animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.progress-text {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Status Message Row */
+.status-row {
+  margin-top: 0.25rem;
+}
+
+.status-message {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.status-message-error {
+  color: var(--color-danger-tailwind);
+}
+
+/* Bottom Row (thumbnail + actions) */
+.bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Actions */
+.request-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 .btn {
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem;
   border: none;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-}
-
-.btn-icon {
-  padding: 0.6rem;
-  width: 40px;
-  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
 }
 
 .btn-primary {
@@ -339,8 +484,6 @@ export default {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
-  display: inline-flex;
-  align-items: center;
   gap: 0.5rem;
 }
 
@@ -359,5 +502,90 @@ export default {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
   border-color: var(--color-border-light);
+}
+
+/* ==============================================
+   MOBILE: Icon-only buttons, show mobile thumbnail
+   ============================================== */
+
+/* Hide desktop thumbnail, show mobile thumbnail */
+.desktop-only {
+  display: none;
+}
+
+.mobile-only {
+  display: block;
+}
+
+/* Hide button labels on mobile, show icons */
+.btn-label {
+  display: none;
+}
+
+.btn-icon-mobile {
+  display: inline;
+}
+
+/* Make primary/secondary buttons icon-only on mobile */
+.btn-primary,
+.btn-secondary {
+  width: 36px;
+  height: 36px;
+  padding: 0.5rem;
+}
+
+/* ==============================================
+   DESKTOP (>768px): Horizontal layout
+   ============================================== */
+
+@media (min-width: 769px) {
+  .card-content {
+    flex-direction: row;
+    gap: 1rem;
+  }
+
+  /* Show desktop thumbnail, hide mobile thumbnail */
+  .desktop-only {
+    display: block;
+  }
+
+  .mobile-only {
+    display: none;
+  }
+
+  /* Show button labels on desktop */
+  .btn-label {
+    display: inline;
+  }
+
+  .btn-icon-mobile {
+    display: none;
+  }
+
+  /* Full buttons on desktop */
+  .btn-primary,
+  .btn-secondary {
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+  }
+
+  .prompt {
+    font-size: 1.05rem;
+    -webkit-line-clamp: 1;
+  }
+
+  .status-badge {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .bottom-row {
+    justify-content: flex-start;
+  }
+
+  .request-actions {
+    justify-content: flex-start;
+  }
 }
 </style>
