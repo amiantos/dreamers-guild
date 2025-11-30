@@ -2999,6 +2999,10 @@ export default {
     padding: 0.75rem;
   }
 
+  .inline-styles-section {
+    min-height: 300px;
+  }
+
   .section-title {
     margin: 1rem 0 0.75rem 0;
   }
