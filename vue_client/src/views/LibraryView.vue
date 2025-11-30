@@ -25,7 +25,6 @@
             @view-images="viewRequestImages"
             @delete="showDeleteModal"
             @retry="handleRetry"
-            @cancel="handleCancel"
           />
 
           <button
@@ -1107,17 +1106,6 @@ export default {
       }
     }
 
-    const handleCancel = async (requestId) => {
-      try {
-        // Cancel the request - keeps any images already downloaded
-        await requestsApi.delete(requestId, 'cancel')
-        requests.value = requests.value.filter(r => r.uuid !== requestId)
-      } catch (error) {
-        console.error('Error canceling request:', error)
-        alert('Failed to cancel request. Please try again.')
-      }
-    }
-
     const confirmDelete = async (imageAction) => {
       if (!requestToDelete.value) return
 
@@ -1484,7 +1472,6 @@ export default {
       viewRequestImages,
       showDeleteModal,
       handleRetry,
-      handleCancel,
       confirmDelete,
       deleteModalVisible,
       deleteAllModalVisible,
@@ -2314,6 +2301,18 @@ export default {
   background: var(--color-bg-secondary);
   border-radius: 8px;
   padding: 1rem;
+}
+
+@media (min-width: 769px) {
+  .requests-grid {
+    align-items: center;
+  }
+
+  .request-card-item,
+  .btn-clear-history {
+    max-width: 800px;
+    width: 100%;
+  }
 }
 
 /* Mobile responsive */

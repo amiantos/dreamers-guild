@@ -27,44 +27,35 @@
       </div>
 
       <div class="card-body">
-        <!-- Header: Prompt + Meta -->
-        <div class="request-header">
-          <div class="request-info">
-            <h3 class="prompt">{{ truncatedPrompt }}</h3>
-            <div class="meta">
-              <!-- Show image count only when completed, otherwise show status -->
-              <template v-if="request.status === 'completed'">
-                <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
-              </template>
-              <template v-else-if="statusMessage">
-                <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
-              </template>
+        <h3 class="prompt">{{ truncatedPrompt }}</h3>
+        <div class="meta">
+          <!-- Show image count only when completed, otherwise show status -->
+          <template v-if="request.status === 'completed'">
+            <span class="count">{{ imageCount }} {{ imageCount === 1 ? 'image' : 'images' }}</span>
+          </template>
+          <template v-else-if="statusMessage">
+            <span class="status-message" :class="{ 'status-message-error': request.status === 'failed' }">{{ statusMessage }}</span>
+          </template>
 
-              <template v-if="showKudos">
-                <span class="divider">•</span>
-                <span class="kudos">{{ formattedKudos }} kudos</span>
-              </template>
-            </div>
-          </div>
+          <template v-if="showKudos">
+            <span class="divider">•</span>
+            <span class="kudos">{{ formattedKudos }} kudos</span>
+          </template>
         </div>
-
-        <!-- Progress Row (always visible) -->
-        <div class="progress-row">
-          <div class="progress-container">
-            <div class="progress-bar" :class="{ 'progress-bar-failed': request.status === 'failed' }">
-              <div
-                class="progress-fill"
-                :class="progressBarClass"
-                :style="{ width: progressPercent + '%' }"
-              ></div>
-            </div>
-            <!-- Retry action for failed requests -->
-            <span
-              v-if="request.status === 'failed'"
-              class="progress-action retry"
-              @click="$emit('retry', request.uuid)"
-            >Retry</span>
+        <div class="progress-container">
+          <div class="progress-bar" :class="{ 'progress-bar-failed': request.status === 'failed' }">
+            <div
+              class="progress-fill"
+              :class="progressBarClass"
+              :style="{ width: progressPercent + '%' }"
+            ></div>
           </div>
+          <!-- Retry action for failed requests -->
+          <span
+            v-if="request.status === 'failed'"
+            class="progress-action retry"
+            @click="$emit('retry', request.uuid)"
+          >Retry</span>
         </div>
       </div>
     </div>
@@ -74,7 +65,6 @@
 <script>
 import { computed, ref, onMounted, watch } from 'vue'
 import { imagesApi } from '@api'
-import { getStatusClass, getStatusText } from '../utils/statusUtils.js'
 import AsyncImage from './AsyncImage.vue'
 
 export default {
@@ -99,11 +89,6 @@ export default {
         return props.request.prompt.substring(0, maxLength) + '...'
       }
       return props.request.prompt || 'Untitled request'
-    })
-
-    const formattedDate = computed(() => {
-      const date = new Date(props.request.date_created)
-      return date.toLocaleString()
     })
 
     // Fetch first image thumbnail for completed requests
@@ -136,10 +121,6 @@ export default {
       fetchThumbnail()
     })
 
-    const statusClass = computed(() => getStatusClass(props.request.status))
-
-    const statusText = computed(() => getStatusText(props.request.status))
-
     const statusMessage = computed(() => {
       const finished = props.request.finished || 0
       const total = props.request.n || 0
@@ -167,7 +148,7 @@ export default {
       // Show queue position if available
       if (props.request.queue_position > 0) {
         const waitTime = props.request.wait_time > 0 ? ` (~${formatWaitTime(props.request.wait_time)})` : ''
-        return `Queue position ${props.request.queue_position}${waitTime} • ${finished}/${total}`
+        return `Queue position ${props.request.queue_position}${waitTime}`
       }
 
       // For processing status without queue position
@@ -221,10 +202,6 @@ export default {
       return Math.round((finished / props.request.n) * 100)
     })
 
-    const showProgressBar = computed(() => {
-      return ['submitting', 'processing', 'downloading'].includes(props.request.status)
-    })
-
     const progressBarClass = computed(() => {
       if (props.request.status === 'submitting') return 'indeterminate'
       if (props.request.status === 'completed') return 'completed'
@@ -235,17 +212,11 @@ export default {
     return {
       thumbnailUrl,
       truncatedPrompt,
-      formattedDate,
-      statusClass,
-      statusText,
       statusMessage,
-      formatWaitTime,
       imageCount,
-      kudosCost,
       formattedKudos,
       showKudos,
       progressPercent,
-      showProgressBar,
       progressBarClass
     }
   }
@@ -271,7 +242,7 @@ export default {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 /* Delete button - top right corner */
@@ -365,24 +336,11 @@ export default {
   to { transform: rotate(360deg); }
 }
 
-/* Header */
-.request-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding-right: 0.7rem; /* Space for delete button */
-}
-
-.request-info {
-  flex: 1;
-  min-width: 0;
-}
-
 .prompt {
   font-size: 0.95rem;
   font-weight: 500;
-  margin: 0 0 0.25rem 0;
+  margin: 0;
+  padding-right: 1.5rem; /* Space for delete button */
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -464,6 +422,7 @@ export default {
   cursor: pointer;
   white-space: nowrap;
   transition: opacity 0.2s;
+  position: relative;
 }
 
 .progress-action:hover {
@@ -479,6 +438,10 @@ export default {
    ============================================== */
 
 @media (min-width: 769px) {
+  .card-body {
+    gap: 0.7rem;
+  }
+
   .thumbnail {
     width: 80px;
     height: 80px;
@@ -486,13 +449,10 @@ export default {
 
   .prompt {
     font-size: 1rem;
+    line-height: 1.3rem;
     -webkit-line-clamp: 2;
-    margin-bottom: 8px;
-  }
-
-  /* Progress Bar */
-  .progress-row {
-    margin-top: 0.25rem;
+    padding-bottom:0px;
+    margin-bottom:-3px;
   }
 }
 </style>
