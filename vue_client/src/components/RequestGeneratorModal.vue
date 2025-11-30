@@ -2985,7 +2985,7 @@ export default {
   }
 
   .modal-footer {
-    padding: 0.75rem 1rem 1rem 1rem;
+    padding: 0.75rem 1rem calc(1rem + env(safe-area-inset-bottom)) 1rem;
   }
 
   .basic-settings-section,

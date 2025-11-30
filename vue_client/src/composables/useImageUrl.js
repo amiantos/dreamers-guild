@@ -88,7 +88,7 @@ export function useImageUrl(imageId, type = 'thumbnail') {
 export function getImageUrl(imageId, type = 'thumbnail') {
   if (!isDemo) {
     // This will be tree-shaken in demo builds
-    const baseURL = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:8005/api')
+    const baseURL = import.meta.env.VITE_API_URL || '/api'
     return type === 'thumbnail'
       ? `${baseURL}/images/${imageId}/thumbnail`
       : `${baseURL}/images/${imageId}/file`

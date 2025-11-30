@@ -17,6 +17,7 @@ export default defineConfig({
     __DEMO_MODE__: isDemo
   },
   server: {
+    host: true,
     port: 5178,
     proxy: isDemo ? {} : {
       '/api': {
