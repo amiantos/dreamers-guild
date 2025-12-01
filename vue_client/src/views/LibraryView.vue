@@ -2201,7 +2201,7 @@ export default {
 }
 
 .panel-tab .tab-content {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-secondary);
   border-radius: 9999px;
   display: flex;
   align-items: center;
@@ -2212,7 +2212,7 @@ export default {
 }
 
 .panel-tab:hover .tab-content {
-  background: var(--color-surface-hover);
+  background: var(--color-bg-tertiary);
 }
 
 .status-dot {
@@ -2254,7 +2254,7 @@ export default {
   top: auto;
   left: 0;
   right: 0;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-base);
   max-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2274,7 +2274,7 @@ export default {
 
 .panel-content {
   padding: 1.5rem 2rem;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-base);
   position: relative;
 }
 
@@ -2325,7 +2325,7 @@ export default {
 }
 
 .request-card-item {
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-tertiary);
   border-radius: 8px;
   padding: 1rem;
 }
