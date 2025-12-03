@@ -212,7 +212,6 @@ export default {
   height: 100vh;
   width: 280px;
   background: var(--color-bg-elevated);
-  border-right: 1px solid var(--color-border);
   z-index: var(--z-index-panel);
   display: flex;
   flex-direction: column;
@@ -231,8 +230,7 @@ export default {
   width: 20px;
   height: 80px;
   background: var(--color-bg-elevated);
-  border: 1px solid var(--color-border);
-  border-left: none;
+  border: none;
   border-radius: 0 8px 8px 0;
   cursor: pointer;
   display: flex;
