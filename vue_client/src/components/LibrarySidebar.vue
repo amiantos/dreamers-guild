@@ -69,8 +69,8 @@
             v-for="album in visibleUserAlbums"
             :key="album.id"
             class="album-item"
-            :class="{ active: activeAlbumSlug === album.slug }"
-            @click="navigate('album', album.slug)"
+            :class="{ active: activeAlbumSlug === album.slug, editing: editingAlbumId === album.id }"
+            @click="editingAlbumId !== album.id && navigate('album', album.slug)"
           >
             <div class="album-thumbnail">
               <AsyncImage
@@ -81,10 +81,46 @@
               <i v-else class="fa-solid fa-folder"></i>
             </div>
             <div class="album-info">
-              <span class="album-title">{{ album.title }}</span>
+              <!-- Inline edit mode -->
+              <input
+                v-if="editingAlbumId === album.id"
+                type="text"
+                v-model="editingTitle"
+                @keyup.enter="saveAlbumTitle(album)"
+                @keyup.escape="cancelEditing"
+                @click.stop
+                @blur="saveAlbumTitle(album)"
+                class="album-title-input"
+                ref="editInput"
+              />
+              <span v-else class="album-title">{{ album.title }}</span>
               <span class="album-count">{{ album.count }}</span>
             </div>
             <i v-if="album.is_hidden" class="fa-solid fa-eye-slash hidden-badge"></i>
+            <!-- Action buttons on hover -->
+            <div class="album-actions" v-if="editingAlbumId !== album.id" @click.stop>
+              <button class="btn-action" @click="startEditing(album)" title="Rename">
+                <i class="fa-solid fa-pen"></i>
+              </button>
+              <button class="btn-action btn-danger" @click="confirmDeleteAlbum(album)" title="Delete">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete confirmation modal -->
+        <div v-if="albumToDelete" class="delete-confirm-overlay" @click="albumToDelete = null">
+          <div class="delete-confirm-modal" @click.stop>
+            <h4>Delete Album</h4>
+            <p>Are you sure you want to delete "{{ albumToDelete.title }}"?</p>
+            <p class="delete-warning">This album contains {{ albumToDelete.count }} image(s). Images will not be deleted.</p>
+            <div class="delete-confirm-actions">
+              <button class="btn-cancel" @click="albumToDelete = null">Cancel</button>
+              <button class="btn-delete" @click="deleteAlbum(albumToDelete)" :disabled="isDeleting">
+                {{ isDeleting ? 'Deleting...' : 'Delete Album' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -100,9 +136,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { albumsApi, imagesApi } from '@api'
 import AsyncImage from './AsyncImage.vue'
+import { useToast } from '../composables/useToast.js'
 
 export default {
   name: 'LibrarySidebar',
@@ -123,11 +160,21 @@ export default {
       default: false
     }
   },
-  emits: ['navigate', 'toggle-collapse', 'create-album'],
+  emits: ['navigate', 'toggle-collapse', 'create-album', 'album-deleted', 'album-renamed'],
   setup(props, { emit }) {
+    const { showToast } = useToast()
     const isCollapsed = ref(window.innerWidth < 1024)
     const isMobile = ref(window.innerWidth < 1024)
     const userAlbums = ref([])
+
+    // Editing state
+    const editingAlbumId = ref(null)
+    const editingTitle = ref('')
+    const editInput = ref(null)
+
+    // Deleting state
+    const albumToDelete = ref(null)
+    const isDeleting = ref(false)
 
     const visibleUserAlbums = computed(() => {
       if (props.isAuthenticated) {
@@ -137,11 +184,9 @@ export default {
     })
 
     const loadAlbums = async () => {
-      console.log('[LibrarySidebar] loadAlbums called')
       try {
         const response = await albumsApi.getAll({ includeHidden: props.isAuthenticated })
         userAlbums.value = response.data || []
-        console.log('[LibrarySidebar] albums loaded:', userAlbums.value.map(a => ({ title: a.title, count: a.count })))
       } catch (error) {
         console.error('Error loading albums:', error)
       }
@@ -161,6 +206,79 @@ export default {
       emit('navigate', { view, albumSlug })
       if (isMobile.value) {
         isCollapsed.value = true
+      }
+    }
+
+    // Album editing methods
+    const startEditing = (album) => {
+      editingAlbumId.value = album.id
+      editingTitle.value = album.title
+      nextTick(() => {
+        if (editInput.value) {
+          const input = Array.isArray(editInput.value) ? editInput.value[0] : editInput.value
+          if (input) {
+            input.focus()
+            input.select()
+          }
+        }
+      })
+    }
+
+    const cancelEditing = () => {
+      editingAlbumId.value = null
+      editingTitle.value = ''
+    }
+
+    const saveAlbumTitle = async (album) => {
+      const newTitle = editingTitle.value.trim()
+      if (!newTitle || newTitle === album.title) {
+        cancelEditing()
+        return
+      }
+
+      try {
+        const response = await albumsApi.update(album.id, { title: newTitle })
+        const updatedAlbum = response.data
+
+        // Update local state
+        const index = userAlbums.value.findIndex(a => a.id === album.id)
+        if (index > -1) {
+          userAlbums.value[index] = { ...userAlbums.value[index], ...updatedAlbum }
+        }
+
+        // Emit event for parent to handle (e.g., redirect if viewing this album)
+        emit('album-renamed', { oldSlug: album.slug, newSlug: updatedAlbum.slug, album: updatedAlbum })
+        showToast('Album renamed successfully', 'success')
+      } catch (error) {
+        console.error('Error renaming album:', error)
+        showToast('Failed to rename album', 'error')
+      } finally {
+        cancelEditing()
+      }
+    }
+
+    // Album deletion methods
+    const confirmDeleteAlbum = (album) => {
+      albumToDelete.value = album
+    }
+
+    const deleteAlbum = async (album) => {
+      isDeleting.value = true
+      try {
+        await albumsApi.delete(album.id)
+
+        // Remove from local state
+        userAlbums.value = userAlbums.value.filter(a => a.id !== album.id)
+
+        // Emit event for parent to handle navigation
+        emit('album-deleted', album)
+        showToast('Album deleted successfully', 'success')
+      } catch (error) {
+        console.error('Error deleting album:', error)
+        showToast('Failed to delete album', 'error')
+      } finally {
+        isDeleting.value = false
+        albumToDelete.value = null
       }
     }
 
@@ -200,7 +318,19 @@ export default {
       getThumbnailUrl,
       toggleCollapse,
       navigate,
-      loadAlbums
+      loadAlbums,
+      // Editing
+      editingAlbumId,
+      editingTitle,
+      editInput,
+      startEditing,
+      cancelEditing,
+      saveAlbumTitle,
+      // Deleting
+      albumToDelete,
+      isDeleting,
+      confirmDeleteAlbum,
+      deleteAlbum
     }
   }
 }
@@ -437,6 +567,144 @@ export default {
   z-index: calc(var(--z-index-panel) - 1);
 }
 
+/* Album actions (hover buttons) */
+.album-actions {
+  display: none;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.album-item:hover .album-actions {
+  display: flex;
+}
+
+.album-item.editing .album-actions {
+  display: none;
+}
+
+.btn-action {
+  background: none;
+  border: none;
+  padding: 0.375rem;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-action:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.btn-action.btn-danger:hover {
+  color: var(--color-error);
+}
+
+/* Inline title editing */
+.album-title-input {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.album-title-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Delete confirmation modal */
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--overlay-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.delete-confirm-modal {
+  background: var(--color-bg-elevated);
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.delete-confirm-modal h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  color: var(--color-text-primary);
+}
+
+.delete-confirm-modal p {
+  margin: 0 0 0.75rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.delete-warning {
+  color: var(--color-text-tertiary);
+  font-size: 0.8125rem;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.btn-cancel {
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.btn-delete {
+  padding: 0.625rem 1rem;
+  border: none;
+  background: var(--color-error);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-delete:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Mobile responsive */
 @media (max-width: 1024px) {
   .sidebar-container {
@@ -445,6 +713,11 @@ export default {
 
   .sidebar-container:not(.collapsed) {
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Always show actions on mobile since no hover */
+  .album-actions {
+    display: flex;
   }
 }
 </style>

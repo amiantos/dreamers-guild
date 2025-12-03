@@ -73,6 +73,8 @@
       :sharedKeyName="sharedKeyInfo?.name"
       @close="handleWelcomeModalClose"
     />
+
+    <ToastContainer />
   </div>
 </template>
 
@@ -84,6 +86,7 @@ import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import BaseModal from './components/BaseModal.vue'
 import WelcomeModal from './components/WelcomeModal.vue'
+import ToastContainer from './components/ToastContainer.vue'
 import { settingsApi, imagesApi } from '@api'
 import { useTheme } from './composables/useTheme.js'
 
@@ -97,7 +100,8 @@ export default {
     PinSetupModal,
     PinEntryModal,
     BaseModal,
-    WelcomeModal
+    WelcomeModal,
+    ToastContainer
   },
   setup() {
     // Initialize theme

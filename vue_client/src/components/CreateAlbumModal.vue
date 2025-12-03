@@ -51,6 +51,7 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { albumsApi } from '@api'
 import BaseModal from './BaseModal.vue'
+import { useToast } from '../composables/useToast.js'
 
 export default {
   name: 'CreateAlbumModal',
@@ -65,6 +66,7 @@ export default {
   },
   emits: ['close', 'created'],
   setup(props, { emit }) {
+    const { showToast } = useToast()
     const albumName = ref('')
     const isHidden = ref(false)
     const isSubmitting = ref(false)
@@ -83,13 +85,14 @@ export default {
 
         emit('created', response.data)
         emit('close')
+        showToast('Album created successfully', 'success')
 
         // Reset form
         albumName.value = ''
         isHidden.value = false
       } catch (error) {
         console.error('Error creating album:', error)
-        alert('Failed to create album. Please try again.')
+        showToast('Failed to create album. Please try again.', 'error')
       } finally {
         isSubmitting.value = false
       }

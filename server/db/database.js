@@ -81,15 +81,6 @@ function initDatabase() {
     )
   `);
 
-  // KeywordAlbum table (legacy - used by Smart Albums clustering)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS keyword_albums (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      keywords TEXT
-    )
-  `);
-
   // User Albums table
   db.exec(`
     CREATE TABLE IF NOT EXISTS albums (

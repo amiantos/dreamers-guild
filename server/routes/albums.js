@@ -17,16 +17,11 @@ router.get('/', (req, res) => {
   try {
     const includeHidden = req.query.includeHidden === 'true';
 
-    // Get user albums
-    const userAlbums = Album.findAll(includeHidden).map(album => {
-      const coverImage = Album.getCoverImage(album.id);
-      return {
-        ...album,
-        type: 'user',
-        count: Album.getImageCount(album.id),
-        thumbnail: coverImage?.uuid || null
-      };
-    });
+    // Get user albums with count and thumbnail in single efficient query
+    const userAlbums = Album.findAllWithDetails(includeHidden).map(album => ({
+      ...album,
+      type: 'user'
+    }));
 
     res.json(userAlbums);
   } catch (error) {

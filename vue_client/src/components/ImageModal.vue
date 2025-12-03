@@ -155,6 +155,18 @@
                   <i class="fa-solid fa-folder-plus"></i>
                   <span>Add to Album</span>
                 </button>
+                <!-- Set as Cover button (only when viewing in album context) -->
+                <button
+                  v-if="currentAlbum"
+                  @click="setAsAlbumCover"
+                  class="btn-action btn-secondary"
+                  :class="{ 'is-cover': isCurrentCover }"
+                  :disabled="isCurrentCover || isSettingCover"
+                  :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
+                >
+                  <i class="fa-solid" :class="isCurrentCover ? 'fa-check' : 'fa-image'"></i>
+                  <span>{{ isSettingCover ? 'Setting...' : (isCurrentCover ? 'Album Cover' : 'Set as Cover') }}</span>
+                </button>
                 <!-- Load settings row -->
                 <div v-if="hasSettings" class="action-row">
                   <button
@@ -293,9 +305,10 @@
 
 <script>
 import { computed, ref, watch, onMounted, onUnmounted, inject, nextTick } from 'vue'
-import { imagesApi } from '@api'
+import { imagesApi, albumsApi } from '@api'
 import DeleteImageModal from './DeleteImageModal.vue'
 import AddToAlbumModal from './AddToAlbumModal.vue'
+import { useToast } from '../composables/useToast.js'
 import AccordionSection from './AccordionSection.vue'
 import InspectorGrid from './InspectorGrid.vue'
 import AsyncImage from './AsyncImage.vue'
@@ -329,10 +342,15 @@ export default {
     canNavigateNext: {
       type: Boolean,
       default: true
+    },
+    currentAlbum: {
+      type: Object,
+      default: null
     }
   },
-  emits: ['close', 'delete', 'navigate', 'load-settings', 'update'],
+  emits: ['close', 'delete', 'navigate', 'load-settings', 'update', 'album-cover-set'],
   setup(props, { emit }) {
+    const { showToast } = useToast()
     const isFavorite = ref(!!props.image.is_favorite)
     const isHidden = ref(!!props.image.is_hidden)
     const checkHiddenAuth = inject('checkHiddenAuth')
@@ -344,6 +362,7 @@ export default {
     const copied = ref(false)
     const showDeleteModal = ref(false)
     const showAddToAlbumModal = ref(false)
+    const isSettingCover = ref(false)
     const filmstripTrack = ref(null)
     const canScrollPrev = ref(false)
     const canScrollNext = ref(false)
@@ -814,7 +833,29 @@ export default {
 
     const handleAddedToAlbum = () => {
       showAddToAlbumModal.value = false
-      // Optionally emit an event or show a success message
+    }
+
+    // Album cover functionality
+    const isCurrentCover = computed(() => {
+      return props.currentAlbum?.cover_image_uuid === props.image.uuid
+    })
+
+    const setAsAlbumCover = async () => {
+      if (!props.currentAlbum || isSettingCover.value) return
+
+      isSettingCover.value = true
+      try {
+        await albumsApi.update(props.currentAlbum.id, {
+          coverImageUuid: props.image.uuid
+        })
+        emit('album-cover-set', props.image.uuid)
+        showToast('Album cover updated', 'success')
+      } catch (error) {
+        console.error('Error setting album cover:', error)
+        showToast('Failed to set album cover', 'error')
+      } finally {
+        isSettingCover.value = false
+      }
     }
 
     const handleResize = () => {
@@ -940,6 +981,10 @@ export default {
       showAddToAlbumModal,
       handleAddedToAlbum,
       isHiddenAuthenticated,
+      // Album cover
+      isSettingCover,
+      isCurrentCover,
+      setAsAlbumCover,
       // Parsed data
       negativePrompt,
       modelName,

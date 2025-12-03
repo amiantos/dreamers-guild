@@ -74,7 +74,6 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
       if (trulyNewImages.length > 0) {
         // Prepend new images to the list
         images.value = [...trulyNewImages, ...images.value]
-        console.log(`Added ${trulyNewImages.length} new image(s) to ${isAlbumContext ? 'album' : 'library'}`)
 
         // Notify callback if provided
         if (onNewImages) {
@@ -97,8 +96,6 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
    */
   const startPolling = (interval = 3000) => {
     if (imagesPollInterval) return // Already polling
-
-    console.log('Starting image polling (active requests detected)')
     imagesPollInterval = setInterval(checkNewImages, interval)
   }
 
@@ -107,7 +104,6 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
    */
   const stopPolling = () => {
     if (imagesPollInterval) {
-      console.log('Stopping image polling (no active requests)')
       clearInterval(imagesPollInterval)
       imagesPollInterval = null
     }
@@ -119,9 +115,7 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
    * @param {number} delay - Delay before final check in milliseconds (default: 3000)
    */
   const scheduleFinalCheck = (delay = 3000) => {
-    console.log('Queue became idle, scheduling final image check in 3 seconds...')
     finalImageCheckTimeout = setTimeout(() => {
-      console.log('Running final image check')
       checkNewImages()
       wasActive.value = false
       finalImageCheckTimeout = null

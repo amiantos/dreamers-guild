@@ -1821,12 +1821,10 @@ export default {
     })
 
     onMounted(async () => {
-      console.log('[RequestGeneratorModal] onMounted - props.initialAlbumSlug:', props.initialAlbumSlug)
       await fetchModels()
 
       // Load albums for selector
       await loadAlbums()
-      console.log('[RequestGeneratorModal] albums loaded:', albums.value.map(a => ({ id: a.id, slug: a.slug, title: a.title })))
 
       // Restore last used album (will be overridden by prop if provided)
       const savedAlbumId = localStorage.getItem('lastUsedAlbumId')
@@ -1856,13 +1854,10 @@ export default {
         // (watch on editorMode handles localStorage persistence)
         editorMode.value = 'advanced'
         // Auto-select album if user was viewing one
-        console.log('[RequestGeneratorModal] checking initialAlbumSlug:', props.initialAlbumSlug)
         if (props.initialAlbumSlug) {
           const matchingAlbum = albums.value.find(a => a.slug === props.initialAlbumSlug)
-          console.log('[RequestGeneratorModal] matchingAlbum:', matchingAlbum)
           if (matchingAlbum) {
             selectedAlbumId.value = matchingAlbum.id
-            console.log('[RequestGeneratorModal] selectedAlbumId set to:', selectedAlbumId.value)
           }
         }
       } else if (!hasLastUsedSettings) {

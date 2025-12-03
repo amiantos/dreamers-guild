@@ -250,6 +250,10 @@
             <i class="fa-solid fa-folder-plus"></i>
             <span>Album</span>
           </button>
+          <button v-if="currentAlbum" @click="batchRemoveFromAlbum" :disabled="selectedCount === 0" class="btn-action btn-remove-album" title="Remove from Album">
+            <i class="fa-solid fa-folder-minus"></i>
+            <span>Remove</span>
+          </button>
           <button @click="batchHide" :disabled="selectedCount === 0" class="btn-action btn-hide" title="Hide">
             <i class="fa-solid fa-eye-slash"></i>
             <span>Hide</span>
@@ -281,6 +285,7 @@ import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { imagesApi, requestsApi, albumsApi } from '@api'
 import { useImagePolling } from '../composables/useImagePolling.js'
+import { useToast } from '../composables/useToast.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
@@ -311,6 +316,7 @@ export default {
   setup(props) {
     const router = useRouter()
     const route = useRoute()
+    const { showToast } = useToast()
     const images = ref([])
     const totalCount = ref(0)
     const loading = ref(true)
@@ -848,7 +854,7 @@ export default {
         // Refresh keywords since counts and keywords may have changed
               } catch (error) {
         console.error('Error deleting image:', error)
-        alert('Failed to delete image. Please try again.')
+        showToast('Failed to delete image. Please try again.', 'error')
       }
     }
 
@@ -887,7 +893,7 @@ export default {
         // Refresh keywords
               } catch (error) {
         console.error('Error batch deleting images:', error)
-        alert('Failed to delete some images. Please try again.')
+        showToast('Failed to delete some images. Please try again.', 'error')
       }
     }
 
@@ -909,7 +915,7 @@ export default {
 
               } catch (error) {
         console.error('Error batch favoriting images:', error)
-        alert('Failed to favorite some images. Please try again.')
+        showToast('Failed to favorite some images. Please try again.', 'error')
       }
     }
 
@@ -938,7 +944,7 @@ export default {
 
               } catch (error) {
         console.error('Error batch unfavoriting images:', error)
-        alert('Failed to unfavorite some images. Please try again.')
+        showToast('Failed to unfavorite some images. Please try again.', 'error')
       }
     }
 
@@ -967,7 +973,7 @@ export default {
 
               } catch (error) {
         console.error('Error batch hiding images:', error)
-        alert('Failed to hide some images. Please try again.')
+        showToast('Failed to hide some images. Please try again.', 'error')
       }
     }
 
@@ -996,7 +1002,40 @@ export default {
 
               } catch (error) {
         console.error('Error batch unhiding images:', error)
-        alert('Failed to unhide some images. Please try again.')
+        showToast('Failed to unhide some images. Please try again.', 'error')
+      }
+    }
+
+    const batchRemoveFromAlbum = async () => {
+      if (!currentAlbum.value) return
+
+      try {
+        const imageIds = Array.from(selectedImages.value)
+        const removeCount = imageIds.length
+        const albumId = currentAlbum.value.id
+
+        // Remove each image from the album
+        for (const imageId of imageIds) {
+          await albumsApi.removeImage(albumId, imageId)
+        }
+
+        // Remove from current view
+        images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
+        totalCount.value = Math.max(0, totalCount.value - removeCount)
+
+        // Update album count in sidebar
+        if (sidebarRef.value) {
+          sidebarRef.value.loadAlbums()
+        }
+
+        // Clear selection
+        selectedImages.value.clear()
+        lastSelectedIndex.value = -1
+
+        showToast(`Removed ${removeCount} image(s) from album`, 'success')
+      } catch (error) {
+        console.error('Error removing images from album:', error)
+        showToast('Failed to remove some images from album', 'error')
       }
     }
 
@@ -1128,7 +1167,7 @@ export default {
         requests.value.unshift(response.data)
       } catch (error) {
         console.error('Error retrying request:', error)
-        alert('Failed to retry request. Please try again.')
+        showToast('Failed to retry request. Please try again.', 'error')
       }
     }
 
@@ -1147,7 +1186,7 @@ export default {
         await fetchImages()
       } catch (error) {
         console.error('Error deleting request:', error)
-        alert('Failed to delete request. Please try again.')
+        showToast('Failed to delete request. Please try again.', 'error')
       }
     }
 
@@ -1178,7 +1217,7 @@ export default {
         await fetchImages()
       } catch (error) {
         console.error('Error deleting requests:', error)
-        alert('Failed to delete requests. Please try again.')
+        showToast('Failed to delete requests. Please try again.', 'error')
       }
     }
 
@@ -1575,7 +1614,8 @@ export default {
       batchFavorite,
       batchUnfavorite,
       batchHide,
-      batchUnhide
+      batchUnhide,
+      batchRemoveFromAlbum
     }
   }
 }

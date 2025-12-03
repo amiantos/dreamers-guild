@@ -376,6 +376,10 @@ export const GeneratedImage = {
       }
     }
 
+    // Delete album associations
+    const deleteAlbumAssocStmt = db.prepare('DELETE FROM image_albums WHERE image_uuid = ?');
+    deleteAlbumAssocStmt.run(uuid);
+
     // Delete database record
     const stmt = db.prepare('DELETE FROM generated_images WHERE uuid = ?');
     return stmt.run(uuid);
@@ -474,11 +478,52 @@ export const Album = {
     return stmt.all();
   },
 
+  /**
+   * Get all albums with count and thumbnail in a single efficient query
+   * Avoids N+1 problem by using subqueries
+   */
+  findAllWithDetails(includeHidden = false) {
+    const whereClause = includeHidden ? '' : 'WHERE a.is_hidden = 0';
+
+    const stmt = db.prepare(`
+      SELECT
+        a.*,
+        COALESCE(counts.count, 0) as count,
+        COALESCE(
+          a.cover_image_uuid,
+          (
+            SELECT ia2.image_uuid
+            FROM image_albums ia2
+            WHERE ia2.album_id = a.id
+            ORDER BY ia2.date_added DESC
+            LIMIT 1
+          )
+        ) as thumbnail
+      FROM albums a
+      LEFT JOIN (
+        SELECT album_id, COUNT(*) as count
+        FROM image_albums
+        GROUP BY album_id
+      ) counts ON counts.album_id = a.id
+      ${whereClause}
+      ORDER BY a.sort_order ASC, a.date_created DESC
+    `);
+
+    return stmt.all();
+  },
+
   update(id, data) {
     const fields = [];
     const values = [];
 
-    if (data.title !== undefined) { fields.push('title = ?'); values.push(data.title); }
+    // Regenerate slug when title changes
+    if (data.title !== undefined) {
+      fields.push('title = ?');
+      values.push(data.title);
+      const newSlug = generateSlug(data.title);
+      fields.push('slug = ?');
+      values.push(newSlug);
+    }
     if (data.isHidden !== undefined) { fields.push('is_hidden = ?'); values.push(data.isHidden ? 1 : 0); }
     if (data.coverImageUuid !== undefined) { fields.push('cover_image_uuid = ?'); values.push(data.coverImageUuid); }
     if (data.sortOrder !== undefined) { fields.push('sort_order = ?'); values.push(data.sortOrder); }

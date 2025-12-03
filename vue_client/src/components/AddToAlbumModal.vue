@@ -95,6 +95,7 @@
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { albumsApi } from '@api'
 import BaseModal from './BaseModal.vue'
+import { useToast } from '../composables/useToast.js'
 
 export default {
   name: 'AddToAlbumModal',
@@ -117,6 +118,7 @@ export default {
   },
   emits: ['close', 'added'],
   setup(props, { emit }) {
+    const { showToast } = useToast()
     const albums = ref([])
     const loading = ref(true)
     const selectedAlbumId = ref(null)
@@ -175,6 +177,7 @@ export default {
 
         emit('added', { albumId: newAlbum.id, count: props.imageIds.length })
         emit('close')
+        showToast(`Created album and added ${props.imageIds.length} image(s)`, 'success')
 
         // Reset form
         newAlbumName.value = ''
@@ -182,7 +185,7 @@ export default {
         showQuickCreate.value = false
       } catch (error) {
         console.error('Error creating album and adding images:', error)
-        alert('Failed to create album. Please try again.')
+        showToast('Failed to create album. Please try again.', 'error')
       } finally {
         isCreating.value = false
       }
@@ -198,9 +201,10 @@ export default {
 
         emit('added', { albumId: selectedAlbumId.value, count: props.imageIds.length })
         emit('close')
+        showToast(`Added ${props.imageIds.length} image(s) to album`, 'success')
       } catch (error) {
         console.error('Error adding images to album:', error)
-        alert('Failed to add images to album. Please try again.')
+        showToast('Failed to add images to album. Please try again.', 'error')
       } finally {
         isAdding.value = false
       }

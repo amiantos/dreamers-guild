@@ -261,10 +261,11 @@ router.post('/:id/retry', (req, res) => {
       return res.status(400).json({ error: 'Invalid stored params', details: validationErrors });
     }
 
-    // Create a new request with the same data
+    // Create a new request with the same data (preserve album association)
     const newRequest = queueManager.addRequest({
       prompt: originalRequest.prompt,
-      params
+      params,
+      albumId: originalRequest.album_id
     });
 
     // Delete the failed request
