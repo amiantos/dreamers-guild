@@ -1326,8 +1326,9 @@ export default {
     }
 
     // Helper to fetch based on current view
+    // Use currentAlbum as source of truth (persists when ImageModal changes route)
     const fetchForCurrentView = (append = false) => {
-      if (currentView.value === 'album' && currentAlbum.value) {
+      if (currentAlbum.value) {
         return fetchAlbumImages(append)
       } else {
         return fetchImages(append)
