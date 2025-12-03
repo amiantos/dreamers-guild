@@ -97,18 +97,29 @@ router.get('/smart', (req, res) => {
   try {
     const showFavorites = req.query.favorites === 'true';
     const showHiddenOnly = req.query.showHiddenOnly === 'true';
+    const includeHidden = req.query.includeHidden === 'true';
+
+    console.log('[Smart Albums] Request params:', { showFavorites, showHiddenOnly, includeHidden });
+
+    // Create cache key that includes includeHidden
+    const cacheKey = `${showFavorites}-${showHiddenOnly}-${includeHidden}`;
 
     // Check cache first
-    const cachedAlbums = albumCache.get(showFavorites, showHiddenOnly);
+    const cachedAlbums = albumCache.get(showFavorites, showHiddenOnly, includeHidden);
     if (cachedAlbums) {
+      console.log('[Smart Albums] Cache HIT, returning', cachedAlbums.length, 'albums:');
+      cachedAlbums.forEach((a, i) => console.log(`  ${i+1}. ${a.name} (${a.count} images)`));
       return res.json(cachedAlbums);
     }
 
     // Cache miss - generate albums
-    const albums = generateAlbumsForFilters(showFavorites, showHiddenOnly);
+    console.log('[Smart Albums] Cache MISS, generating...');
+    const albums = generateAlbumsForFilters(showFavorites, showHiddenOnly, includeHidden);
+    console.log('[Smart Albums] Generated', albums.length, 'albums:');
+    albums.forEach((a, i) => console.log(`  ${i+1}. ${a.name} (${a.count} images)`));
 
     // Store in cache
-    albumCache.set(showFavorites, showHiddenOnly, albums);
+    albumCache.set(showFavorites, showHiddenOnly, albums, includeHidden);
 
     res.json(albums);
   } catch (error) {
@@ -209,6 +220,7 @@ router.get('/:id/images', (req, res) => {
     const offset = parseInt(req.query.offset, 10) || 0;
     const showFavorites = req.query.favorites === 'true';
     const showHiddenOnly = req.query.showHiddenOnly === 'true';
+    const keywords = req.query.keywords ? req.query.keywords.split(',') : [];
 
     const existing = Album.findById(albumId);
     if (!existing) {
@@ -217,12 +229,14 @@ router.get('/:id/images', (req, res) => {
 
     const images = ImageAlbum.findImagesInAlbum(albumId, limit, offset, {
       showFavorites,
-      showHiddenOnly
+      showHiddenOnly,
+      keywords
     });
 
     const total = ImageAlbum.countImagesInAlbum(albumId, {
       showFavorites,
-      showHiddenOnly
+      showHiddenOnly,
+      keywords
     });
 
     res.json({
@@ -403,6 +417,16 @@ function detectUtilityLoras(fingerprints) {
     }
   }
 
+  // Log all LoRAs with significant usage
+  const significantLoras = Array.from(loraStats.entries())
+    .filter(([_, stats]) => stats.imageCount >= MIN_ALBUM_SIZE)
+    .sort((a, b) => b[1].imageCount - a[1].imageCount)
+    .slice(0, 20);
+  console.log('[Utility Detection] Top LoRAs by usage:');
+  significantLoras.forEach(([loraId, stats]) => {
+    console.log(`  - ${loraId}: ${stats.imageCount} images, ${stats.coLoras.size} co-LoRAs`);
+  });
+
   // Analyze each LoRA
   for (const [loraId, stats] of loraStats) {
     // Skip LoRAs with few images
@@ -410,6 +434,7 @@ function detectUtilityLoras(fingerprints) {
 
     // Check 1: Too many co-LoRAs suggests it's a utility/style LoRA
     if (stats.coLoras.size >= UTILITY_LORA_COLORA_THRESHOLD) {
+      console.log(`[Utility LoRA] ${loraId} marked as utility: ${stats.imageCount} images, ${stats.coLoras.size} co-LoRAs (threshold: ${UTILITY_LORA_COLORA_THRESHOLD})`);
       utilityLoras.add(loraId);
       continue;
     }
@@ -431,6 +456,7 @@ function detectUtilityLoras(fingerprints) {
 
       // Low similarity = high variance = utility LoRA
       if (avgSimilarity < UTILITY_LORA_KEYWORD_VARIANCE_THRESHOLD) {
+        console.log(`[Utility LoRA] ${loraId} marked as utility: ${stats.imageCount} images, keyword similarity ${avgSimilarity.toFixed(2)} (threshold: ${UTILITY_LORA_KEYWORD_VARIANCE_THRESHOLD})`);
         utilityLoras.add(loraId);
       }
     }
@@ -904,9 +930,10 @@ function generateAlbumIdFromFilters(filters) {
  * Generate albums from filters using multi-factor clustering
  * @param {boolean} showFavorites - Only show favorite images
  * @param {boolean} showHiddenOnly - Only show hidden images
+ * @param {boolean} includeHidden - Include both hidden and non-hidden images
  * @returns {Array} Array of album objects
  */
-function generateAlbumsForFilters(showFavorites, showHiddenOnly) {
+function generateAlbumsForFilters(showFavorites, showHiddenOnly, includeHidden = false) {
   // Build base query for filtering
   let baseWhere = '1=1';
   if (showFavorites) {
@@ -914,9 +941,11 @@ function generateAlbumsForFilters(showFavorites, showHiddenOnly) {
   }
   if (showHiddenOnly) {
     baseWhere += ' AND is_hidden = 1';
-  } else {
+  } else if (!includeHidden) {
+    // Only exclude hidden if not including all
     baseWhere += ' AND is_hidden = 0';
   }
+  // If includeHidden is true, we don't add any hidden filter (include all)
 
   // Get all images for analysis
   const images = db.prepare(`
@@ -934,7 +963,9 @@ function generateAlbumsForFilters(showFavorites, showHiddenOnly) {
   const fingerprints = images.map(extractFingerprint);
 
   // Detect utility LoRAs
+  console.log('[Smart Albums] Detecting utility LoRAs from', fingerprints.length, 'images...');
   const utilityLoras = detectUtilityLoras(fingerprints);
+  console.log('[Smart Albums] Found', utilityLoras.size, 'utility LoRAs:', Array.from(utilityLoras));
 
   // Cluster images by similarity
   let clusters = clusterImages(fingerprints, utilityLoras);
@@ -958,7 +989,7 @@ function generateAlbumsForFilters(showFavorites, showHiddenOnly) {
   const loraNameMap = hydrateLoraNames([...allLoraIds]);
 
   // Build global filters for count queries
-  const globalFilters = { showFavorites, showHiddenOnly };
+  const globalFilters = { showFavorites, showHiddenOnly, includeHidden };
 
   // Convert clusters to albums
   const albums = clusters.map(cluster => {

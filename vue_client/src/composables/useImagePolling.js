@@ -9,10 +9,11 @@ import { imagesApi } from '@api'
  * @param {import('vue').Ref} options.filters - Filters ref for image queries
  * @param {import('vue').Ref} options.images - Images ref to update with new images
  * @param {import('vue').Ref} options.totalCount - Total count ref to update
+ * @param {import('vue').Ref} options.currentView - Current view ref (library, album, favorites, etc.)
  * @param {Function} options.onNewImages - Callback when new images are added
  * @returns {Object} Polling controls and state
  */
-export function useImagePolling({ filters, images, totalCount, onNewImages }) {
+export function useImagePolling({ filters, images, totalCount, currentView, onNewImages }) {
   let imagesPollInterval = null
   let finalImageCheckTimeout = null
   const wasActive = ref(false)
@@ -21,6 +22,12 @@ export function useImagePolling({ filters, images, totalCount, onNewImages }) {
    * Check for new images and prepend them to the list
    */
   const checkNewImages = async () => {
+    // Only poll for new images in library view
+    // Albums, favorites, hidden views shouldn't auto-refresh since new images won't appear there
+    if (currentView && currentView.value !== 'library') {
+      return
+    }
+
     // Don't check for new images if we're viewing a specific request or searching
     if (filters.value.requestId || filters.value.keywords.length > 0) {
       return

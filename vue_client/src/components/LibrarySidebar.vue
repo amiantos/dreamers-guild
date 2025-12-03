@@ -177,9 +177,14 @@ export default {
       }
     }
 
-    const loadSmartAlbums = async () => {
+    const loadSmartAlbums = async (forceIncludeHidden = null) => {
       try {
-        const response = await albumsApi.getSmartAlbums({})
+        const includeHidden = forceIncludeHidden !== null ? forceIncludeHidden : props.isAuthenticated
+        console.log('[Sidebar] loadSmartAlbums called with includeHidden:', includeHidden)
+        const response = await albumsApi.getSmartAlbums({
+          includeHidden
+        })
+        console.log('[Sidebar] Received', response.data?.length, 'smart albums')
         smartAlbums.value = response.data || []
       } catch (error) {
         console.error('Error loading smart albums:', error)
@@ -230,9 +235,10 @@ export default {
       }
     }
 
-    // Watch for authentication changes to reload albums
+    // Watch for authentication changes to reload albums and smart albums
     watch(() => props.isAuthenticated, () => {
       loadAlbums()
+      loadSmartAlbums()
     })
 
     onMounted(() => {
@@ -270,7 +276,8 @@ export default {
       navigate,
       handleHiddenClick,
       selectSmartAlbum,
-      loadAlbums
+      loadAlbums,
+      loadSmartAlbums
     }
   }
 }

@@ -267,9 +267,10 @@ export const GeneratedImage = {
     }
     if (globalFilters.showHiddenOnly) {
       query += ` AND is_hidden = 1`;
-    } else {
+    } else if (!globalFilters.includeHidden) {
       query += ` AND is_hidden = 0`;
     }
+    // If includeHidden is true, don't add any hidden filter (include all)
 
     query += ` ORDER BY date_created DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
@@ -315,9 +316,10 @@ export const GeneratedImage = {
     }
     if (globalFilters.showHiddenOnly) {
       query += ` AND is_hidden = 1`;
-    } else {
+    } else if (!globalFilters.includeHidden) {
       query += ` AND is_hidden = 0`;
     }
+    // If includeHidden is true, don't add any hidden filter (include all)
 
     const stmt = db.prepare(query);
     const result = stmt.get(...params);
@@ -631,6 +633,14 @@ export const ImageAlbum = {
       query += ' AND gi.is_hidden = 1';
     }
 
+    // Keyword search - search in prompt_simple
+    if (filters.keywords && filters.keywords.length > 0) {
+      for (const keyword of filters.keywords) {
+        query += ' AND gi.prompt_simple LIKE ?';
+        params.push(`%${keyword}%`);
+      }
+    }
+
     query += ' ORDER BY gi.date_created DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
@@ -652,6 +662,14 @@ export const ImageAlbum = {
 
     if (filters.showHiddenOnly) {
       query += ' AND gi.is_hidden = 1';
+    }
+
+    // Keyword search - search in prompt_simple
+    if (filters.keywords && filters.keywords.length > 0) {
+      for (const keyword of filters.keywords) {
+        query += ' AND gi.prompt_simple LIKE ?';
+        params.push(`%${keyword}%`);
+      }
     }
 
     const stmt = db.prepare(query);

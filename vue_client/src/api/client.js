@@ -220,6 +220,9 @@ export const albumsApi = {
     if (filters.showHiddenOnly) {
       params.push('showHiddenOnly=true')
     }
+    if (filters.includeHidden) {
+      params.push('includeHidden=true')
+    }
     const url = params.length > 0 ? `/albums/smart?${params.join('&')}` : '/albums/smart'
     return apiClient.get(url)
   },
@@ -252,6 +255,9 @@ export const albumsApi = {
     }
     if (options.showHiddenOnly) {
       params.push('showHiddenOnly=true')
+    }
+    if (options.keywords && options.keywords.length > 0) {
+      params.push(`keywords=${encodeURIComponent(options.keywords.join(','))}`)
     }
     return apiClient.get(`/albums/${albumId}/images?${params.join('&')}`)
   },

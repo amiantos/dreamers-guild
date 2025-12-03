@@ -5,7 +5,7 @@
       ref="sidebarRef"
       :activeView="currentView"
       :activeAlbumSlug="currentAlbum?.slug"
-      :isAuthenticated="checkHiddenAuth ? checkHiddenAuth() : false"
+      :isAuthenticated="isHiddenAuthenticated"
       @navigate="handleSidebarNavigate"
       @toggle-collapse="handleSidebarToggle"
       @create-album="handleCreateAlbum"
@@ -371,6 +371,7 @@ export default {
       filters,
       images,
       totalCount,
+      currentView,
       onNewImages: () => {
         // Refresh sidebar albums when new images are added
         if (sidebarRef.value) {
@@ -386,6 +387,12 @@ export default {
     const checkHiddenAuth = inject('checkHiddenAuth')
     const requestHiddenAccess = inject('requestHiddenAccess')
     const clearHiddenAuth = inject('clearHiddenAuth')
+    const hiddenAuthState = inject('hiddenAuthState')
+
+    // Computed property for reactive auth state
+    const isHiddenAuthenticated = computed(() => {
+      return hiddenAuthState?.value?.isAuthenticated || false
+    })
 
     const openNewRequest = () => {
       if (openRequestModal) {
@@ -590,7 +597,7 @@ export default {
       filters.value[filterType] = value
       offset.value = 0
       hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
     }
 
     const clearFilter = (filterType, value = null) => {
@@ -613,7 +620,7 @@ export default {
       }
       offset.value = 0
       hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
       updateFilterUrl()
     }
 
@@ -625,7 +632,7 @@ export default {
         searchQuery.value = '' // Clear search box
         offset.value = 0
         hasMore.value = true
-        fetchImages()
+        fetchForCurrentView()
         updateFilterUrl()
       }
     }
@@ -638,7 +645,7 @@ export default {
       searchQuery.value = ''
       offset.value = 0
       hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
       updateFilterUrl()
     }
 
@@ -646,7 +653,7 @@ export default {
       filters.value.showFavoritesOnly = !filters.value.showFavoritesOnly
       offset.value = 0
       hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
       updateFilterUrl()
     }
 
@@ -670,8 +677,8 @@ export default {
               sessionStorage.setItem('showHidden', 'true')
               offset.value = 0
               hasMore.value = true
-              fetchImages()
-                          })
+              fetchForCurrentView()
+            })
           }
           return
         }
@@ -693,8 +700,8 @@ export default {
 
       offset.value = 0
       hasMore.value = true
-      fetchImages()
-          }
+      fetchForCurrentView()
+    }
 
     // Multi-select mode functions
     const toggleMultiSelectMode = () => {
@@ -1204,6 +1211,11 @@ export default {
         if (requestHiddenAccess) {
           requestHiddenAccess(() => {
             router.push('/hidden')
+            // Refresh sidebar data after authentication - pass true to include hidden
+            if (sidebarRef.value) {
+              sidebarRef.value.loadAlbums()
+              sidebarRef.value.loadSmartAlbums(true)
+            }
           })
         }
         return
@@ -1299,7 +1311,8 @@ export default {
           limit,
           offset.value,
           {
-            showFavorites: filters.value.showFavoritesOnly
+            showFavorites: filters.value.showFavoritesOnly,
+            keywords: filters.value.keywords
           }
         )
 
@@ -1323,6 +1336,15 @@ export default {
         totalCount.value = 0
       } finally {
         loading.value = false
+      }
+    }
+
+    // Helper to fetch based on current view
+    const fetchForCurrentView = (append = false) => {
+      if (currentView.value === 'album' && currentAlbum.value) {
+        return fetchAlbumImages(append)
+      } else {
+        return fetchImages(append)
       }
     }
 
@@ -1373,8 +1395,13 @@ export default {
         }
       }
 
-      // Update URL without triggering navigation
-      router.replace({ path: '/', query })
+      // Update URL without triggering navigation - preserve current view path
+      const currentPath = route.path.includes('/image/') ? '/' : route.path
+      if (currentPath === '/favorites' || currentPath === '/hidden' || currentPath.startsWith('/album/')) {
+        router.replace({ path: currentPath, query })
+      } else {
+        router.replace({ path: '/', query })
+      }
     }
 
     const loadFiltersFromUrl = () => {
@@ -1627,6 +1654,7 @@ export default {
       toggleMenu,
       toggleHiddenImages,
       checkHiddenAuth,
+      isHiddenAuthenticated,
       // Multi-select mode
       isMultiSelectMode,
       selectedImages,

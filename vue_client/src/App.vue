@@ -516,6 +516,7 @@ export default {
     provide('checkHiddenAuth', checkHiddenAuth)
     provide('requestHiddenAccess', requestHiddenAccess)
     provide('clearHiddenAuth', clearHiddenAuth)
+    provide('hiddenAuthState', hiddenAuthState)
 
     return {
       isDemoMode,
