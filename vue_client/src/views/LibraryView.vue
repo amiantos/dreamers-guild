@@ -342,9 +342,17 @@ export default {
     const requestToDelete = ref(null)
     let pollInterval = null
 
-    // Sidebar state
+    // Sidebar state - initialize in sync with LibrarySidebar's logic
     const sidebarRef = ref(null)
-    const sidebarCollapsed = ref(false)
+    const getInitialSidebarState = () => {
+      const savedState = localStorage.getItem('sidebarCollapsed')
+      if (savedState !== null) {
+        return savedState === 'true'
+      }
+      // Default to collapsed on mobile
+      return window.innerWidth < 1024
+    }
+    const sidebarCollapsed = ref(getInitialSidebarState())
     const isCreateAlbumModalOpen = ref(false)
     const isAddToAlbumModalOpen = ref(false)
 
