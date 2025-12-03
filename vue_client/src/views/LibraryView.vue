@@ -504,7 +504,11 @@ export default {
 
       // Load more when scrolled near bottom
       if (scrollTop + clientHeight >= scrollHeight - 500) {
-        fetchImages(true)
+        if (currentView.value === 'album' && currentAlbum.value) {
+          fetchAlbumImages(true)
+        } else {
+          fetchImages(true)
+        }
       }
     }
 
@@ -1289,17 +1293,17 @@ export default {
 
       try {
         loading.value = true
+        // For album view, don't filter by hidden status - show all images in the album
         const response = await albumsApi.getImages(
           currentAlbum.value.id,
           limit,
           offset.value,
           {
-            showFavorites: filters.value.showFavoritesOnly,
-            showHiddenOnly: filters.value.showHidden
+            showFavorites: filters.value.showFavoritesOnly
           }
         )
 
-        const newImages = response.data.data || []
+        const newImages = response.data.images || []
         totalCount.value = response.data.total || 0
 
         if (append) {
@@ -1500,6 +1504,9 @@ export default {
 
         // Load filters based on new route
         loadFiltersFromUrl()
+
+        // Scroll to top when switching views
+        window.scrollTo(0, 0)
 
         // Check if viewing an album
         if (currentView.value === 'album' && props.albumSlug) {
@@ -2141,6 +2148,12 @@ export default {
 .fab-settings {
   left: 2rem;
   background: var(--color-border-lighter);
+  transition: all 0.2s, transform 0.3s ease-out, left 0.3s ease;
+}
+
+/* Move settings FAB when sidebar is expanded */
+.library-view:not(.sidebar-collapsed) .fab-settings {
+  left: calc(var(--sidebar-width) + 2rem);
 }
 
 .fab:hover {

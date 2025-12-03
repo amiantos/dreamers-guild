@@ -631,7 +631,7 @@ export const ImageAlbum = {
       query += ' AND gi.is_hidden = 1';
     }
 
-    query += ' ORDER BY ia.date_added DESC LIMIT ? OFFSET ?';
+    query += ' ORDER BY gi.date_created DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
     const stmt = db.prepare(query);
