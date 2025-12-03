@@ -110,8 +110,8 @@
                   <span>Multi-Select Mode</span>
                 </div>
                 <div class="menu-item" @click="toggleHiddenImages">
-                  <i class="fa-solid" :class="filters.showHidden ? 'fa-eye' : 'fa-eye-slash'" aria-hidden="true"></i>
-                  <span>{{ filters.showHidden ? 'Hide Hidden' : 'Show Hidden' }}</span>
+                  <i class="fa-solid" :class="isHiddenAuthenticated ? 'fa-eye' : 'fa-eye-slash'" aria-hidden="true"></i>
+                  <span>{{ isHiddenAuthenticated ? 'Hide Hidden' : 'Show Hidden' }}</span>
                 </div>
               </div>
             </div>
@@ -323,9 +323,7 @@ export default {
     const filters = ref({
       requestId: null,
       keywords: [], // Changed to array for multiple keywords
-      filterCriteria: [], // Flexible filter criteria from albums [{type, value}]
-      showFavoritesOnly: false,
-      showHidden: false
+      filterCriteria: [] // Flexible filter criteria from albums [{type, value}]
     })
     const routeBeforeModal = ref(null) // Store route before opening modal
 
@@ -353,6 +351,14 @@ export default {
       if (path.startsWith('/album/')) return 'album'
       return 'library'
     })
+
+    // View-based flags derived from currentView
+    const isHiddenView = computed(() =>
+      currentView.value === 'hidden' || currentView.value === 'hidden-favorites'
+    )
+    const isFavoritesView = computed(() =>
+      currentView.value === 'favorites' || currentView.value === 'hidden-favorites'
+    )
 
     // Current album info (for album routes)
     const currentAlbum = ref(null)
@@ -463,18 +469,25 @@ export default {
         loading.value = true
         let response
 
+        // Build API options from filters and view state
+        const apiOptions = {
+          ...filters.value,
+          showFavoritesOnly: isFavoritesView.value,
+          showHidden: isHiddenView.value
+        }
+
         if (filters.value.requestId) {
           response = await imagesApi.getByRequestId(filters.value.requestId, limit)
           hasMore.value = false // Request images don't paginate
         } else if (filters.value.filterCriteria.length > 0) {
           // Use flexible filter criteria (from album selection)
-          response = await imagesApi.getAll(limit, offset.value, filters.value)
+          response = await imagesApi.getAll(limit, offset.value, apiOptions)
         } else if (filters.value.keywords.length > 0) {
           // Join keywords with comma for search (supports AND filtering)
           const searchTerms = filters.value.keywords.join(',')
-          response = await imagesApi.search(searchTerms, limit, offset.value, filters.value)
+          response = await imagesApi.search(searchTerms, limit, offset.value, apiOptions)
         } else {
-          response = await imagesApi.getAll(limit, offset.value, filters.value)
+          response = await imagesApi.getAll(limit, offset.value, apiOptions)
         }
 
         const newImages = response.data.data || []
@@ -648,44 +661,35 @@ export default {
       updateFilterUrl()
     }
 
-    const toggleFavorites = () => {
-      filters.value.showFavoritesOnly = !filters.value.showFavoritesOnly
-      offset.value = 0
-      hasMore.value = true
-      fetchForCurrentView()
-      updateFilterUrl()
-    }
-
     const toggleMenu = () => {
       showMenu.value = !showMenu.value
     }
 
     const toggleHiddenImages = () => {
-      // Close the menu
       showMenu.value = false
 
-      // If turning on, check authentication first
-      if (!filters.value.showHidden) {
-        // Check if user has access
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          // Request PIN access
-          if (requestHiddenAccess) {
-            requestHiddenAccess(() => {
-              // After successful auth, navigate to hidden view
-              router.push('/hidden')
-            })
-          }
-          return
+      if (!isHiddenAuthenticated.value) {
+        // Enabling hidden mode
+        if (requestHiddenAccess) {
+          requestHiddenAccess(() => {
+            // Auth successful - hidden content now visible
+            // Refresh sidebar to show hidden albums
+            if (sidebarRef.value) {
+              sidebarRef.value.loadAlbums()
+            }
+          })
         }
-        // Already authenticated, navigate to hidden view
-        router.push('/hidden')
       } else {
-        // Turning off - clear auth and go back to library
-        sessionStorage.removeItem('showHidden')
+        // Disabling hidden mode
         if (clearHiddenAuth) {
           clearHiddenAuth()
         }
-        router.push('/')
+        // If on a hidden-specific view or a hidden album, go back to library
+        const isOnHiddenView = currentView.value === 'hidden' || currentView.value === 'hidden-favorites'
+        const isOnHiddenAlbum = currentView.value === 'album' && currentAlbum.value?.is_hidden
+        if (isOnHiddenView || isOnHiddenAlbum) {
+          router.push('/')
+        }
       }
     }
 
@@ -915,8 +919,8 @@ export default {
 
         await imagesApi.batchUpdate(imageIds, { isFavorite: false })
 
-        // Update images in the array, or remove if in favorites-only view
-        if (filters.value.showFavoritesOnly) {
+        // Update images in the array, or remove if in favorites view
+        if (isFavoritesView.value) {
           images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
           totalCount.value = Math.max(0, totalCount.value - removeCount)
         } else {
@@ -944,8 +948,8 @@ export default {
 
         await imagesApi.batchUpdate(imageIds, { isHidden: true })
 
-        // Update images in the array, or remove if not showing hidden
-        if (!filters.value.showHidden) {
+        // Update images in the array, or remove if not in hidden view
+        if (!isHiddenView.value) {
           images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
           totalCount.value = Math.max(0, totalCount.value - removeCount)
         } else {
@@ -973,8 +977,8 @@ export default {
 
         await imagesApi.batchUpdate(imageIds, { isHidden: false })
 
-        // Update images in the array, or remove if in hidden-only view
-        if (filters.value.showHidden && !filters.value.showFavoritesOnly) {
+        // Update images in the array, or remove if in hidden-only view (not hidden-favorites)
+        if (currentView.value === 'hidden') {
           images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
           totalCount.value = Math.max(0, totalCount.value - removeCount)
         } else {
@@ -1010,10 +1014,10 @@ export default {
         // Check if hidden status changed and image should be removed from current view
         if ('is_hidden' in updates) {
           const shouldRemove = (
-            // Image was hidden and we're NOT in hidden gallery
-            (updates.is_hidden === 1 && !filters.value.showHidden) ||
-            // Image was unhidden and we ARE in hidden gallery
-            (updates.is_hidden === 0 && filters.value.showHidden)
+            // Image was hidden and we're NOT in hidden view
+            (updates.is_hidden === 1 && !isHiddenView.value) ||
+            // Image was unhidden and we ARE in hidden view
+            (updates.is_hidden === 0 && isHiddenView.value)
           )
 
           if (shouldRemove) {
@@ -1026,7 +1030,7 @@ export default {
 
                   } else if ('is_favorite' in updates) {
           const shouldRemove = (
-            (updates.is_favorite === 0 && filters.value.showFavoritesOnly)
+            (updates.is_favorite === 0 && isFavoritesView.value)
           )
 
           if (shouldRemove) {
@@ -1261,7 +1265,7 @@ export default {
           limit,
           offset.value,
           {
-            showFavorites: filters.value.showFavoritesOnly,
+            showFavorites: isFavoritesView.value,
             keywords: filters.value.keywords
           }
         )
@@ -1302,14 +1306,8 @@ export default {
       // Build query params
       const query = {}
 
-      // Add favorites as special keyword if enabled
-      const queryKeywords = [...filters.value.keywords]
-      if (filters.value.showFavoritesOnly) {
-        queryKeywords.unshift('favorites')
-      }
-
-      if (queryKeywords.length > 0) {
-        query.q = queryKeywords.join(',')
+      if (filters.value.keywords.length > 0) {
+        query.q = filters.value.keywords.join(',')
       }
 
       // Add request ID (check both direct filter and filterCriteria)
@@ -1356,45 +1354,13 @@ export default {
 
     const loadFiltersFromUrl = () => {
       // Reset filters
-      filters.value.showFavoritesOnly = false
-      filters.value.showHidden = false
       filters.value.keywords = []
       filters.value.requestId = null
       filters.value.filterCriteria = []
 
-      // Set filters based on route
-      const view = currentView.value
-      if (view === 'favorites') {
-        filters.value.showFavoritesOnly = true
-      } else if (view === 'hidden') {
-        filters.value.showHidden = true
-        // Check authentication for hidden view
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          // User needs to authenticate - this will be handled by the sidebar
-          return
-        }
-      } else if (view === 'hidden-favorites') {
-        filters.value.showHidden = true
-        filters.value.showFavoritesOnly = true
-        // Check authentication for hidden view
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          return
-        }
-      }
-
       // Load keywords from query params
       if (route.query.q) {
         const queryKeywords = route.query.q.split(',').filter(k => k.trim().length > 0)
-
-        // Check for special 'favorites' keyword
-        const favoritesIndex = queryKeywords.indexOf('favorites')
-        if (favoritesIndex !== -1) {
-          filters.value.showFavoritesOnly = true
-          // Remove 'favorites' from keywords array (it's not a real search term)
-          queryKeywords.splice(favoritesIndex, 1)
-        }
-
-        // Set remaining keywords
         filters.value.keywords = queryKeywords
       }
 
@@ -1427,13 +1393,6 @@ export default {
         }
       })
     }
-
-    // Watch for filter changes to refresh keywords
-    watch(
-      () => ({ showFavoritesOnly: filters.value.showFavoritesOnly, showHidden: filters.value.showHidden }),
-      () => {
-              }
-    )
 
     // Computed property for request status dot color
     const requestStatusClass = computed(() => {
