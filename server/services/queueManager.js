@@ -1,5 +1,5 @@
 import hordeApi from './hordeApi.js';
-import { HordeRequest, GeneratedImage, HordePendingDownload } from '../db/models.js';
+import { HordeRequest, GeneratedImage, HordePendingDownload, ImageAlbum } from '../db/models.js';
 import { imagesDir } from '../db/database.js';
 import albumCache from './albumCache.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -465,6 +465,16 @@ class QueueManager {
               thumbnailPath: `${imageUuid}_thumb.webp`
             });
 
+            // Add to album if request has an album_id
+            if (request?.album_id) {
+              try {
+                ImageAlbum.addImageToAlbum(imageUuid, request.album_id);
+                console.log(`[Download] Added image to album ${request.album_id}`);
+              } catch (albumError) {
+                console.error(`[Download] Failed to add image to album:`, albumError.message);
+              }
+            }
+
             console.log(`[Download] ✓ Downloaded and saved image ${imageUuid.substring(0, 8)}... (download ${download.uuid.substring(0, 8)}...)`);
             success = true;
 
@@ -520,7 +530,8 @@ class QueueManager {
       prompt: requestData.prompt,
       fullRequest: JSON.stringify(requestData.params),
       status: 'pending',
-      n: requestData.params.params?.n || 1
+      n: requestData.params.params?.n || 1,
+      albumId: requestData.albumId || null
     });
   }
 

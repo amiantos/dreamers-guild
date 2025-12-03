@@ -143,6 +143,7 @@ function initDatabase() {
   addColumnIfNotExists('horde_requests', 'finished', 'INTEGER DEFAULT 0', 'Number of finished images');
   addColumnIfNotExists('horde_requests', 'waiting', 'INTEGER DEFAULT 0', 'Number of images waiting in queue');
   addColumnIfNotExists('horde_requests', 'processing', 'INTEGER DEFAULT 0', 'Number of images being processed');
+  addColumnIfNotExists('horde_requests', 'album_id', 'INTEGER', 'Album ID to add generated images to');
 
   // Migration: Delete any trashed images (soft-delete cleanup)
   // This permanently removes images that were previously soft-deleted

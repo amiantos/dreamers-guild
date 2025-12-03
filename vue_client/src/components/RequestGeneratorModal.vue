@@ -1683,7 +1683,8 @@ export default {
 
         await requestsApi.create({
           prompt: form.prompt,
-          params
+          params,
+          albumId: selectedAlbumId.value || null
         })
 
         // Save the RAW form settings (before style processing) for next time

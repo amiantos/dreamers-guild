@@ -11,8 +11,8 @@ export const HordeRequest = {
     const uuid = data.uuid || uuidv4();
     const stmt = db.prepare(`
       INSERT INTO horde_requests
-      (uuid, date_created, prompt, full_request, status, message, n, queue_position, wait_time, total_kudos_cost)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (uuid, date_created, prompt, full_request, status, message, n, queue_position, wait_time, total_kudos_cost, album_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -25,7 +25,8 @@ export const HordeRequest = {
       data.n || 0,
       data.queuePosition || 0,
       data.waitTime || 0,
-      data.totalKudosCost || 0
+      data.totalKudosCost || 0,
+      data.albumId || null
     );
 
     return this.findById(uuid);
