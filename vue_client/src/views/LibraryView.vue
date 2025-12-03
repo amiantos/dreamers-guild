@@ -23,7 +23,7 @@
     <AddToAlbumModal
       :isOpen="isAddToAlbumModalOpen"
       :imageIds="Array.from(selectedImages)"
-      :includeHidden="filters.showHidden"
+      :includeHidden="isHiddenAuthenticated"
       @close="isAddToAlbumModalOpen = false"
       @added="handleAddedToAlbum"
     />

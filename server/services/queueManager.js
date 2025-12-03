@@ -468,8 +468,8 @@ class QueueManager {
             // Add to album if request has an album_id
             if (request?.album_id) {
               try {
-                ImageAlbum.addImageToAlbum(imageUuid, request.album_id);
-                console.log(`[Download] Added image to album ${request.album_id}`);
+                const result = ImageAlbum.addImageToAlbum(imageUuid, request.album_id);
+                console.log(`[Download] Added image to album ${request.album_id}`, result);
               } catch (albumError) {
                 console.error(`[Download] Failed to add image to album:`, albumError.message);
               }

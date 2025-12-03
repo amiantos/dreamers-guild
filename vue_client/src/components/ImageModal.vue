@@ -238,7 +238,7 @@
       <AddToAlbumModal
         :isOpen="showAddToAlbumModal"
         :imageIds="[image.uuid]"
-        :includeHidden="!!image.is_hidden"
+        :includeHidden="isHiddenAuthenticated"
         @close="showAddToAlbumModal = false"
         @added="handleAddedToAlbum"
       />
@@ -337,6 +337,8 @@ export default {
     const isHidden = ref(!!props.image.is_hidden)
     const checkHiddenAuth = inject('checkHiddenAuth')
     const requestHiddenAccess = inject('requestHiddenAccess')
+    const hiddenAuthState = inject('hiddenAuthState')
+    const isHiddenAuthenticated = computed(() => hiddenAuthState?.value?.isAuthenticated || false)
     const showDetails = ref(false)
     const detailsType = ref('request')
     const copied = ref(false)
@@ -937,6 +939,7 @@ export default {
       confirmDelete,
       showAddToAlbumModal,
       handleAddedToAlbum,
+      isHiddenAuthenticated,
       // Parsed data
       negativePrompt,
       modelName,

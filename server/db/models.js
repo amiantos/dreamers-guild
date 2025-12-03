@@ -566,8 +566,11 @@ export const ImageAlbum = {
 
     // Check if the album is hidden
     const album = Album.findById(albumId);
-    if (album && album.is_hidden && autoHide) {
+    const albumIsHidden = album && (album.is_hidden === 1 || album.is_hidden === true);
+    console.log(`[ImageAlbum] Adding image ${imageUuid} to album ${albumId}, album.is_hidden=${album?.is_hidden}, albumIsHidden=${albumIsHidden}, autoHide=${autoHide}`);
+    if (albumIsHidden && autoHide) {
       // Auto-hide the image if adding to a hidden album
+      console.log(`[ImageAlbum] Auto-hiding image ${imageUuid} because album ${albumId} is hidden`);
       const updateStmt = db.prepare('UPDATE generated_images SET is_hidden = 1 WHERE uuid = ?');
       updateStmt.run(imageUuid);
     }
