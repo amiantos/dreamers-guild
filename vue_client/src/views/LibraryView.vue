@@ -2288,7 +2288,7 @@ export default {
 /* Requests Panel Tab */
 .panel-tab {
   position: fixed;
-  bottom: 2.7rem;
+  bottom: 0;
   top: auto;
   left: 50%;
   transform: translateX(-50%);
@@ -2298,22 +2298,29 @@ export default {
 }
 
 .library-view.panel-open .panel-tab {
-  transform: translate(-50%, calc(-1 * var(--panel-height)));
+  transform: translate(-50%, calc(-1 * var(--panel-height) + 1px));
 }
 
 .panel-tab .tab-content {
-  background: var(--color-bg-secondary);
-  border-radius: 9999px;
+  background: var(--color-bg-tertiary);
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: background 0.2s;
 }
 
 .panel-tab:hover .tab-content {
-  background: var(--color-bg-tertiary);
+  animation: bounce 0.4s ease-in-out;
+}
+
+@keyframes bounce {
+  0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  50% { padding-top: 0.75rem; padding-bottom: 1rem; }
+  100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 
 .status-dot {
@@ -2355,11 +2362,12 @@ export default {
   top: auto;
   left: 0;
   right: 0;
-  background: var(--color-bg-base);
+  background: var(--color-bg-tertiary);
   max-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   z-index: 55; /* Above header but below tab */
   display: flex;
   flex-direction: column; /* Normal direction now */
@@ -2370,12 +2378,11 @@ export default {
 
 .requests-panel.open {
   transform: translateY(0);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .panel-content {
   padding: 1.5rem 2rem;
-  background: var(--color-bg-base);
+  background: var(--color-bg-tertiary);
   position: relative;
 }
 
@@ -2512,14 +2519,10 @@ export default {
   }
 
   /* Smaller requests tab on mobile */
-  .panel-tab {
-    bottom: 1.25rem;
-  }
-
   .panel-tab .tab-content {
     padding: 0.5rem 1rem;
     gap: 0.5rem;
-    border-radius: 9999px;
+    border-radius: 10px 10px 0 0;
   }
 
   .status-dot {
@@ -2528,7 +2531,7 @@ export default {
   }
 
   .tab-text {
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
 }
 
