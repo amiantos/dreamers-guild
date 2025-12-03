@@ -23,15 +23,18 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
    * Check for new images and prepend them to the list
    */
   const checkNewImages = async () => {
+    // Use currentAlbum as source of truth for album polling (not route-based currentView)
+    // This prevents issues when ImageModal changes the route temporarily
+    const albumId = currentAlbum?.value?.id
+    const view = currentView?.value
+
     // Only poll for library and album views
     // Favorites and hidden views don't get new images from generation
-    const view = currentView?.value
-    if (view !== 'library' && view !== 'album') {
-      return
-    }
+    // Use albumId to determine if we're in album context (more stable than route)
+    const isAlbumContext = !!albumId
+    const isLibraryContext = view === 'library' && !albumId
 
-    // For album view, we need a current album
-    if (view === 'album' && !currentAlbum?.value?.id) {
+    if (!isAlbumContext && !isLibraryContext) {
       return
     }
 
@@ -44,9 +47,9 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
       let newImages = []
       let newTotal
 
-      if (view === 'album') {
+      if (isAlbumContext) {
         // Fetch latest images for the current album
-        const response = await albumsApi.getImages(currentAlbum.value.id, 20, 0)
+        const response = await albumsApi.getImages(albumId, 20, 0)
         newImages = response.data?.images || []
         newTotal = response.data?.total
       } else {
@@ -70,7 +73,7 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
       if (trulyNewImages.length > 0) {
         // Prepend new images to the list
         images.value = [...trulyNewImages, ...images.value]
-        console.log(`Added ${trulyNewImages.length} new image(s) to ${view}`)
+        console.log(`Added ${trulyNewImages.length} new image(s) to ${isAlbumContext ? 'album' : 'library'}`)
 
         // Notify callback if provided
         if (onNewImages) {
