@@ -88,36 +88,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Smart Albums Section -->
-      <div class="section" v-if="smartAlbums.length > 0">
-        <div class="section-header collapsible" @click="toggleSmartAlbums">
-          <h3>Smart Albums</h3>
-          <i class="fa-solid" :class="smartAlbumsExpanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-        </div>
-
-        <div v-if="smartAlbumsExpanded" class="albums-list">
-          <div
-            v-for="album in smartAlbums"
-            :key="album.id"
-            class="album-item smart"
-            @click="selectSmartAlbum(album)"
-          >
-            <div class="album-thumbnail">
-              <AsyncImage
-                v-if="album.thumbnail"
-                :src="getThumbnailUrl(album.thumbnail)"
-                :alt="album.name"
-              />
-              <i v-else class="fa-solid fa-wand-magic-sparkles"></i>
-            </div>
-            <div class="album-info">
-              <span class="album-title">{{ album.name }}</span>
-              <span class="album-count">{{ album.count }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -153,13 +123,11 @@ export default {
       default: false
     }
   },
-  emits: ['navigate', 'toggle-collapse', 'create-album', 'select-smart-album'],
+  emits: ['navigate', 'toggle-collapse', 'create-album'],
   setup(props, { emit }) {
     const isCollapsed = ref(window.innerWidth < 1024)
     const isMobile = ref(window.innerWidth < 1024)
     const userAlbums = ref([])
-    const smartAlbums = ref([])
-    const smartAlbumsExpanded = ref(false)
 
     const visibleUserAlbums = computed(() => {
       if (props.isAuthenticated) {
@@ -177,20 +145,6 @@ export default {
       }
     }
 
-    const loadSmartAlbums = async (forceIncludeHidden = null) => {
-      try {
-        const includeHidden = forceIncludeHidden !== null ? forceIncludeHidden : props.isAuthenticated
-        console.log('[Sidebar] loadSmartAlbums called with includeHidden:', includeHidden)
-        const response = await albumsApi.getSmartAlbums({
-          includeHidden
-        })
-        console.log('[Sidebar] Received', response.data?.length, 'smart albums')
-        smartAlbums.value = response.data || []
-      } catch (error) {
-        console.error('Error loading smart albums:', error)
-      }
-    }
-
     const getThumbnailUrl = (imageId) => {
       return imagesApi.getThumbnailUrl(imageId)
     }
@@ -199,11 +153,6 @@ export default {
       isCollapsed.value = !isCollapsed.value
       localStorage.setItem('sidebarCollapsed', isCollapsed.value)
       emit('toggle-collapse', isCollapsed.value)
-    }
-
-    const toggleSmartAlbums = () => {
-      smartAlbumsExpanded.value = !smartAlbumsExpanded.value
-      localStorage.setItem('smartAlbumsExpanded', smartAlbumsExpanded.value)
     }
 
     const navigate = (view, albumSlug = null) => {
@@ -220,13 +169,6 @@ export default {
       }
     }
 
-    const selectSmartAlbum = (album) => {
-      emit('select-smart-album', album)
-      if (isMobile.value) {
-        isCollapsed.value = true
-      }
-    }
-
     const handleResize = () => {
       isMobile.value = window.innerWidth < 1024
       // Auto-collapse on mobile if not explicitly set
@@ -235,10 +177,9 @@ export default {
       }
     }
 
-    // Watch for authentication changes to reload albums and smart albums
+    // Watch for authentication changes to reload albums
     watch(() => props.isAuthenticated, () => {
       loadAlbums()
-      loadSmartAlbums()
     })
 
     onMounted(() => {
@@ -248,15 +189,8 @@ export default {
         isCollapsed.value = savedState === 'true'
       }
 
-      // Restore smart albums expanded state
-      const savedSmartState = localStorage.getItem('smartAlbumsExpanded')
-      if (savedSmartState !== null) {
-        smartAlbumsExpanded.value = savedSmartState === 'true'
-      }
-
       window.addEventListener('resize', handleResize)
       loadAlbums()
-      loadSmartAlbums()
     })
 
     onUnmounted(() => {
@@ -267,17 +201,12 @@ export default {
       isCollapsed,
       isMobile,
       userAlbums,
-      smartAlbums,
-      smartAlbumsExpanded,
       visibleUserAlbums,
       getThumbnailUrl,
       toggleCollapse,
-      toggleSmartAlbums,
       navigate,
       handleHiddenClick,
-      selectSmartAlbum,
-      loadAlbums,
-      loadSmartAlbums
+      loadAlbums
     }
   }
 }
@@ -488,10 +417,6 @@ export default {
 .album-thumbnail i {
   font-size: 1rem;
   color: var(--color-text-tertiary);
-}
-
-.album-item.smart .album-thumbnail i {
-  color: var(--color-info);
 }
 
 .album-info {

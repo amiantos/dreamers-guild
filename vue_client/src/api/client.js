@@ -198,32 +198,7 @@ export const albumsApi = {
     if (options.includeHidden) {
       params.push('includeHidden=true')
     }
-    if (options.includeSmart) {
-      params.push('includeSmart=true')
-      if (options.showFavoritesOnly) {
-        params.push('favorites=true')
-      }
-      if (options.showHiddenOnly) {
-        params.push('showHiddenOnly=true')
-      }
-    }
     const url = params.length > 0 ? `/albums?${params.join('&')}` : '/albums'
-    return apiClient.get(url)
-  },
-
-  // Get smart albums (auto-generated)
-  getSmartAlbums(filters = {}) {
-    const params = []
-    if (filters.showFavoritesOnly) {
-      params.push('favorites=true')
-    }
-    if (filters.showHiddenOnly) {
-      params.push('showHiddenOnly=true')
-    }
-    if (filters.includeHidden) {
-      params.push('includeHidden=true')
-    }
-    const url = params.length > 0 ? `/albums/smart?${params.join('&')}` : '/albums/smart'
     return apiClient.get(url)
   },
 

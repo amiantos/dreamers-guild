@@ -9,7 +9,6 @@
       @navigate="handleSidebarNavigate"
       @toggle-collapse="handleSidebarToggle"
       @create-album="handleCreateAlbum"
-      @select-smart-album="handleSmartAlbumSelect"
     />
 
     <!-- Create Album Modal -->
@@ -1211,10 +1210,9 @@ export default {
         if (requestHiddenAccess) {
           requestHiddenAccess(() => {
             router.push('/hidden')
-            // Refresh sidebar data after authentication - pass true to include hidden
+            // Refresh sidebar data after authentication
             if (sidebarRef.value) {
               sidebarRef.value.loadAlbums()
-              sidebarRef.value.loadSmartAlbums(true)
             }
           })
         }
@@ -1239,21 +1237,6 @@ export default {
       } else if (view === 'album' && albumSlug) {
         router.push(`/album/${albumSlug}`)
       }
-    }
-
-    const handleSmartAlbumSelect = (album) => {
-      // Apply smart album filters
-      filters.value.requestId = null
-      filters.value.keywords = []
-
-      if (album.filters && Array.isArray(album.filters)) {
-        filters.value.filterCriteria = [...album.filters]
-      }
-
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-      updateFilterUrl()
     }
 
     const handleCreateAlbum = () => {
@@ -1643,7 +1626,6 @@ export default {
       isAddToAlbumModalOpen,
       handleSidebarToggle,
       handleSidebarNavigate,
-      handleSmartAlbumSelect,
       handleCreateAlbum,
       handleAlbumCreated,
       handleAddToAlbum,

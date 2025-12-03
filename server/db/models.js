@@ -429,34 +429,6 @@ export const HordePendingDownload = {
   }
 };
 
-// KeywordAlbum model (legacy - used by Smart Albums)
-export const KeywordAlbum = {
-  create(data) {
-    const stmt = db.prepare(`
-      INSERT INTO keyword_albums (title, keywords)
-      VALUES (?, ?)
-    `);
-
-    const result = stmt.run(data.title || null, data.keywords || null);
-    return this.findById(result.lastInsertRowid);
-  },
-
-  findById(id) {
-    const stmt = db.prepare('SELECT * FROM keyword_albums WHERE id = ?');
-    return stmt.get(id);
-  },
-
-  findAll() {
-    const stmt = db.prepare('SELECT * FROM keyword_albums');
-    return stmt.all();
-  },
-
-  delete(id) {
-    const stmt = db.prepare('DELETE FROM keyword_albums WHERE id = ?');
-    return stmt.run(id);
-  }
-};
-
 // Album model (user-created albums)
 export const Album = {
   create(data) {
@@ -564,13 +536,10 @@ export const ImageAlbum = {
   addImageToAlbum(imageUuid, albumId, autoHide = true) {
     const now = Date.now();
 
-    // Check if the album is hidden
+    // Check if the album is hidden and auto-hide the image
     const album = Album.findById(albumId);
     const albumIsHidden = album && (album.is_hidden === 1 || album.is_hidden === true);
-    console.log(`[ImageAlbum] Adding image ${imageUuid} to album ${albumId}, album.is_hidden=${album?.is_hidden}, albumIsHidden=${albumIsHidden}, autoHide=${autoHide}`);
     if (albumIsHidden && autoHide) {
-      // Auto-hide the image if adding to a hidden album
-      console.log(`[ImageAlbum] Auto-hiding image ${imageUuid} because album ${albumId} is hidden`);
       const updateStmt = db.prepare('UPDATE generated_images SET is_hidden = 1 WHERE uuid = ?');
       updateStmt.run(imageUuid);
     }
