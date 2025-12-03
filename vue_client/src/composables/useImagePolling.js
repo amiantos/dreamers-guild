@@ -12,9 +12,10 @@ import { imagesApi, albumsApi } from '@api'
  * @param {import('vue').Ref} options.currentView - Current view ref (library, album, favorites, etc.)
  * @param {import('vue').Ref} options.currentAlbum - Current album ref (for album view)
  * @param {Function} options.onNewImages - Callback when new images are added
+ * @param {Function} options.onPollComplete - Callback after every poll cycle (for refreshing album counts, etc.)
  * @returns {Object} Polling controls and state
  */
-export function useImagePolling({ filters, images, totalCount, currentView, currentAlbum, onNewImages }) {
+export function useImagePolling({ filters, images, totalCount, currentView, currentAlbum, onNewImages, onPollComplete }) {
   let imagesPollInterval = null
   let finalImageCheckTimeout = null
   const wasActive = ref(false)
@@ -79,6 +80,11 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
         if (onNewImages) {
           onNewImages(trulyNewImages)
         }
+      }
+
+      // Always notify poll complete (for refreshing album counts, etc.)
+      if (onPollComplete) {
+        onPollComplete()
       }
     } catch (error) {
       console.error('Error checking for new images:', error)
