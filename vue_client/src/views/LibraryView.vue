@@ -2509,6 +2509,11 @@ export default {
     left: 1rem;
   }
 
+  /* On mobile, don't move FAB when sidebar opens (sidebar overlays content) */
+  .library-view:not(.sidebar-collapsed) .fab-settings {
+    left: 1rem;
+  }
+
   /* Smaller requests tab on mobile */
   .panel-tab .tab-content {
     padding: 0.5rem 1rem;
