@@ -90,8 +90,7 @@ function initDatabase() {
       is_hidden INTEGER DEFAULT 0,
       cover_image_uuid TEXT,
       date_created INTEGER NOT NULL,
-      date_modified INTEGER NOT NULL,
-      sort_order INTEGER DEFAULT 0
+      date_modified INTEGER NOT NULL
     )
   `);
 
@@ -250,11 +249,6 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_albums_hidden
     ON albums(is_hidden)
-  `);
-
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_albums_sort_order
-    ON albums(sort_order)
   `);
 
   db.exec(`

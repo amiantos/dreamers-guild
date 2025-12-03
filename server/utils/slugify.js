@@ -16,21 +16,3 @@ export function generateSlug(title) {
   const suffix = Math.random().toString(36).substring(2, 6);
   return base ? `${base}-${suffix}` : suffix;
 }
-
-/**
- * Ensure a slug is unique by checking against existing slugs
- * @param {string} baseSlug - The base slug to make unique
- * @param {function} existsCheck - Function that returns true if slug exists
- * @returns {string} - A unique slug
- */
-export function ensureUniqueSlug(baseSlug, existsCheck) {
-  let slug = baseSlug;
-  let counter = 1;
-
-  while (existsCheck(slug)) {
-    slug = `${baseSlug}-${counter}`;
-    counter++;
-  }
-
-  return slug;
-}

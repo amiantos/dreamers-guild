@@ -163,7 +163,17 @@ export default {
   emits: ['navigate', 'toggle-collapse', 'create-album', 'album-deleted', 'album-renamed'],
   setup(props, { emit }) {
     const { showToast } = useToast()
-    const isCollapsed = ref(window.innerWidth < 1024)
+
+    // Initialize collapsed state from localStorage (single source of truth)
+    const getInitialCollapsedState = () => {
+      const savedState = localStorage.getItem('sidebarCollapsed')
+      if (savedState !== null) {
+        return savedState === 'true'
+      }
+      return window.innerWidth < 1024
+    }
+
+    const isCollapsed = ref(getInitialCollapsedState())
     const isMobile = ref(window.innerWidth < 1024)
     const userAlbums = ref([])
 
@@ -189,6 +199,7 @@ export default {
         userAlbums.value = response.data || []
       } catch (error) {
         console.error('Error loading albums:', error)
+        showToast('Failed to load albums', 'error')
       }
     }
 
@@ -296,14 +307,10 @@ export default {
     })
 
     onMounted(() => {
-      // Restore collapsed state from localStorage
-      const savedState = localStorage.getItem('sidebarCollapsed')
-      if (savedState !== null) {
-        isCollapsed.value = savedState === 'true'
-      }
-
       window.addEventListener('resize', handleResize)
       loadAlbums()
+      // Emit initial state to parent for layout sync
+      emit('toggle-collapse', isCollapsed.value)
     })
 
     onUnmounted(() => {

@@ -96,13 +96,8 @@ export const albumsApi = {
       albums = albums.filter(a => !a.is_hidden)
     }
 
-    // Sort by sort_order then date_created
-    albums.sort((a, b) => {
-      if (a.sort_order !== b.sort_order) {
-        return a.sort_order - b.sort_order
-      }
-      return b.date_created - a.date_created
-    })
+    // Sort by date_created descending
+    albums.sort((a, b) => b.date_created - a.date_created)
 
     const enriched = albums.map(enrichAlbum)
     return Promise.resolve({ data: enriched })
@@ -122,8 +117,7 @@ export const albumsApi = {
       is_hidden: data.isHidden ? 1 : 0,
       cover_image_uuid: null,
       date_created: now,
-      date_modified: now,
-      sort_order: 0
+      date_modified: now
     }
 
     albums.unshift(newAlbum)
@@ -159,18 +153,15 @@ export const albumsApi = {
 
     const album = albums[index]
 
+    // Update title only - slug remains unchanged to preserve URLs
     if (data.title !== undefined) {
       album.title = data.title
-      album.slug = generateSlug(data.title)
     }
     if (data.isHidden !== undefined) {
       album.is_hidden = data.isHidden ? 1 : 0
     }
     if (data.coverImageUuid !== undefined) {
       album.cover_image_uuid = data.coverImageUuid
-    }
-    if (data.sortOrder !== undefined) {
-      album.sort_order = data.sortOrder
     }
 
     album.date_modified = Date.now()
@@ -287,6 +278,22 @@ export const albumsApi = {
     saveImageAlbums(associations)
 
     return Promise.resolve({ success: true })
+  },
+
+  /**
+   * Bulk remove images from album
+   */
+  removeImages(albumId, imageIds) {
+    let associations = getImageAlbums()
+    const imageIdSet = new Set(imageIds)
+    const originalCount = associations.length
+    associations = associations.filter(
+      a => !(a.album_id === albumId && imageIdSet.has(a.image_uuid))
+    )
+    saveImageAlbums(associations)
+    const removed = originalCount - associations.length
+
+    return Promise.resolve({ success: true, removed, albumId })
   },
 
   /**

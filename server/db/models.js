@@ -440,8 +440,8 @@ export const Album = {
     const slug = generateSlug(data.title);
 
     const stmt = db.prepare(`
-      INSERT INTO albums (slug, title, is_hidden, cover_image_uuid, date_created, date_modified, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO albums (slug, title, is_hidden, cover_image_uuid, date_created, date_modified)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -450,8 +450,7 @@ export const Album = {
       data.isHidden ? 1 : 0,
       data.coverImageUuid || null,
       now,
-      now,
-      data.sortOrder || 0
+      now
     );
 
     return this.findById(result.lastInsertRowid);
@@ -472,7 +471,7 @@ export const Album = {
     if (!includeHidden) {
       query += ' WHERE is_hidden = 0';
     }
-    query += ' ORDER BY sort_order ASC, date_created DESC';
+    query += ' ORDER BY date_created DESC';
 
     const stmt = db.prepare(query);
     return stmt.all();
@@ -506,7 +505,7 @@ export const Album = {
         GROUP BY album_id
       ) counts ON counts.album_id = a.id
       ${whereClause}
-      ORDER BY a.sort_order ASC, a.date_created DESC
+      ORDER BY a.date_created DESC
     `);
 
     return stmt.all();
@@ -516,17 +515,13 @@ export const Album = {
     const fields = [];
     const values = [];
 
-    // Regenerate slug when title changes
+    // Update title only - slug remains unchanged to preserve URLs
     if (data.title !== undefined) {
       fields.push('title = ?');
       values.push(data.title);
-      const newSlug = generateSlug(data.title);
-      fields.push('slug = ?');
-      values.push(newSlug);
     }
     if (data.isHidden !== undefined) { fields.push('is_hidden = ?'); values.push(data.isHidden ? 1 : 0); }
     if (data.coverImageUuid !== undefined) { fields.push('cover_image_uuid = ?'); values.push(data.coverImageUuid); }
-    if (data.sortOrder !== undefined) { fields.push('sort_order = ?'); values.push(data.sortOrder); }
 
     if (fields.length === 0) return this.findById(id);
 
@@ -627,7 +622,7 @@ export const ImageAlbum = {
     if (!includeHidden) {
       query += ' AND a.is_hidden = 0';
     }
-    query += ' ORDER BY a.sort_order ASC, a.date_created DESC';
+    query += ' ORDER BY a.date_created DESC';
 
     const stmt = db.prepare(query);
     return stmt.all(imageUuid);

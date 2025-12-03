@@ -86,7 +86,7 @@ router.get('/:slug', (req, res) => {
 router.patch('/:id', (req, res) => {
   try {
     const albumId = parseInt(req.params.id, 10);
-    const { title, isHidden, coverImageUuid, sortOrder } = req.body;
+    const { title, isHidden, coverImageUuid } = req.body;
 
     const existing = Album.findById(albumId);
     if (!existing) {
@@ -97,7 +97,6 @@ router.patch('/:id', (req, res) => {
     if (title !== undefined) updates.title = title.trim();
     if (isHidden !== undefined) updates.isHidden = isHidden;
     if (coverImageUuid !== undefined) updates.coverImageUuid = coverImageUuid;
-    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
 
     const album = Album.update(albumId, updates);
 
@@ -228,6 +227,37 @@ router.delete('/:id/images/:imageId', (req, res) => {
   } catch (error) {
     console.error('Error removing image from album:', error);
     res.status(500).json({ error: 'Failed to remove image from album' });
+  }
+});
+
+/**
+ * DELETE /api/albums/:id/images
+ * Bulk remove images from an album
+ */
+router.delete('/:id/images', (req, res) => {
+  try {
+    const albumId = parseInt(req.params.id, 10);
+    const { imageIds } = req.body;
+
+    if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
+      return res.status(400).json({ error: 'imageIds array is required' });
+    }
+
+    const existing = Album.findById(albumId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Album not found' });
+    }
+
+    let removed = 0;
+    for (const imageId of imageIds) {
+      const result = ImageAlbum.removeImageFromAlbum(imageId, albumId);
+      if (result.changes > 0) removed++;
+    }
+
+    res.json({ success: true, removed, albumId });
+  } catch (error) {
+    console.error('Error bulk removing images from album:', error);
+    res.status(500).json({ error: 'Failed to remove images from album' });
   }
 });
 

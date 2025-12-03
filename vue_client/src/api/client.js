@@ -247,6 +247,11 @@ export const albumsApi = {
     return apiClient.delete(`/albums/${albumId}/images/${imageId}`)
   },
 
+  // Bulk remove images from an album
+  removeImages(albumId, imageIds) {
+    return apiClient.delete(`/albums/${albumId}/images`, { data: { imageIds } })
+  },
+
   // Get albums for a specific image
   getAlbumsForImage(imageId, includeHidden = false) {
     const url = includeHidden

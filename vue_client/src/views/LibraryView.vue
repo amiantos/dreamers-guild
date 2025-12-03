@@ -859,9 +859,7 @@ export default {
         if (wasSelected) {
           navigateAfterRemoval(imageIndex)
         }
-
-        // Refresh keywords since counts and keywords may have changed
-              } catch (error) {
+      } catch (error) {
         console.error('Error deleting image:', error)
         showToast('Failed to delete image. Please try again.', 'error')
       }
@@ -898,9 +896,7 @@ export default {
         selectedImages.value.clear()
         isMultiSelectMode.value = false
         lastSelectedIndex.value = -1
-
-        // Refresh keywords
-              } catch (error) {
+      } catch (error) {
         console.error('Error batch deleting images:', error)
         showToast('Failed to delete some images. Please try again.', 'error')
       }
@@ -921,8 +917,7 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-              } catch (error) {
+      } catch (error) {
         console.error('Error batch favoriting images:', error)
         showToast('Failed to favorite some images. Please try again.', 'error')
       }
@@ -950,8 +945,7 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-              } catch (error) {
+      } catch (error) {
         console.error('Error batch unfavoriting images:', error)
         showToast('Failed to unfavorite some images. Please try again.', 'error')
       }
@@ -979,8 +973,7 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-              } catch (error) {
+      } catch (error) {
         console.error('Error batch hiding images:', error)
         showToast('Failed to hide some images. Please try again.', 'error')
       }
@@ -1008,8 +1001,7 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-              } catch (error) {
+      } catch (error) {
         console.error('Error batch unhiding images:', error)
         showToast('Failed to unhide some images. Please try again.', 'error')
       }
@@ -1023,10 +1015,8 @@ export default {
         const removeCount = imageIds.length
         const albumId = currentAlbum.value.id
 
-        // Remove each image from the album
-        for (const imageId of imageIds) {
-          await albumsApi.removeImage(albumId, imageId)
-        }
+        // Bulk remove images from the album
+        await albumsApi.removeImages(albumId, imageIds)
 
         // Remove from current view
         images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
@@ -1076,8 +1066,7 @@ export default {
               navigateAfterRemoval(imageIndex)
             }
           }
-
-                  } else if ('is_favorite' in updates) {
+        } else if ('is_favorite' in updates) {
           const shouldRemove = (
             (updates.is_favorite === 0 && isFavoritesView.value)
           )
@@ -1089,9 +1078,7 @@ export default {
               navigateAfterRemoval(imageIndex)
             }
           }
-
-          // Refresh keywords for favorite changes
-                  }
+        }
       }
     }
 
