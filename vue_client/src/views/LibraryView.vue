@@ -529,8 +529,9 @@ export default {
       const clientHeight = window.innerHeight
 
       // Load more when scrolled near bottom
+      // Use currentAlbum as source of truth (persists when ImageModal changes route)
       if (scrollTop + clientHeight >= scrollHeight - 500) {
-        if (currentView.value === 'album' && currentAlbum.value) {
+        if (currentAlbum.value) {
           fetchAlbumImages(true)
         } else {
           fetchImages(true)
