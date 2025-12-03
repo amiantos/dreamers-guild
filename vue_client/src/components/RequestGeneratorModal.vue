@@ -631,7 +631,7 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
 import { requestsApi, imagesApi, settingsApi, albumsApi } from '@api'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomSamplePrompt, baseDefaults } from '../config/presets.js'
@@ -695,6 +695,8 @@ export default {
     const allStyles = ref([])
 
     // Album selection
+    const hiddenAuthState = inject('hiddenAuthState')
+    const isHiddenAuthenticated = computed(() => hiddenAuthState?.value?.isAuthenticated || false)
     const albums = ref([])
     const selectedAlbumId = ref(null)
 
@@ -1789,12 +1791,17 @@ export default {
     // Load albums for the album selector
     const loadAlbums = async () => {
       try {
-        const response = await albumsApi.getAll({ includeHidden: true })
+        const response = await albumsApi.getAll({ includeHidden: isHiddenAuthenticated.value })
         albums.value = response.data || []
       } catch (error) {
         console.error('Error loading albums:', error)
       }
     }
+
+    // Reload albums when hidden authentication changes
+    watch(isHiddenAuthenticated, () => {
+      loadAlbums()
+    })
 
     onMounted(async () => {
       await fetchModels()

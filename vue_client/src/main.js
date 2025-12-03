@@ -45,6 +45,17 @@ const router = createRouter({
       props: true
     },
     {
+      path: '/hidden-favorites',
+      name: 'hidden-favorites',
+      component: LibraryView
+    },
+    {
+      path: '/hidden-favorites/image/:imageId',
+      name: 'hidden-favorites-image',
+      component: LibraryView,
+      props: true
+    },
+    {
       path: '/album/:albumSlug',
       name: 'album',
       component: LibraryView,

@@ -31,18 +31,18 @@
         </div>
 
         <div
+          v-if="isAuthenticated"
           class="nav-item"
           :class="{ active: activeView === 'hidden' }"
-          @click="handleHiddenClick"
+          @click="navigate('hidden')"
         >
           <i class="fa-solid fa-eye-slash"></i>
           <span>Hidden</span>
-          <i v-if="!isAuthenticated" class="fa-solid fa-lock nav-lock-icon"></i>
         </div>
 
         <div
           v-if="isAuthenticated"
-          class="nav-item sub-item"
+          class="nav-item"
           :class="{ active: activeView === 'hidden-favorites' }"
           @click="navigate('hidden-favorites')"
         >
@@ -162,13 +162,6 @@ export default {
       }
     }
 
-    const handleHiddenClick = () => {
-      emit('navigate', { view: 'hidden', requiresAuth: !props.isAuthenticated })
-      if (isMobile.value && props.isAuthenticated) {
-        isCollapsed.value = true
-      }
-    }
-
     const handleResize = () => {
       isMobile.value = window.innerWidth < 1024
       // Auto-collapse on mobile if not explicitly set
@@ -205,7 +198,6 @@ export default {
       getThumbnailUrl,
       toggleCollapse,
       navigate,
-      handleHiddenClick,
       loadAlbums
     }
   }
@@ -233,10 +225,10 @@ export default {
 
 .collapse-toggle {
   position: absolute;
-  right: -40px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 40px;
+  right: -20px;
+  /* top: 50%;
+  transform: translateY(-50%); */
+  width: 20px;
   height: 80px;
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -288,21 +280,9 @@ export default {
   color: var(--color-text-primary);
 }
 
-.nav-item.sub-item {
-  margin-left: 1.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-}
-
 .nav-item i {
   width: 20px;
   text-align: center;
-}
-
-.nav-lock-icon {
-  margin-left: auto;
-  font-size: 0.75rem;
-  color: var(--color-text-quaternary);
 }
 
 /* Section */

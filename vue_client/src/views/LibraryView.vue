@@ -111,7 +111,7 @@
                 </div>
                 <div class="menu-item" @click="toggleHiddenImages">
                   <i class="fa-solid" :class="filters.showHidden ? 'fa-eye' : 'fa-eye-slash'" aria-hidden="true"></i>
-                  <span>{{ filters.showHidden ? 'Exit Hidden View' : 'Show Hidden Only' }}</span>
+                  <span>{{ filters.showHidden ? 'Hide Hidden' : 'Show Hidden' }}</span>
                 </div>
               </div>
             </div>
@@ -348,6 +348,7 @@ export default {
     const currentView = computed(() => {
       const path = route.path
       if (path.startsWith('/favorites')) return 'favorites'
+      if (path.startsWith('/hidden-favorites')) return 'hidden-favorites'
       if (path.startsWith('/hidden')) return 'hidden'
       if (path.startsWith('/album/')) return 'album'
       return 'library'
@@ -418,10 +419,9 @@ export default {
 
       if (currentView.value === 'favorites') {
         return `${count} Favorite${suffix}`
+      } else if (currentView.value === 'hidden-favorites') {
+        return `${count} Hidden Favorite${suffix}`
       } else if (currentView.value === 'hidden') {
-        if (filters.value.showFavoritesOnly) {
-          return `${count} Hidden Favorite${suffix}`
-        }
         return `${count} Hidden Image${suffix}`
       } else if (currentView.value === 'album' && currentAlbum.value) {
         return `${currentAlbum.value.title} (${count})`
@@ -671,35 +671,22 @@ export default {
           // Request PIN access
           if (requestHiddenAccess) {
             requestHiddenAccess(() => {
-              // After successful auth, toggle on
-              filters.value.showHidden = true
-              sessionStorage.setItem('showHidden', 'true')
-              offset.value = 0
-              hasMore.value = true
-              fetchForCurrentView()
+              // After successful auth, navigate to hidden view
+              router.push('/hidden')
             })
           }
           return
         }
-      }
-
-      // Toggle the hidden images filter
-      filters.value.showHidden = !filters.value.showHidden
-
-      // Save to sessionStorage
-      if (filters.value.showHidden) {
-        sessionStorage.setItem('showHidden', 'true')
+        // Already authenticated, navigate to hidden view
+        router.push('/hidden')
       } else {
+        // Turning off - clear auth and go back to library
         sessionStorage.removeItem('showHidden')
-        // Clear authentication when manually disabling hidden images mode
         if (clearHiddenAuth) {
           clearHiddenAuth()
         }
+        router.push('/')
       }
-
-      offset.value = 0
-      hasMore.value = true
-      fetchForCurrentView()
     }
 
     // Multi-select mode functions
@@ -1204,21 +1191,7 @@ export default {
       sidebarCollapsed.value = collapsed
     }
 
-    const handleSidebarNavigate = ({ view, albumSlug, requiresAuth }) => {
-      // Handle auth requirement for hidden view
-      if (requiresAuth) {
-        if (requestHiddenAccess) {
-          requestHiddenAccess(() => {
-            router.push('/hidden')
-            // Refresh sidebar data after authentication
-            if (sidebarRef.value) {
-              sidebarRef.value.loadAlbums()
-            }
-          })
-        }
-        return
-      }
-
+    const handleSidebarNavigate = ({ view, albumSlug }) => {
       // Navigate based on view
       if (view === 'library') {
         router.push('/')
@@ -1227,13 +1200,7 @@ export default {
       } else if (view === 'hidden') {
         router.push('/hidden')
       } else if (view === 'hidden-favorites') {
-        // Hidden favorites - go to hidden with favorites filter
-        filters.value.showFavoritesOnly = true
-        filters.value.showHidden = true
-        router.push('/hidden')
-        offset.value = 0
-        hasMore.value = true
-        fetchImages()
+        router.push('/hidden-favorites')
       } else if (view === 'album' && albumSlug) {
         router.push(`/album/${albumSlug}`)
       }
@@ -1404,6 +1371,13 @@ export default {
         // Check authentication for hidden view
         if (checkHiddenAuth && !checkHiddenAuth()) {
           // User needs to authenticate - this will be handled by the sidebar
+          return
+        }
+      } else if (view === 'hidden-favorites') {
+        filters.value.showHidden = true
+        filters.value.showFavoritesOnly = true
+        // Check authentication for hidden view
+        if (checkHiddenAuth && !checkHiddenAuth()) {
           return
         }
       }
@@ -2312,7 +2286,7 @@ export default {
 }
 
 .panel-tab .tab-content {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-elevated);
   border-radius: 12px 12px 0 0;
   border-bottom: none;
   box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
@@ -2372,7 +2346,7 @@ export default {
   top: auto;
   left: 0;
   right: 0;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-elevated);
   max-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2392,7 +2366,7 @@ export default {
 
 .panel-content {
   padding: 1.5rem 2rem;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-elevated);
   position: relative;
 }
 
