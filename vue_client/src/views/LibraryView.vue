@@ -1001,7 +1001,7 @@ export default {
 
     const handleLoadSettings = (includeSeed) => {
       if (selectedImage.value && loadSettingsFromImage) {
-        loadSettingsFromImage(selectedImage.value, includeSeed)
+        loadSettingsFromImage(selectedImage.value, includeSeed, currentAlbum.value?.slug)
       }
     }
 

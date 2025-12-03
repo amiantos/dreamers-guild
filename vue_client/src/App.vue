@@ -49,6 +49,7 @@
       ref="requestModalRef"
       :initialSettings="modalInitialSettings"
       :includeSeed="modalIncludeSeed"
+      :initialAlbumSlug="modalInitialAlbumSlug"
       @close="handleCloseRequestModal"
       @submit="handleNewRequest"
     />
@@ -267,6 +268,7 @@ export default {
     const requestModalRef = ref(null)
     const modalInitialSettings = ref(null)
     const modalIncludeSeed = ref(false)
+    const modalInitialAlbumSlug = ref(null)
     const shouldOpenRequestsPanel = ref(false)
 
     // PIN protection state
@@ -463,6 +465,7 @@ export default {
       // Clear the initial settings when modal closes
       modalInitialSettings.value = null
       modalIncludeSeed.value = false
+      modalInitialAlbumSlug.value = null
     }
 
     const handleNewRequest = () => {
@@ -475,7 +478,7 @@ export default {
       showRequestModal.value = true
     }
 
-    const loadSettingsFromImage = async (image, includeSeed = false) => {
+    const loadSettingsFromImage = async (image, includeSeed = false, albumSlug = null) => {
       if (!image.full_request) {
         console.error('No settings available for this image')
         return
@@ -499,6 +502,10 @@ export default {
             console.error('Error parsing full_response:', responseError)
           }
         }
+
+        // Auto-select album if user is currently viewing one
+        modalInitialAlbumSlug.value = albumSlug
+        console.log('[App] loadSettingsFromImage - albumSlug:', modalInitialAlbumSlug.value)
 
         // Set the initial settings and show the modal
         modalInitialSettings.value = settings
@@ -528,6 +535,7 @@ export default {
       requestModalRef,
       modalInitialSettings,
       modalIncludeSeed,
+      modalInitialAlbumSlug,
       handleCloseRequestModal,
       handleNewRequest,
       loadSettingsFromImage,
