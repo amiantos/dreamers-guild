@@ -1249,6 +1249,10 @@ export default {
         selectedStyleData.value = null
       }
 
+      // Clear album selection
+      selectedAlbumId.value = null
+      localStorage.removeItem('lastUsedAlbumId')
+
       estimateKudos()
     }
 
@@ -1807,6 +1811,15 @@ export default {
       loadAlbums()
     })
 
+    // Save album selection to localStorage when it changes
+    watch(selectedAlbumId, (newValue) => {
+      if (newValue) {
+        localStorage.setItem('lastUsedAlbumId', String(newValue))
+      } else {
+        localStorage.removeItem('lastUsedAlbumId')
+      }
+    })
+
     onMounted(async () => {
       console.log('[RequestGeneratorModal] onMounted - props.initialAlbumSlug:', props.initialAlbumSlug)
       await fetchModels()
@@ -1814,6 +1827,16 @@ export default {
       // Load albums for selector
       await loadAlbums()
       console.log('[RequestGeneratorModal] albums loaded:', albums.value.map(a => ({ id: a.id, slug: a.slug, title: a.title })))
+
+      // Restore last used album (will be overridden by prop if provided)
+      const savedAlbumId = localStorage.getItem('lastUsedAlbumId')
+      if (savedAlbumId) {
+        const albumId = parseInt(savedAlbumId, 10)
+        // Only restore if the album still exists in our list
+        if (albums.value.some(a => a.id === albumId)) {
+          selectedAlbumId.value = albumId
+        }
+      }
 
       // Set default model if not already set
       if (!form.model) {
