@@ -1,5 +1,5 @@
 import express from 'express';
-import { GeneratedImage } from '../db/models.js';
+import { GeneratedImage, ImageAlbum } from '../db/models.js';
 import { imagesDir } from '../db/database.js';
 import path from 'path';
 
@@ -116,6 +116,21 @@ router.get('/:id/thumbnail', (req, res) => {
   } catch (error) {
     console.error('Error serving thumbnail:', error);
     res.status(500).json({ error: 'Failed to serve thumbnail' });
+  }
+});
+
+// Get albums containing this image
+router.get('/:id/albums', (req, res) => {
+  try {
+    const imageId = req.params.id;
+    const includeHidden = req.query.includeHidden === 'true';
+
+    const albums = ImageAlbum.findAlbumsForImage(imageId, includeHidden);
+
+    res.json(albums);
+  } catch (error) {
+    console.error('Error fetching albums for image:', error);
+    res.status(500).json({ error: 'Failed to fetch albums for image' });
   }
 });
 

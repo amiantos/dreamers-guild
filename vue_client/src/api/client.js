@@ -192,18 +192,85 @@ export const stylesApi = {
 }
 
 export const albumsApi = {
-  getAll(filters = {}) {
-    let url = '/albums'
+  // Get all user albums
+  getAll(options = {}) {
+    const params = []
+    if (options.includeHidden) {
+      params.push('includeHidden=true')
+    }
+    if (options.includeSmart) {
+      params.push('includeSmart=true')
+      if (options.showFavoritesOnly) {
+        params.push('favorites=true')
+      }
+      if (options.showHiddenOnly) {
+        params.push('showHiddenOnly=true')
+      }
+    }
+    const url = params.length > 0 ? `/albums?${params.join('&')}` : '/albums'
+    return apiClient.get(url)
+  },
+
+  // Get smart albums (auto-generated)
+  getSmartAlbums(filters = {}) {
     const params = []
     if (filters.showFavoritesOnly) {
       params.push('favorites=true')
     }
-    if (filters.showHidden) {
+    if (filters.showHiddenOnly) {
       params.push('showHiddenOnly=true')
     }
-    if (params.length > 0) {
-      url += '?' + params.join('&')
+    const url = params.length > 0 ? `/albums/smart?${params.join('&')}` : '/albums/smart'
+    return apiClient.get(url)
+  },
+
+  // Create a new album
+  create(data) {
+    return apiClient.post('/albums', data)
+  },
+
+  // Get album by slug
+  getBySlug(slug) {
+    return apiClient.get(`/albums/${slug}`)
+  },
+
+  // Update an album
+  update(id, data) {
+    return apiClient.patch(`/albums/${id}`, data)
+  },
+
+  // Delete an album
+  delete(id) {
+    return apiClient.delete(`/albums/${id}`)
+  },
+
+  // Get images in an album
+  getImages(albumId, limit = 100, offset = 0, options = {}) {
+    const params = [`limit=${limit}`, `offset=${offset}`]
+    if (options.showFavorites) {
+      params.push('favorites=true')
     }
+    if (options.showHiddenOnly) {
+      params.push('showHiddenOnly=true')
+    }
+    return apiClient.get(`/albums/${albumId}/images?${params.join('&')}`)
+  },
+
+  // Add images to an album
+  addImages(albumId, imageIds) {
+    return apiClient.post(`/albums/${albumId}/images`, { imageIds })
+  },
+
+  // Remove an image from an album
+  removeImage(albumId, imageId) {
+    return apiClient.delete(`/albums/${albumId}/images/${imageId}`)
+  },
+
+  // Get albums for a specific image
+  getAlbumsForImage(imageId, includeHidden = false) {
+    const url = includeHidden
+      ? `/images/${imageId}/albums?includeHidden=true`
+      : `/images/${imageId}/albums`
     return apiClient.get(url)
   }
 }

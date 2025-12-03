@@ -81,12 +81,37 @@ function initDatabase() {
     )
   `);
 
-  // KeywordAlbum table
+  // KeywordAlbum table (legacy - used by Smart Albums clustering)
   db.exec(`
     CREATE TABLE IF NOT EXISTS keyword_albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT,
       keywords TEXT
+    )
+  `);
+
+  // User Albums table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS albums (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      is_hidden INTEGER DEFAULT 0,
+      cover_image_uuid TEXT,
+      date_created INTEGER NOT NULL,
+      date_modified INTEGER NOT NULL,
+      sort_order INTEGER DEFAULT 0
+    )
+  `);
+
+  // Image-Albums junction table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS image_albums (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      image_uuid TEXT NOT NULL,
+      album_id INTEGER NOT NULL,
+      date_added INTEGER NOT NULL,
+      UNIQUE(image_uuid, album_id)
     )
   `);
 
@@ -222,6 +247,32 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_requests_date_created
     ON horde_requests(date_created DESC)
+  `);
+
+  // Albums indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_albums_slug
+    ON albums(slug)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_albums_hidden
+    ON albums(is_hidden)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_albums_sort_order
+    ON albums(sort_order)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_image_albums_image
+    ON image_albums(image_uuid)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_image_albums_album
+    ON image_albums(album_id)
   `);
 
   console.log('Database initialized at', dbPath);

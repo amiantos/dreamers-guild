@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { imagesDir } from './database.js';
+import { generateSlug } from '../utils/slugify.js';
 
 // HordeRequest model
 export const HordeRequest = {
@@ -425,7 +426,7 @@ export const HordePendingDownload = {
   }
 };
 
-// KeywordAlbum model
+// KeywordAlbum model (legacy - used by Smart Albums)
 export const KeywordAlbum = {
   create(data) {
     const stmt = db.prepare(`
@@ -450,6 +451,212 @@ export const KeywordAlbum = {
   delete(id) {
     const stmt = db.prepare('DELETE FROM keyword_albums WHERE id = ?');
     return stmt.run(id);
+  }
+};
+
+// Album model (user-created albums)
+export const Album = {
+  create(data) {
+    const now = Date.now();
+    const slug = generateSlug(data.title);
+
+    const stmt = db.prepare(`
+      INSERT INTO albums (slug, title, is_hidden, cover_image_uuid, date_created, date_modified, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const result = stmt.run(
+      slug,
+      data.title,
+      data.isHidden ? 1 : 0,
+      data.coverImageUuid || null,
+      now,
+      now,
+      data.sortOrder || 0
+    );
+
+    return this.findById(result.lastInsertRowid);
+  },
+
+  findById(id) {
+    const stmt = db.prepare('SELECT * FROM albums WHERE id = ?');
+    return stmt.get(id);
+  },
+
+  findBySlug(slug) {
+    const stmt = db.prepare('SELECT * FROM albums WHERE slug = ?');
+    return stmt.get(slug);
+  },
+
+  findAll(includeHidden = false) {
+    let query = 'SELECT * FROM albums';
+    if (!includeHidden) {
+      query += ' WHERE is_hidden = 0';
+    }
+    query += ' ORDER BY sort_order ASC, date_created DESC';
+
+    const stmt = db.prepare(query);
+    return stmt.all();
+  },
+
+  update(id, data) {
+    const fields = [];
+    const values = [];
+
+    if (data.title !== undefined) { fields.push('title = ?'); values.push(data.title); }
+    if (data.isHidden !== undefined) { fields.push('is_hidden = ?'); values.push(data.isHidden ? 1 : 0); }
+    if (data.coverImageUuid !== undefined) { fields.push('cover_image_uuid = ?'); values.push(data.coverImageUuid); }
+    if (data.sortOrder !== undefined) { fields.push('sort_order = ?'); values.push(data.sortOrder); }
+
+    if (fields.length === 0) return this.findById(id);
+
+    fields.push('date_modified = ?');
+    values.push(Date.now());
+
+    values.push(id);
+    const stmt = db.prepare(`UPDATE albums SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...values);
+
+    return this.findById(id);
+  },
+
+  delete(id) {
+    // Delete all image associations first
+    const deleteAssocStmt = db.prepare('DELETE FROM image_albums WHERE album_id = ?');
+    deleteAssocStmt.run(id);
+
+    // Delete the album
+    const stmt = db.prepare('DELETE FROM albums WHERE id = ?');
+    return stmt.run(id);
+  },
+
+  getImageCount(id) {
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM image_albums WHERE album_id = ?');
+    const result = stmt.get(id);
+    return result.count;
+  },
+
+  getCoverImage(id) {
+    // First check if album has an explicit cover
+    const album = this.findById(id);
+    if (album && album.cover_image_uuid) {
+      const imageStmt = db.prepare('SELECT * FROM generated_images WHERE uuid = ?');
+      return imageStmt.get(album.cover_image_uuid);
+    }
+
+    // Fall back to most recent image in album
+    const stmt = db.prepare(`
+      SELECT gi.* FROM generated_images gi
+      INNER JOIN image_albums ia ON gi.uuid = ia.image_uuid
+      WHERE ia.album_id = ?
+      ORDER BY ia.date_added DESC
+      LIMIT 1
+    `);
+    return stmt.get(id);
+  }
+};
+
+// ImageAlbum model (junction table for images in albums)
+export const ImageAlbum = {
+  addImageToAlbum(imageUuid, albumId, autoHide = true) {
+    const now = Date.now();
+
+    // Check if the album is hidden
+    const album = Album.findById(albumId);
+    if (album && album.is_hidden && autoHide) {
+      // Auto-hide the image if adding to a hidden album
+      const updateStmt = db.prepare('UPDATE generated_images SET is_hidden = 1 WHERE uuid = ?');
+      updateStmt.run(imageUuid);
+    }
+
+    // Check if already exists
+    const existingStmt = db.prepare('SELECT id FROM image_albums WHERE image_uuid = ? AND album_id = ?');
+    const existing = existingStmt.get(imageUuid, albumId);
+    if (existing) {
+      return existing;
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO image_albums (image_uuid, album_id, date_added)
+      VALUES (?, ?, ?)
+    `);
+
+    const result = stmt.run(imageUuid, albumId, now);
+    return { id: result.lastInsertRowid, image_uuid: imageUuid, album_id: albumId, date_added: now };
+  },
+
+  addImagesToAlbum(imageUuids, albumId) {
+    const results = [];
+    for (const imageUuid of imageUuids) {
+      results.push(this.addImageToAlbum(imageUuid, albumId));
+    }
+    return results;
+  },
+
+  removeImageFromAlbum(imageUuid, albumId) {
+    const stmt = db.prepare('DELETE FROM image_albums WHERE image_uuid = ? AND album_id = ?');
+    return stmt.run(imageUuid, albumId);
+  },
+
+  findAlbumsForImage(imageUuid, includeHidden = false) {
+    let query = `
+      SELECT a.* FROM albums a
+      INNER JOIN image_albums ia ON a.id = ia.album_id
+      WHERE ia.image_uuid = ?
+    `;
+    if (!includeHidden) {
+      query += ' AND a.is_hidden = 0';
+    }
+    query += ' ORDER BY a.sort_order ASC, a.date_created DESC';
+
+    const stmt = db.prepare(query);
+    return stmt.all(imageUuid);
+  },
+
+  findImagesInAlbum(albumId, limit = 100, offset = 0, filters = {}) {
+    let query = `
+      SELECT gi.* FROM generated_images gi
+      INNER JOIN image_albums ia ON gi.uuid = ia.image_uuid
+      WHERE ia.album_id = ?
+    `;
+    const params = [albumId];
+
+    if (filters.showFavorites) {
+      query += ' AND gi.is_favorite = 1';
+    }
+
+    // For album view, we show all images in the album regardless of hidden status
+    // unless specifically filtering for hidden only
+    if (filters.showHiddenOnly) {
+      query += ' AND gi.is_hidden = 1';
+    }
+
+    query += ' ORDER BY ia.date_added DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const stmt = db.prepare(query);
+    return stmt.all(...params);
+  },
+
+  countImagesInAlbum(albumId, filters = {}) {
+    let query = `
+      SELECT COUNT(*) as count FROM generated_images gi
+      INNER JOIN image_albums ia ON gi.uuid = ia.image_uuid
+      WHERE ia.album_id = ?
+    `;
+    const params = [albumId];
+
+    if (filters.showFavorites) {
+      query += ' AND gi.is_favorite = 1';
+    }
+
+    if (filters.showHiddenOnly) {
+      query += ' AND gi.is_hidden = 1';
+    }
+
+    const stmt = db.prepare(query);
+    const result = stmt.get(...params);
+    return result.count;
   }
 };
 

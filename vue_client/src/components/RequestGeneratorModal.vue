@@ -66,6 +66,16 @@
                 </div>
               </div>
 
+              <div class="form-group">
+                <label for="album">Save to Album</label>
+                <select id="album" v-model="selectedAlbumId" class="album-select">
+                  <option :value="null">None</option>
+                  <option v-for="album in albums" :key="album.id" :value="album.id">
+                    {{ album.title }}{{ album.is_hidden ? ' (Hidden)' : '' }}
+                  </option>
+                </select>
+              </div>
+
             </div>
 
             <!-- Inline Style Picker (Only visible in Simple mode) -->
@@ -622,7 +632,7 @@
 
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { requestsApi, imagesApi, settingsApi } from '@api'
+import { requestsApi, imagesApi, settingsApi, albumsApi } from '@api'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomSamplePrompt, baseDefaults } from '../config/presets.js'
 import { useModelCache } from '../composables/useModelCache.js'
@@ -683,6 +693,10 @@ export default {
     const showStyleSwitchConfirm = ref(false)
     const inlineStylePicker = ref(null)
     const allStyles = ref([])
+
+    // Album selection
+    const albums = ref([])
+    const selectedAlbumId = ref(null)
 
     const form = reactive({
       prompt: '',
@@ -1771,8 +1785,21 @@ export default {
       localStorage.setItem('generatorEditorMode', newMode)
     })
 
+    // Load albums for the album selector
+    const loadAlbums = async () => {
+      try {
+        const response = await albumsApi.getAll({ includeHidden: true })
+        albums.value = response.data || []
+      } catch (error) {
+        console.error('Error loading albums:', error)
+      }
+    }
+
     onMounted(async () => {
       await fetchModels()
+
+      // Load albums for selector
+      loadAlbums()
 
       // Set default model if not already set
       if (!form.model) {
@@ -1855,6 +1882,8 @@ export default {
       aspectRatioText,
       selectedStyleName,
       selectedStyleData,
+      albums,
+      selectedAlbumId,
       submitRequest,
       onModelSelect,
       onStyleSelect,

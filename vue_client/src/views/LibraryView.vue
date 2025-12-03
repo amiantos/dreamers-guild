@@ -1,11 +1,31 @@
 <template>
-  <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
-    <!-- Albums Modal -->
-    <AlbumsModal
-      :keywords="keywords"
-      :isOpen="isAlbumsModalOpen"
-      @close="isAlbumsModalOpen = false"
-      @select="selectKeyword"
+  <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed }">
+    <!-- Sidebar -->
+    <LibrarySidebar
+      ref="sidebarRef"
+      :activeView="currentView"
+      :activeAlbumSlug="currentAlbum?.slug"
+      :isAuthenticated="checkHiddenAuth ? checkHiddenAuth() : false"
+      @navigate="handleSidebarNavigate"
+      @toggle-collapse="handleSidebarToggle"
+      @create-album="handleCreateAlbum"
+      @select-smart-album="handleSmartAlbumSelect"
+    />
+
+    <!-- Create Album Modal -->
+    <CreateAlbumModal
+      :isOpen="isCreateAlbumModalOpen"
+      @close="isCreateAlbumModalOpen = false"
+      @created="handleAlbumCreated"
+    />
+
+    <!-- Add to Album Modal -->
+    <AddToAlbumModal
+      :isOpen="isAddToAlbumModalOpen"
+      :imageIds="Array.from(selectedImages)"
+      :includeHidden="filters.showHidden"
+      @close="isAddToAlbumModalOpen = false"
+      @added="handleAddedToAlbum"
     />
 
     <!-- Requests Panel -->
@@ -80,36 +100,12 @@
               <button @click="applySearch" class="btn-search">Search</button>
             </div>
 
-            <!-- Favorites Toggle Button (hidden on mobile) -->
-            <button
-              @click="toggleFavorites"
-              class="btn-favorites-toggle hide-mobile"
-              :class="{ active: filters.showFavoritesOnly }"
-              title="Show Favorites"
-              aria-label="Show Favorites"
-            >
-              <i class="fa-solid fa-star" aria-hidden="true"></i>
-            </button>
-
-            <!-- Albums Modal Toggle Button (hidden on mobile) -->
-            <button @click="toggleAlbumsModal" class="btn-albums-toggle hide-mobile" title="Albums" aria-label="Open Albums">
-              <i class="fa-solid fa-images" aria-hidden="true"></i>
-            </button>
-
             <!-- Overflow Menu -->
             <div class="menu-container" ref="menuContainer">
               <button @click="toggleMenu" class="btn-menu" title="More options" aria-label="More options">
                 <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
               </button>
               <div v-if="showMenu" class="menu-dropdown">
-                <div class="menu-item show-mobile-only" @click="toggleFavorites">
-                  <i class="fa-solid fa-star" :class="{ active: filters.showFavoritesOnly }" aria-hidden="true"></i>
-                  <span>{{ filters.showFavoritesOnly ? 'Show All' : 'Show Favorites' }}</span>
-                </div>
-                <div class="menu-item show-mobile-only" @click="toggleAlbumsModal">
-                  <i class="fa-solid fa-images" aria-hidden="true"></i>
-                  <span>Albums</span>
-                </div>
                 <div class="menu-item" @click="toggleMultiSelectMode">
                   <i class="fa-solid fa-check-double" aria-hidden="true"></i>
                   <span>Multi-Select Mode</span>
@@ -251,6 +247,10 @@
             <i class="fa-regular fa-star"></i>
             <span>Unfavorite</span>
           </button>
+          <button @click="handleAddToAlbum" :disabled="selectedCount === 0" class="btn-action btn-album" title="Add to Album">
+            <i class="fa-solid fa-folder-plus"></i>
+            <span>Album</span>
+          </button>
           <button @click="batchHide" :disabled="selectedCount === 0" class="btn-action btn-hide" title="Hide">
             <i class="fa-solid fa-eye-slash"></i>
             <span>Hide</span>
@@ -287,7 +287,9 @@ import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
-import AlbumsModal from '../components/AlbumsModal.vue'
+import LibrarySidebar from '../components/LibrarySidebar.vue'
+import CreateAlbumModal from '../components/CreateAlbumModal.vue'
+import AddToAlbumModal from '../components/AddToAlbumModal.vue'
 import AsyncImage from '../components/AsyncImage.vue'
 
 export default {
@@ -298,11 +300,14 @@ export default {
     DeleteRequestModal,
     DeleteAllRequestsModal,
     BatchDeleteModal,
-    AlbumsModal,
+    LibrarySidebar,
+    CreateAlbumModal,
+    AddToAlbumModal,
     AsyncImage
   },
   props: {
-    imageId: String // selected image ID from URL
+    imageId: String, // selected image ID from URL
+    albumSlug: String // album slug from URL
   },
   setup(props) {
     const router = useRouter()
@@ -334,9 +339,23 @@ export default {
     const requestToDelete = ref(null)
     let pollInterval = null
 
-    // Albums modal state
-    const isAlbumsModalOpen = ref(false)
-    const keywords = ref([])
+    // Sidebar state
+    const sidebarRef = ref(null)
+    const sidebarCollapsed = ref(false)
+    const isCreateAlbumModalOpen = ref(false)
+    const isAddToAlbumModalOpen = ref(false)
+
+    // Current view based on route
+    const currentView = computed(() => {
+      const path = route.path
+      if (path.startsWith('/favorites')) return 'favorites'
+      if (path.startsWith('/hidden')) return 'hidden'
+      if (path.startsWith('/album/')) return 'album'
+      return 'library'
+    })
+
+    // Current album info (for album routes)
+    const currentAlbum = ref(null)
 
     // Menu state
     const showMenu = ref(false)
@@ -353,8 +372,10 @@ export default {
       images,
       totalCount,
       onNewImages: () => {
-        // Refresh keywords when new images are added
-        fetchKeywords()
+        // Refresh sidebar albums when new images are added
+        if (sidebarRef.value) {
+          sidebarRef.value.loadAlbums()
+        }
       }
     })
 
@@ -387,7 +408,19 @@ export default {
 
     const galleryTitle = computed(() => {
       const count = totalCount.value
-      return `${count} Image${count !== 1 ? 's' : ''}`
+      const suffix = count !== 1 ? 's' : ''
+
+      if (currentView.value === 'favorites') {
+        return `${count} Favorite${suffix}`
+      } else if (currentView.value === 'hidden') {
+        if (filters.value.showFavoritesOnly) {
+          return `${count} Hidden Favorite${suffix}`
+        }
+        return `${count} Hidden Image${suffix}`
+      } else if (currentView.value === 'album' && currentAlbum.value) {
+        return `${currentAlbum.value.title} (${count})`
+      }
+      return `${count} Image${suffix}`
     })
 
     const totalFilterCount = computed(() => {
@@ -634,8 +667,7 @@ export default {
               offset.value = 0
               hasMore.value = true
               fetchImages()
-              fetchKeywords()
-            })
+                          })
           }
           return
         }
@@ -658,8 +690,7 @@ export default {
       offset.value = 0
       hasMore.value = true
       fetchImages()
-      fetchKeywords()
-    }
+          }
 
     // Multi-select mode functions
     const toggleMultiSelectMode = () => {
@@ -813,8 +844,7 @@ export default {
         }
 
         // Refresh keywords since counts and keywords may have changed
-        fetchKeywords()
-      } catch (error) {
+              } catch (error) {
         console.error('Error deleting image:', error)
         alert('Failed to delete image. Please try again.')
       }
@@ -853,8 +883,7 @@ export default {
         lastSelectedIndex.value = -1
 
         // Refresh keywords
-        fetchKeywords()
-      } catch (error) {
+              } catch (error) {
         console.error('Error batch deleting images:', error)
         alert('Failed to delete some images. Please try again.')
       }
@@ -876,8 +905,7 @@ export default {
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
 
-        fetchKeywords()
-      } catch (error) {
+              } catch (error) {
         console.error('Error batch favoriting images:', error)
         alert('Failed to favorite some images. Please try again.')
       }
@@ -906,8 +934,7 @@ export default {
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
 
-        fetchKeywords()
-      } catch (error) {
+              } catch (error) {
         console.error('Error batch unfavoriting images:', error)
         alert('Failed to unfavorite some images. Please try again.')
       }
@@ -936,8 +963,7 @@ export default {
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
 
-        fetchKeywords()
-      } catch (error) {
+              } catch (error) {
         console.error('Error batch hiding images:', error)
         alert('Failed to hide some images. Please try again.')
       }
@@ -966,8 +992,7 @@ export default {
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
 
-        fetchKeywords()
-      } catch (error) {
+              } catch (error) {
         console.error('Error batch unhiding images:', error)
         alert('Failed to unhide some images. Please try again.')
       }
@@ -1002,8 +1027,7 @@ export default {
             }
           }
 
-          fetchKeywords()
-        } else if ('is_favorite' in updates) {
+                  } else if ('is_favorite' in updates) {
           const shouldRemove = (
             (updates.is_favorite === 0 && filters.value.showFavoritesOnly)
           )
@@ -1017,8 +1041,7 @@ export default {
           }
 
           // Refresh keywords for favorite changes
-          fetchKeywords()
-        }
+                  }
       }
     }
 
@@ -1166,17 +1189,136 @@ export default {
       }
     }
 
-    // Albums modal functions
-    const toggleAlbumsModal = () => {
-      isAlbumsModalOpen.value = !isAlbumsModalOpen.value
+    // Sidebar handlers
+    const handleSidebarToggle = (collapsed) => {
+      sidebarCollapsed.value = collapsed
     }
 
-    const fetchKeywords = async () => {
+    const handleSidebarNavigate = ({ view, albumSlug, requiresAuth }) => {
+      // Handle auth requirement for hidden view
+      if (requiresAuth) {
+        if (requestHiddenAccess) {
+          requestHiddenAccess(() => {
+            router.push('/hidden')
+          })
+        }
+        return
+      }
+
+      // Navigate based on view
+      if (view === 'library') {
+        router.push('/')
+      } else if (view === 'favorites') {
+        router.push('/favorites')
+      } else if (view === 'hidden') {
+        router.push('/hidden')
+      } else if (view === 'hidden-favorites') {
+        // Hidden favorites - go to hidden with favorites filter
+        filters.value.showFavoritesOnly = true
+        filters.value.showHidden = true
+        router.push('/hidden')
+        offset.value = 0
+        hasMore.value = true
+        fetchImages()
+      } else if (view === 'album' && albumSlug) {
+        router.push(`/album/${albumSlug}`)
+      }
+    }
+
+    const handleSmartAlbumSelect = (album) => {
+      // Apply smart album filters
+      filters.value.requestId = null
+      filters.value.keywords = []
+
+      if (album.filters && Array.isArray(album.filters)) {
+        filters.value.filterCriteria = [...album.filters]
+      }
+
+      offset.value = 0
+      hasMore.value = true
+      fetchImages()
+      updateFilterUrl()
+    }
+
+    const handleCreateAlbum = () => {
+      isCreateAlbumModalOpen.value = true
+    }
+
+    const handleAlbumCreated = (album) => {
+      // Refresh sidebar
+      if (sidebarRef.value) {
+        sidebarRef.value.loadAlbums()
+      }
+      // Navigate to the new album
+      router.push(`/album/${album.slug}`)
+    }
+
+    const handleAddToAlbum = () => {
+      isAddToAlbumModalOpen.value = true
+    }
+
+    const handleAddedToAlbum = ({ albumId, count }) => {
+      // Clear selection after adding
+      selectedImages.value.clear()
+      lastSelectedIndex.value = -1
+      isMultiSelectMode.value = false
+      // Refresh sidebar
+      if (sidebarRef.value) {
+        sidebarRef.value.loadAlbums()
+      }
+    }
+
+    // Load album info when viewing an album
+    const loadCurrentAlbum = async () => {
+      if (props.albumSlug) {
+        try {
+          const response = await albumsApi.getBySlug(props.albumSlug)
+          currentAlbum.value = response.data
+        } catch (error) {
+          console.error('Error loading album:', error)
+          currentAlbum.value = null
+        }
+      } else {
+        currentAlbum.value = null
+      }
+    }
+
+    // Fetch album images
+    const fetchAlbumImages = async (append = false) => {
+      if (!currentAlbum.value || (!hasMore.value && append)) return
+
       try {
-        const response = await albumsApi.getAll(filters.value)
-        keywords.value = response.data
+        loading.value = true
+        const response = await albumsApi.getImages(
+          currentAlbum.value.id,
+          limit,
+          offset.value,
+          {
+            showFavorites: filters.value.showFavoritesOnly,
+            showHiddenOnly: filters.value.showHidden
+          }
+        )
+
+        const newImages = response.data.data || []
+        totalCount.value = response.data.total || 0
+
+        if (append) {
+          images.value = [...images.value, ...newImages]
+        } else {
+          images.value = newImages
+          offset.value = 0
+        }
+
+        if (newImages.length < limit) {
+          hasMore.value = false
+        } else {
+          offset.value += limit
+        }
       } catch (error) {
-        console.error('Error fetching keywords:', error)
+        console.error('Error fetching album images:', error)
+        totalCount.value = 0
+      } finally {
+        loading.value = false
       }
     }
 
@@ -1234,9 +1376,23 @@ export default {
     const loadFiltersFromUrl = () => {
       // Reset filters
       filters.value.showFavoritesOnly = false
+      filters.value.showHidden = false
       filters.value.keywords = []
       filters.value.requestId = null
       filters.value.filterCriteria = []
+
+      // Set filters based on route
+      const view = currentView.value
+      if (view === 'favorites') {
+        filters.value.showFavoritesOnly = true
+      } else if (view === 'hidden') {
+        filters.value.showHidden = true
+        // Check authentication for hidden view
+        if (checkHiddenAuth && !checkHiddenAuth()) {
+          // User needs to authenticate - this will be handled by the sidebar
+          return
+        }
+      }
 
       // Load keywords from query params
       if (route.query.q) {
@@ -1271,69 +1427,6 @@ export default {
       if (route.query.model) {
         filters.value.filterCriteria.push({ type: 'model', value: route.query.model })
       }
-
-      // Load showHidden from sessionStorage (persists across navigation)
-      const savedShowHidden = sessionStorage.getItem('showHidden')
-      if (savedShowHidden === 'true') {
-        // Only restore showHidden if user still has authentication
-        if (checkHiddenAuth && checkHiddenAuth()) {
-          filters.value.showHidden = true
-        } else {
-          // Clear sessionStorage if no longer authenticated
-          sessionStorage.removeItem('showHidden')
-        }
-      }
-    }
-
-    const selectKeyword = (album) => {
-      // Update filters based on album selection
-      filters.value.requestId = null
-      filters.value.keywords = []
-
-      // Check if this album has flexible filters (new format)
-      if (album.filters && Array.isArray(album.filters)) {
-        // Check if this album's filters are already active (toggle off)
-        const filtersMatch = album.filters.length === filters.value.filterCriteria.length &&
-          album.filters.every(f =>
-            filters.value.filterCriteria.some(fc => fc.type === f.type && fc.value === f.value)
-          )
-
-        if (filtersMatch) {
-          // Clear filters (toggle off)
-          filters.value.filterCriteria = []
-        } else {
-          // Apply this album's filters
-          filters.value.filterCriteria = [...album.filters]
-        }
-      } else if (album.keywords && Array.isArray(album.keywords)) {
-        // Legacy: Multi-keyword group
-        filters.value.filterCriteria = []
-        const allPresent = album.keywords.every(kw =>
-          filters.value.keywords.includes(kw)
-        ) && filters.value.keywords.length === album.keywords.length
-
-        if (allPresent) {
-          filters.value.keywords = []
-        } else {
-          filters.value.keywords = [...album.keywords]
-        }
-      } else if (album.id.startsWith('keyword:')) {
-        // Legacy: Single keyword album
-        filters.value.filterCriteria = []
-        const keywordText = album.id.replace('keyword:', '').split('+')[0]
-
-        if (filters.value.keywords.length === 1 && filters.value.keywords[0] === keywordText) {
-          filters.value.keywords = []
-        } else {
-          filters.value.keywords = [keywordText]
-        }
-      }
-
-      // Refresh images with new filters
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-      updateFilterUrl()
     }
 
     // Watch for signal to open requests panel
@@ -1351,8 +1444,7 @@ export default {
     watch(
       () => ({ showFavoritesOnly: filters.value.showFavoritesOnly, showHidden: filters.value.showHidden }),
       () => {
-        fetchKeywords()
-      }
+              }
     )
 
     // Computed property for request status dot color
@@ -1380,32 +1472,47 @@ export default {
     imagePolling.watchQueueStatus(queueStatus)
 
     // Watch for route changes to update filters
-    // Watch all filter-related query params
+    // Watch all filter-related query params and route path
     watch(
       () => JSON.stringify({
         path: route.path,
+        albumSlug: props.albumSlug,
         q: route.query.q,
         lora: route.query.lora,
         model: route.query.model,
         request: route.query.request
       }),
-      (newVal, oldVal) => {
+      async (newVal, oldVal) => {
         // Ignore route changes when opening/closing/navigating the modal
         // This allows URL updates for bookmarking without triggering data reloads
         const newPath = route.path
         const oldParsed = oldVal ? JSON.parse(oldVal) : {}
         const oldPath = oldParsed.path || ''
 
-        if (newPath.startsWith('/image/') || oldPath.startsWith('/image/')) {
+        // Check if this is just a modal open/close/navigation
+        const isNewPathModal = newPath.includes('/image/')
+        const isOldPathModal = oldPath.includes('/image/')
+
+        if (isNewPathModal || isOldPathModal) {
           // Modal-related route change - don't reload data
           return
         }
 
+        // Load filters based on new route
         loadFiltersFromUrl()
-        offset.value = 0
-        hasMore.value = true
-        fetchImages()
-        fetchKeywords()
+
+        // Check if viewing an album
+        if (currentView.value === 'album' && props.albumSlug) {
+          await loadCurrentAlbum()
+          offset.value = 0
+          hasMore.value = true
+          await fetchAlbumImages()
+        } else {
+          currentAlbum.value = null
+          offset.value = 0
+          hasMore.value = true
+          await fetchImages()
+        }
       }
     )
 
@@ -1417,15 +1524,20 @@ export default {
 
     onMounted(async () => {
       loadFiltersFromUrl()
-      await fetchImages()
+
+      // Check if viewing an album
+      if (currentView.value === 'album' && props.albumSlug) {
+        await loadCurrentAlbum()
+        await fetchAlbumImages()
+      } else {
+        await fetchImages()
+      }
+
       loadImageFromUrl()
 
       // Fetch requests and queue status
       fetchRequests()
       fetchQueueStatus()
-
-      // Fetch keywords
-      fetchKeywords()
 
       // Poll for updates every 2 seconds
       pollInterval = setInterval(() => {
@@ -1488,15 +1600,23 @@ export default {
       showDeleteAllModal,
       confirmDeleteAll,
       requestToDelete,
-      // Albums modal
-      isAlbumsModalOpen,
-      toggleAlbumsModal,
-      keywords,
-      selectKeyword,
+      // Sidebar and albums
+      sidebarRef,
+      sidebarCollapsed,
+      currentView,
+      currentAlbum,
+      isCreateAlbumModalOpen,
+      isAddToAlbumModalOpen,
+      handleSidebarToggle,
+      handleSidebarNavigate,
+      handleSmartAlbumSelect,
+      handleCreateAlbum,
+      handleAlbumCreated,
+      handleAddToAlbum,
+      handleAddedToAlbum,
       // Menu and filters
       showMenu,
       menuContainer,
-      toggleFavorites,
       toggleMenu,
       toggleHiddenImages,
       checkHiddenAuth,
@@ -1523,11 +1643,24 @@ export default {
 .library-view {
   padding: 0;
   --panel-height: 30vh;
-  transition: padding-bottom 0.3s ease-out;
+  --sidebar-width: 280px;
+  transition: padding-bottom 0.3s ease-out, padding-left 0.3s ease;
+  padding-left: var(--sidebar-width);
+}
+
+.library-view.sidebar-collapsed {
+  padding-left: 0;
 }
 
 .library-view.panel-open {
   padding-bottom: var(--panel-height);
+}
+
+/* On mobile, don't add padding for sidebar */
+@media (max-width: 1024px) {
+  .library-view {
+    padding-left: 0;
+  }
 }
 
 .header {
@@ -1576,28 +1709,6 @@ export default {
   white-space: nowrap;
   margin: 0;
 }
-
-.btn-albums-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: var(--color-surface);
-  border: 1px solid #333;
-  color: var(--color-text-tertiary);
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-albums-toggle:hover {
-  background: var(--color-surface);
-  border-color: var(--color-text-disabled);
-  color: var(--color-text-primary);
-}
-
 
 .header-controls {
   display: flex;
@@ -1732,33 +1843,6 @@ export default {
 
 .btn-search:hover {
   background: var(--color-primary-hover);
-}
-
-.btn-favorites-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: var(--color-surface);
-  border: 1px solid #333;
-  color: var(--color-text-tertiary);
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-favorites-toggle:hover {
-  background: var(--color-surface);
-  border-color: var(--color-text-disabled);
-  color: var(--color-warning);
-}
-
-.btn-favorites-toggle.active {
-  background: var(--color-surface);
-  border-color: var(--color-warning);
-  color: var(--color-warning);
 }
 
 .menu-container {
@@ -2182,6 +2266,10 @@ export default {
 
 .btn-action.btn-hide {
   color: var(--color-text-tertiary);
+}
+
+.btn-action.btn-album {
+  color: var(--color-info);
 }
 
 /* Requests Panel Tab */

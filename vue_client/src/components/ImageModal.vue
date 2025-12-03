@@ -146,6 +146,15 @@
                     <span>{{ isHidden ? 'Hidden' : 'Hide' }}</span>
                   </button>
                 </div>
+                <!-- Add to Album button -->
+                <button
+                  @click="showAddToAlbumModal = true"
+                  class="btn-action btn-secondary"
+                  title="Add to album"
+                >
+                  <i class="fa-solid fa-folder-plus"></i>
+                  <span>Add to Album</span>
+                </button>
                 <!-- Load settings row -->
                 <div v-if="hasSettings" class="action-row">
                   <button
@@ -225,6 +234,15 @@
         @delete="confirmDelete"
       />
 
+      <!-- Add to Album Modal -->
+      <AddToAlbumModal
+        :isOpen="showAddToAlbumModal"
+        :imageIds="[image.uuid]"
+        :includeHidden="!!image.is_hidden"
+        @close="showAddToAlbumModal = false"
+        @added="handleAddedToAlbum"
+      />
+
       <!-- Details Overlay -->
       <div v-if="showDetails" class="request-details-overlay">
         <div class="request-details-header">
@@ -277,6 +295,7 @@
 import { computed, ref, watch, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { imagesApi } from '@api'
 import DeleteImageModal from './DeleteImageModal.vue'
+import AddToAlbumModal from './AddToAlbumModal.vue'
 import AccordionSection from './AccordionSection.vue'
 import InspectorGrid from './InspectorGrid.vue'
 import AsyncImage from './AsyncImage.vue'
@@ -285,6 +304,7 @@ export default {
   name: 'ImageModal',
   components: {
     DeleteImageModal,
+    AddToAlbumModal,
     AccordionSection,
     InspectorGrid,
     AsyncImage
@@ -321,6 +341,7 @@ export default {
     const detailsType = ref('request')
     const copied = ref(false)
     const showDeleteModal = ref(false)
+    const showAddToAlbumModal = ref(false)
     const filmstripTrack = ref(null)
     const canScrollPrev = ref(false)
     const canScrollNext = ref(false)
@@ -789,6 +810,11 @@ export default {
       emit('delete', props.image.uuid)
     }
 
+    const handleAddedToAlbum = () => {
+      showAddToAlbumModal.value = false
+      // Optionally emit an event or show a success message
+    }
+
     const handleResize = () => {
       isDesktop.value = window.innerWidth > 1024
     }
@@ -909,6 +935,8 @@ export default {
       copyButtonText,
       showDeleteModal,
       confirmDelete,
+      showAddToAlbumModal,
+      handleAddedToAlbum,
       // Parsed data
       negativePrompt,
       modelName,
