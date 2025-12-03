@@ -1,5 +1,5 @@
 <template>
-  <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed }">
+  <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
     <!-- Sidebar -->
     <LibrarySidebar
       ref="sidebarRef"
@@ -1624,9 +1624,11 @@ export default {
 <style scoped>
 .library-view {
   padding: 0;
+  padding-bottom: 0;
   --panel-height: 30vh;
   --sidebar-width: 280px;
-  transition: padding-bottom 0.3s ease-out, padding-left 0.3s ease;
+  --action-bar-height: 70px;
+  transition: padding-bottom 0.3s ease-in-out, padding-left 0.3s ease;
   padding-left: var(--sidebar-width);
 }
 
@@ -1636,6 +1638,10 @@ export default {
 
 .library-view.panel-open {
   padding-bottom: var(--panel-height);
+}
+
+.library-view.action-bar-open {
+  padding-bottom: var(--action-bar-height);
 }
 
 /* On mobile, don't add padding for sidebar */
