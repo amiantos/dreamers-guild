@@ -30,11 +30,13 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
     const view = currentView?.value
 
     // Determine context for image fetching
-    // Only poll for library and album views
-    // Favorites and hidden views don't get new images from generation
+    // Poll for library, album, and hidden views
+    // Hidden view can get new images when generating to hidden albums
+    // Favorites view doesn't get new images from generation (requires manual favoriting)
     const isAlbumContext = !!albumId
     const isLibraryContext = view === 'library' && !albumId
-    const shouldFetchImages = isAlbumContext || isLibraryContext
+    const isHiddenContext = view === 'hidden' && !albumId
+    const shouldFetchImages = isAlbumContext || isLibraryContext || isHiddenContext
 
     // Skip image fetching if searching or viewing specific request
     const hasFilters = filters.value.requestId || filters.value.keywords.length > 0
@@ -51,8 +53,12 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
           newImages = response.data?.images || []
           newTotal = response.data?.total
         } else {
-          // Fetch the latest images with current filters applied
-          const response = await imagesApi.getAll(20, 0, filters.value)
+          // Build API options with view-specific flags
+          const apiOptions = {
+            ...filters.value,
+            showHidden: isHiddenContext
+          }
+          const response = await imagesApi.getAll(20, 0, apiOptions)
           newImages = response.data?.data || []
           newTotal = response.data?.total
         }
