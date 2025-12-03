@@ -29,59 +29,58 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
     const albumId = currentAlbum?.value?.id
     const view = currentView?.value
 
+    // Determine context for image fetching
     // Only poll for library and album views
     // Favorites and hidden views don't get new images from generation
-    // Use albumId to determine if we're in album context (more stable than route)
     const isAlbumContext = !!albumId
     const isLibraryContext = view === 'library' && !albumId
+    const shouldFetchImages = isAlbumContext || isLibraryContext
 
-    if (!isAlbumContext && !isLibraryContext) {
-      return
-    }
-
-    // Don't check for new images if we're viewing a specific request or searching
-    if (filters.value.requestId || filters.value.keywords.length > 0) {
-      return
-    }
+    // Skip image fetching if searching or viewing specific request
+    const hasFilters = filters.value.requestId || filters.value.keywords.length > 0
 
     try {
-      let newImages = []
-      let newTotal
+      // Only fetch images for library/album views without filters
+      if (shouldFetchImages && !hasFilters) {
+        let newImages = []
+        let newTotal
 
-      if (isAlbumContext) {
-        // Fetch latest images for the current album
-        const response = await albumsApi.getImages(albumId, 20, 0)
-        newImages = response.data?.images || []
-        newTotal = response.data?.total
-      } else {
-        // Fetch the latest images with current filters applied
-        const response = await imagesApi.getAll(20, 0, filters.value)
-        newImages = response.data?.data || []
-        newTotal = response.data?.total
-      }
+        if (isAlbumContext) {
+          // Fetch latest images for the current album
+          const response = await albumsApi.getImages(albumId, 20, 0)
+          newImages = response.data?.images || []
+          newTotal = response.data?.total
+        } else {
+          // Fetch the latest images with current filters applied
+          const response = await imagesApi.getAll(20, 0, filters.value)
+          newImages = response.data?.data || []
+          newTotal = response.data?.total
+        }
 
-      // Update total count if provided and changed
-      if (totalCount && newTotal !== undefined && newTotal !== totalCount.value) {
-        totalCount.value = newTotal
-      }
+        // Update total count if provided and changed
+        if (totalCount && newTotal !== undefined && newTotal !== totalCount.value) {
+          totalCount.value = newTotal
+        }
 
-      if (newImages.length === 0) return
+        if (newImages.length > 0) {
+          // Find images we don't have yet
+          const existingIds = new Set(images.value.map(img => img.uuid))
+          const trulyNewImages = newImages.filter(img => !existingIds.has(img.uuid))
 
-      // Find images we don't have yet
-      const existingIds = new Set(images.value.map(img => img.uuid))
-      const trulyNewImages = newImages.filter(img => !existingIds.has(img.uuid))
+          if (trulyNewImages.length > 0) {
+            // Prepend new images to the list
+            images.value = [...trulyNewImages, ...images.value]
 
-      if (trulyNewImages.length > 0) {
-        // Prepend new images to the list
-        images.value = [...trulyNewImages, ...images.value]
-
-        // Notify callback if provided
-        if (onNewImages) {
-          onNewImages(trulyNewImages)
+            // Notify callback if provided
+            if (onNewImages) {
+              onNewImages(trulyNewImages)
+            }
+          }
         }
       }
 
       // Always notify poll complete (for refreshing album counts, etc.)
+      // This runs regardless of current view so album sidebar stays updated
       if (onPollComplete) {
         onPollComplete()
       }
