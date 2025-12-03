@@ -1100,17 +1100,8 @@ export default {
 
 
     const viewRequestImages = (requestId) => {
-      filters.value.requestId = requestId
-      filters.value.keywords = []
-      filters.value.filterCriteria = []
-
-      // Don't close the panel - keep it open for user convenience
-
-      // Refresh images
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-      updateFilterUrl()
+      // Navigate to library view with request filter
+      router.push({ path: '/', query: { request: requestId } })
     }
 
     const showDeleteModal = (requestId) => {
