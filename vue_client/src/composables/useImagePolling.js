@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import { imagesApi } from '@api'
+import { imagesApi, albumsApi } from '@api'
 
 /**
  * Composable for polling new images based on queue status
@@ -10,10 +10,11 @@ import { imagesApi } from '@api'
  * @param {import('vue').Ref} options.images - Images ref to update with new images
  * @param {import('vue').Ref} options.totalCount - Total count ref to update
  * @param {import('vue').Ref} options.currentView - Current view ref (library, album, favorites, etc.)
+ * @param {import('vue').Ref} options.currentAlbum - Current album ref (for album view)
  * @param {Function} options.onNewImages - Callback when new images are added
  * @returns {Object} Polling controls and state
  */
-export function useImagePolling({ filters, images, totalCount, currentView, onNewImages }) {
+export function useImagePolling({ filters, images, totalCount, currentView, currentAlbum, onNewImages }) {
   let imagesPollInterval = null
   let finalImageCheckTimeout = null
   const wasActive = ref(false)
@@ -22,9 +23,15 @@ export function useImagePolling({ filters, images, totalCount, currentView, onNe
    * Check for new images and prepend them to the list
    */
   const checkNewImages = async () => {
-    // Only poll for new images in library view
-    // Albums, favorites, hidden views shouldn't auto-refresh since new images won't appear there
-    if (currentView && currentView.value !== 'library') {
+    // Only poll for library and album views
+    // Favorites and hidden views don't get new images from generation
+    const view = currentView?.value
+    if (view !== 'library' && view !== 'album') {
+      return
+    }
+
+    // For album view, we need a current album
+    if (view === 'album' && !currentAlbum?.value?.id) {
       return
     }
 
@@ -34,11 +41,20 @@ export function useImagePolling({ filters, images, totalCount, currentView, onNe
     }
 
     try {
-      // Fetch the latest images with current filters applied
-      const response = await imagesApi.getAll(20, 0, filters.value)
-      // Backend returns { data: images, total }, axios wraps it in response.data
-      const newImages = (response.data && response.data.data) ? response.data.data : []
-      const newTotal = response.data?.total
+      let newImages = []
+      let newTotal
+
+      if (view === 'album') {
+        // Fetch latest images for the current album
+        const response = await albumsApi.getImages(currentAlbum.value.id, 20, 0)
+        newImages = response.data?.images || []
+        newTotal = response.data?.total
+      } else {
+        // Fetch the latest images with current filters applied
+        const response = await imagesApi.getAll(20, 0, filters.value)
+        newImages = response.data?.data || []
+        newTotal = response.data?.total
+      }
 
       // Update total count if provided and changed
       if (totalCount && newTotal !== undefined && newTotal !== totalCount.value) {
@@ -54,7 +70,7 @@ export function useImagePolling({ filters, images, totalCount, currentView, onNe
       if (trulyNewImages.length > 0) {
         // Prepend new images to the list
         images.value = [...trulyNewImages, ...images.value]
-        console.log(`Added ${trulyNewImages.length} new image(s) to library`)
+        console.log(`Added ${trulyNewImages.length} new image(s) to ${view}`)
 
         // Notify callback if provided
         if (onNewImages) {

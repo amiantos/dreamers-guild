@@ -378,8 +378,10 @@ export default {
       images,
       totalCount,
       currentView,
+      currentAlbum,
       onNewImages: () => {
-        // Refresh sidebar albums when new images are added
+        // Refresh sidebar albums when new images are added (updates counts)
+        console.log('[LibraryView] onNewImages - sidebarRef:', sidebarRef.value)
         if (sidebarRef.value) {
           sidebarRef.value.loadAlbums()
         }

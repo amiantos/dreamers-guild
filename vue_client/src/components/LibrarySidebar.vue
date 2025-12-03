@@ -137,9 +137,11 @@ export default {
     })
 
     const loadAlbums = async () => {
+      console.log('[LibrarySidebar] loadAlbums called')
       try {
         const response = await albumsApi.getAll({ includeHidden: props.isAuthenticated })
         userAlbums.value = response.data || []
+        console.log('[LibrarySidebar] albums loaded:', userAlbums.value.map(a => ({ title: a.title, count: a.count })))
       } catch (error) {
         console.error('Error loading albums:', error)
       }
