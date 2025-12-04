@@ -1,14 +1,20 @@
 <template>
-  <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
+  <div class="library-view" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
     <!-- Sidebar -->
-    <LibrarySidebar
-      ref="sidebarRef"
-      :activeView="currentView"
-      :activeAlbumSlug="currentAlbum?.slug"
-      :isAuthenticated="isHiddenAuthenticated"
-      @navigate="handleSidebarNavigate"
-      @create-album="handleCreateAlbum"
-    />
+    <Transition name="mobile-menu">
+      <LibrarySidebar
+        v-if="!isMobile || isMobileMenuOpen"
+        ref="sidebarRef"
+        :activeView="sidebarActiveView"
+        :activeAlbumSlug="sidebarActiveAlbumSlug"
+        :isAuthenticated="isHiddenAuthenticated"
+        :isMobileMenuOpen="isMobileMenuOpen"
+        @navigate="handleSidebarNavigate"
+        @create-album="handleCreateAlbum"
+        @close="closeMobileMenu"
+        @view-request-images="handleViewRequestImages"
+      />
+    </Transition>
 
     <!-- Create Album Modal -->
     <CreateAlbumModal
@@ -25,36 +31,6 @@
       @close="closeAddToAlbumModal"
       @added="handleAddedToAlbum"
     />
-
-    <!-- Requests Panel -->
-    <div class="requests-panel" :class="{ open: isPanelOpen }">
-      <div class="panel-content">
-        <div v-if="requests.length === 0" class="panel-empty-state">
-          <p>No requests yet</p>
-          <p class="hint">Click the + button to generate your first AI image</p>
-        </div>
-
-        <div v-else class="requests-grid">
-          <RequestCard
-            v-for="request in requests"
-            :key="request.uuid"
-            :request="request"
-            class="request-card-item"
-            @view-images="viewRequestImages"
-            @delete="showDeleteModal"
-            @retry="handleRetry"
-          />
-
-          <button
-            @click="showDeleteAllModal"
-            class="btn-clear-history"
-          >
-            <i class="fa-solid fa-trash"></i>
-            Clear Dream History
-          </button>
-        </div>
-      </div>
-    </div>
 
     <DeleteRequestModal
       v-if="deleteModalVisible"
@@ -82,6 +58,24 @@
       <div class="header-content">
         <div class="header-row-1">
           <div class="header-left">
+            <div
+              v-if="isMobile || sidebarCollapsed"
+              class="hamburger-wrapper"
+            >
+              <button
+                @click="handleHamburgerClick"
+                class="btn-hamburger"
+                aria-label="Open menu"
+              >
+                <i class="fa-solid fa-bars"></i>
+              </button>
+              <span
+                v-if="requests.length > 0"
+                class="header-status-dot"
+                :class="requestStatusClass"
+                title="Request status"
+              ></span>
+            </div>
             <h2>{{ galleryTitle }}</h2>
           </div>
 
@@ -268,14 +262,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Requests Panel Toggle Tab (moved to bottom) -->
-    <div v-if="selectedCount === 0" class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
-      <div class="tab-content">
-        <span class="status-dot" :class="requestStatusClass"></span>
-        <span class="tab-text">Dreams</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -291,7 +277,6 @@ import { useAlbumStore } from '../stores/albumStore.js'
 import { useUiStore } from '../stores/uiStore.js'
 import { useRequestsStore } from '../stores/requestsStore.js'
 import ImageModal from '../components/ImageModal.vue'
-import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
@@ -304,7 +289,6 @@ export default {
   name: 'LibraryView',
   components: {
     ImageModal,
-    RequestCard,
     DeleteRequestModal,
     DeleteAllRequestsModal,
     BatchDeleteModal,
@@ -355,7 +339,6 @@ export default {
     const uiStore = useUiStore()
     const {
       sidebarCollapsed,
-      isPanelOpen,
       showMenu,
       modals
     } = storeToRefs(uiStore)
@@ -364,14 +347,60 @@ export default {
     const isCreateAlbumModalOpen = computed(() => modals.value.createAlbum)
     const isAddToAlbumModalOpen = computed(() => modals.value.addToAlbum)
 
-    // Current view based on route
-    const currentView = computed(() => {
-      const path = route.path
+    // Mobile menu state
+    const isMobileMenuOpen = ref(false)
+    const menuRouteBeforeOpen = ref(null)
+    const isMobile = ref(window.innerWidth < 768)
+
+    // Update isMobile on resize
+    const updateIsMobile = () => {
+      isMobile.value = window.innerWidth < 768
+      // Close mobile menu if screen becomes desktop
+      if (!isMobile.value && isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false
+        menuRouteBeforeOpen.value = null
+      }
+    }
+
+    // Helper to extract view from a path
+    const getViewFromPath = (path) => {
       if (path.startsWith('/favorites')) return 'favorites'
       if (path.startsWith('/hidden-favorites')) return 'hidden-favorites'
       if (path.startsWith('/hidden')) return 'hidden'
       if (path.startsWith('/album/')) return 'album'
       return 'library'
+    }
+
+    // Current view based on route (uses stored route when modal/menu is open to prevent refetch)
+    const currentView = computed(() => {
+      // When mobile menu is open, use the stored route to prevent gallery from changing
+      if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
+        return getViewFromPath(menuRouteBeforeOpen.value.path)
+      }
+      // When image modal is open, use the stored route to maintain correct view context
+      // This prevents polling from fetching wrong images (e.g., library images while viewing hidden)
+      if (routeBeforeModal.value) {
+        return getViewFromPath(routeBeforeModal.value.path)
+      }
+      return getViewFromPath(route.path)
+    })
+
+    // For sidebar: same logic (kept as alias for clarity)
+    const sidebarActiveView = computed(() => currentView.value)
+
+    const sidebarActiveAlbumSlug = computed(() => {
+      if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
+        const path = menuRouteBeforeOpen.value.path
+        const match = path.match(/^\/album\/([^/]+)/)
+        return match ? match[1] : null
+      }
+      // When image modal is open, check the stored route for album context
+      if (routeBeforeModal.value) {
+        const path = routeBeforeModal.value.path
+        const match = path.match(/^\/album\/([^/]+)/)
+        return match ? match[1] : null
+      }
+      return currentAlbum.value?.slug || null
     })
 
     // View-based flags derived from currentView
@@ -1114,10 +1143,6 @@ export default {
     })
 
     // Requests panel functions
-    const togglePanel = () => {
-      uiStore.togglePanel()
-    }
-
     const viewRequestImages = (requestId) => {
       // Navigate to library view with request filter
       router.push({ path: '/', query: { request: requestId } })
@@ -1174,8 +1199,48 @@ export default {
       }
     }
 
+    // Mobile menu methods
+    const openMobileMenu = () => {
+      // Store current route before opening (same pattern as ImageModal)
+      menuRouteBeforeOpen.value = {
+        path: route.path,
+        query: { ...route.query }
+      }
+      isMobileMenuOpen.value = true
+      router.replace('/menu')
+    }
+
+    const handleHamburgerClick = () => {
+      if (isMobile.value) {
+        openMobileMenu()
+      } else {
+        // Desktop: just expand the sidebar
+        uiStore.setSidebarCollapsed(false)
+      }
+    }
+
+    const closeMobileMenu = () => {
+      isMobileMenuOpen.value = false
+      // Restore previous route
+      if (menuRouteBeforeOpen.value) {
+        router.replace({
+          path: menuRouteBeforeOpen.value.path,
+          query: menuRouteBeforeOpen.value.query
+        })
+        menuRouteBeforeOpen.value = null
+      } else {
+        router.replace('/')
+      }
+    }
+
     // Sidebar handlers
     const handleSidebarNavigate = ({ view, albumSlug }) => {
+      // Close mobile menu first (if open)
+      if (isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false
+        menuRouteBeforeOpen.value = null  // Don't restore, we're navigating to new route
+      }
+
       // Navigate based on view
       if (view === 'library') {
         router.push('/')
@@ -1188,6 +1253,16 @@ export default {
       } else if (view === 'album' && albumSlug) {
         router.push(`/album/${albumSlug}`)
       }
+    }
+
+    const handleViewRequestImages = (requestId) => {
+      // Close mobile menu first (if open) - must be before navigation
+      if (isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false
+        menuRouteBeforeOpen.value = null  // Don't restore, we're navigating to new route
+      }
+      // Navigate to library filtered by request
+      router.push({ path: '/', query: { request: requestId } })
     }
 
     const handleCreateAlbum = () => {
@@ -1400,7 +1475,7 @@ export default {
         request: route.query.request
       }),
       async (newVal, oldVal) => {
-        // Ignore route changes when opening/closing/navigating the modal
+        // Ignore route changes when opening/closing/navigating the modal or mobile menu
         // This allows URL updates for bookmarking without triggering data reloads
         const newPath = route.path
         const oldParsed = oldVal ? JSON.parse(oldVal) : {}
@@ -1413,6 +1488,22 @@ export default {
         if (isNewPathModal || isOldPathModal) {
           // Modal-related route change - don't reload data
           return
+        }
+
+        // Check if this is mobile menu related
+        if (newPath === '/menu') {
+          // Opening mobile menu - don't reload data
+          return
+        }
+
+        if (oldPath === '/menu') {
+          // Closing mobile menu - only reload if going to a different view than where we started
+          // menuRouteBeforeOpen contains where we were before opening the menu
+          if (menuRouteBeforeOpen.value && menuRouteBeforeOpen.value.path === newPath) {
+            // Returning to same view (closed menu without selecting) - don't reload
+            return
+          }
+          // Otherwise, user selected something different - let it reload below
         }
 
         // Load filters based on new route
@@ -1443,6 +1534,17 @@ export default {
     }
 
     onMounted(async () => {
+      // Handle direct navigation to /menu
+      if (route.path === '/menu') {
+        if (window.innerWidth >= 768) {
+          // Desktop: redirect to home
+          router.replace('/')
+        } else {
+          // Mobile: open menu (no previous route to restore)
+          isMobileMenuOpen.value = true
+        }
+      }
+
       loadFiltersFromUrl()
 
       // Check if viewing an album
@@ -1460,6 +1562,7 @@ export default {
 
       window.addEventListener('scroll', handleScroll)
       window.addEventListener('click', handleClickOutside)
+      window.addEventListener('resize', updateIsMobile)
     })
 
     onUnmounted(() => {
@@ -1467,6 +1570,7 @@ export default {
       imagePolling.cleanup()
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('resize', updateIsMobile)
     })
 
     return {
@@ -1495,9 +1599,7 @@ export default {
       clearFilter,
       clearAllFilters,
       openNewRequest,
-      // Requests panel
-      isPanelOpen,
-      togglePanel,
+      // Requests
       requests,
       queueStatus,
       requestStatusClass,
@@ -1518,15 +1620,24 @@ export default {
       sidebarCollapsed,
       currentView,
       currentAlbum,
+      sidebarActiveView,
+      sidebarActiveAlbumSlug,
       isCreateAlbumModalOpen,
       isAddToAlbumModalOpen,
       handleSidebarNavigate,
+      handleViewRequestImages,
       handleCreateAlbum,
       closeCreateAlbumModal,
       handleAlbumCreated,
       handleAddToAlbum,
       closeAddToAlbumModal,
       handleAddedToAlbum,
+      // Mobile menu
+      isMobile,
+      isMobileMenuOpen,
+      openMobileMenu,
+      closeMobileMenu,
+      handleHamburgerClick,
       // Menu and filters
       showMenu,
       menuContainer,
@@ -1558,8 +1669,7 @@ export default {
 .library-view {
   padding: 0;
   padding-bottom: 0;
-  --panel-height: 30vh;
-  --sidebar-width: 280px;
+  --sidebar-width: 320px;
   --action-bar-height: 70px;
   transition: padding-bottom 0.3s ease-in-out, padding-left 0.3s ease;
   padding-left: var(--sidebar-width);
@@ -1567,10 +1677,6 @@ export default {
 
 .library-view.sidebar-collapsed {
   padding-left: 0;
-}
-
-.library-view.panel-open {
-  padding-bottom: var(--panel-height);
 }
 
 .library-view.action-bar-open {
@@ -1590,10 +1696,6 @@ export default {
   background: var(--color-bg-base);
   z-index: 50;
   transition: top 0.3s ease-out;
-}
-
-.library-view.panel-open .header {
-  /* No longer pushing header down */
 }
 
 .header-content {
@@ -1629,6 +1731,75 @@ export default {
   font-weight: 600;
   white-space: nowrap;
   margin: 0;
+}
+
+/* Hamburger button (mobile, or desktop when sidebar collapsed) */
+.btn-hamburger {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-hamburger:hover {
+  background: var(--color-surface-hover);
+}
+
+/* Hamburger button wrapper for status dot overlay */
+.hamburger-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Header status dot - overlay on hamburger button */
+.header-status-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.header-status-dot.complete {
+  background: #00ff00;
+}
+
+.header-status-dot.active {
+  background: var(--color-warning-hover);
+  animation: pulse 2s infinite;
+}
+
+.header-status-dot.error {
+  background: var(--color-danger-ios);
+  animation: pulse 2s infinite;
+}
+
+/* Mobile menu slide transition */
+@media (max-width: 767px) {
+  .mobile-menu-enter-active,
+  .mobile-menu-leave-active {
+    transition: transform 0.3s ease-out !important;
+  }
+
+  .mobile-menu-enter-from,
+  .mobile-menu-leave-to {
+    transform: translateX(-100%) !important;
+  }
+
+  .mobile-menu-enter-to,
+  .mobile-menu-leave-from {
+    transform: translateX(0) !important;
+  }
 }
 
 .header-controls {
@@ -2084,18 +2255,6 @@ export default {
   transform: scale(0.95);
 }
 
-.library-view.panel-open .fab {
-  transform: translateY(calc(-1 * var(--panel-height)));
-}
-
-.library-view.panel-open .fab:hover {
-  transform: translateY(calc(-1 * var(--panel-height))) scale(1.05);
-}
-
-.library-view.panel-open .fab:active {
-  transform: translateY(calc(-1 * var(--panel-height))) scale(0.95);
-}
-
 /* Multi-Select Action Bar */
 .multi-select-action-bar {
   position: fixed;
@@ -2199,169 +2358,10 @@ export default {
   color: var(--color-info);
 }
 
-/* Requests Panel Tab */
-.panel-tab {
-  position: fixed;
-  bottom: 0;
-  top: auto;
-  left: 50%;
-  transform: translateX(-50%);
-  cursor: pointer;
-  z-index: 60; /* Higher than FABs (40) and Header (50) */
-  transition: transform 0.3s ease-out;
-}
-
-.library-view.panel-open .panel-tab {
-  transform: translate(-50%, calc(-1 * var(--panel-height) + 1px));
-}
-
-.panel-tab .tab-content {
-  background: var(--color-bg-elevated);
-  border-radius: 12px 12px 0 0;
-  border-bottom: none;
-  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-}
-
-.panel-tab:hover .tab-content {
-  animation: bounce 0.4s ease-in-out;
-}
-
-@keyframes bounce {
-  0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-  50% { padding-top: 0.75rem; padding-bottom: 1rem; }
-  100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-dot.complete {
-  background: #00ff00;
-}
-
-.status-dot.active {
-  background: var(--color-warning-hover);
-  animation: pulse 2s infinite;
-}
-
-.status-dot.error {
-  background: var(--color-danger-ios);
-  animation: pulse 2s infinite;
-}
-
+/* Status dot animation (used in header) */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
-}
-
-.tab-text {
-  font-size: 0.95rem;
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-/* Requests Panel */
-.requests-panel {
-  position: fixed;
-  bottom: 0;
-  top: auto;
-  left: 0;
-  right: 0;
-  background: var(--color-bg-elevated);
-  max-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
-  z-index: 55; /* Above header but below tab */
-  display: flex;
-  flex-direction: column; /* Normal direction now */
-  height: var(--panel-height);
-  max-height: var(--panel-height);
-  transform: translateY(100%);
-}
-
-.requests-panel.open {
-  transform: translateY(0);
-}
-
-.panel-content {
-  padding: 1.5rem 2rem;
-  background: var(--color-bg-elevated);
-  position: relative;
-}
-
-.btn-clear-history {
-  width: 100%;
-  padding: 0.75rem 1.5rem;
-  background: var(--color-primary);
-  border: none;
-  border-radius: 9999px;
-  color: white;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-clear-history:hover {
-  background: var(--color-primary-hover);
-}
-
-.btn-clear-history:active {
-  transform: scale(0.98);
-}
-
-.panel-empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
-  color: var(--color-text-disabled);
-}
-
-.panel-empty-state p {
-  margin-bottom: 0.5rem;
-}
-
-.panel-empty-state .hint {
-  font-size: 0.9rem;
-  color: var(--color-border-lighter);
-}
-
-.requests-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.request-card-item {
-  background: var(--color-bg-tertiary);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-@media (min-width: 769px) {
-  .requests-grid {
-    align-items: center;
-  }
-
-  .request-card-item,
-  .btn-clear-history {
-    max-width: 800px;
-    width: 100%;
-  }
 }
 
 /* Mobile responsive */
@@ -2394,19 +2394,6 @@ export default {
     order: 3;
   }
 
-  /* Requests panel mobile adjustments */
-  .panel-content {
-    padding: 1rem;
-  }
-
-  .requests-grid {
-    gap: 0.5rem;
-  }
-
-  .request-card-item {
-    padding: 0.75rem;
-  }
-
   /* Hide standalone buttons, show in menu */
   .hide-mobile {
     display: none !important;
@@ -2435,22 +2422,6 @@ export default {
   /* On mobile, don't move FAB when sidebar opens (sidebar overlays content) */
   .library-view:not(.sidebar-collapsed) .fab-settings {
     left: 1rem;
-  }
-
-  /* Smaller requests tab on mobile */
-  .panel-tab .tab-content {
-    padding: 0.5rem 1rem;
-    gap: 0.5rem;
-    border-radius: 10px 10px 0 0;
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-  }
-
-  .tab-text {
-    font-size: 0.85rem;
   }
 }
 

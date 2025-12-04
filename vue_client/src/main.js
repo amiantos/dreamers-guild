@@ -17,6 +17,11 @@ const router = createRouter({
       component: LibraryView
     },
     {
+      path: '/menu',
+      name: 'mobile-menu',
+      component: LibraryView
+    },
+    {
       path: '/image/:imageId',
       name: 'library-image',
       component: LibraryView,

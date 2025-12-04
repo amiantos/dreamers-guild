@@ -1,15 +1,17 @@
 <template>
   <div class="sidebar-container" :class="{ collapsed: isCollapsed }">
-    <!-- Collapse toggle button -->
-    <button
-      class="collapse-toggle"
-      @click="toggleCollapse"
-      :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-    >
-      <i class="fa-solid" :class="isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
-    </button>
-
-    <div class="sidebar-content" v-show="!isCollapsed">
+    <div class="sidebar-content">
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <h1>Dreamers Guild</h1>
+        <button
+          @click="handleHeaderAction"
+          class="btn-collapse"
+          :title="isMobileMenuOpen ? 'Close menu' : 'Collapse sidebar'"
+        >
+          <i class="fa-solid" :class="isMobileMenuOpen ? 'fa-xmark' : 'fa-chevron-left'"></i>
+        </button>
+      </div>
       <!-- Navigation Section -->
       <nav class="nav-section">
         <div
@@ -124,15 +126,35 @@
           </div>
         </div>
       </div>
+
+      <!-- Requests Section (hidden when no requests) -->
+      <div v-if="requests.length > 0" class="section">
+        <div class="section-header">
+          <h3>Dreams</h3>
+          <button
+            v-if="hasDeletableRequests"
+            class="btn-add btn-clear"
+            @click="handleClearAllRequests"
+            title="Clear completed requests"
+          >
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+
+        <div class="requests-list">
+          <RequestCard
+            v-for="request in requests"
+            :key="request.uuid"
+            :request="request"
+            :showHiddenThumbnails="isAuthenticated"
+            @view-images="handleViewRequestImages"
+            @delete="handleDeleteRequest"
+            @retry="handleRetryRequest"
+          />
+        </div>
+      </div>
     </div>
   </div>
-
-  <!-- Mobile overlay -->
-  <div
-    v-if="!isCollapsed && isMobile"
-    class="sidebar-overlay"
-    @click="toggleCollapse"
-  ></div>
 </template>
 
 <script>
@@ -140,14 +162,17 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { imagesApi } from '@api'
 import AsyncImage from './AsyncImage.vue'
+import RequestCard from './RequestCard.vue'
 import { useToast } from '../composables/useToast.js'
 import { useAlbumStore } from '../stores/albumStore.js'
 import { useUiStore } from '../stores/uiStore.js'
+import { useRequestsStore } from '../stores/requestsStore.js'
 
 export default {
   name: 'LibrarySidebar',
   components: {
-    AsyncImage
+    AsyncImage,
+    RequestCard
   },
   props: {
     activeView: {
@@ -161,13 +186,18 @@ export default {
     isAuthenticated: {
       type: Boolean,
       default: false
+    },
+    isMobileMenuOpen: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed'],
+  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed', 'close', 'view-request-images'],
   setup(props, { emit }) {
     const { showToast } = useToast()
     const albumStore = useAlbumStore()
     const uiStore = useUiStore()
+    const requestsStore = useRequestsStore()
 
     // Get reactive state from stores
     const {
@@ -182,6 +212,14 @@ export default {
       sidebarCollapsed: isCollapsed,
       isMobile
     } = storeToRefs(uiStore)
+
+    const {
+      requests,
+      deletableRequests
+    } = storeToRefs(requestsStore)
+
+    // Computed for requests
+    const hasDeletableRequests = computed(() => deletableRequests.value.length > 0)
 
     const editInput = ref(null)
 
@@ -205,15 +243,17 @@ export default {
       return imagesApi.getThumbnailUrl(imageId)
     }
 
-    const toggleCollapse = () => {
-      uiStore.toggleSidebar()
+    const handleHeaderAction = () => {
+      if (props.isMobileMenuOpen) {
+        emit('close')  // Close full-screen menu on mobile
+      } else {
+        uiStore.toggleSidebar()  // Collapse sidebar on desktop
+      }
     }
 
     const navigate = (view, albumSlug = null) => {
       emit('navigate', { view, albumSlug })
-      if (isMobile.value) {
-        uiStore.setSidebarCollapsed(true)
-      }
+      // Note: On mobile, the parent (LibraryView) handles closing the menu
     }
 
     // Album editing methods - wrap store actions for focus handling and toast
@@ -269,6 +309,30 @@ export default {
       }
     }
 
+    // Request handlers
+    const handleViewRequestImages = (requestId) => {
+      emit('view-request-images', requestId)
+    }
+
+    const handleDeleteRequest = (requestId) => {
+      const request = requests.value.find(r => r.uuid === requestId)
+      if (request) {
+        requestsStore.showDeleteModal(request)
+      }
+    }
+
+    const handleRetryRequest = async (requestId) => {
+      try {
+        await requestsStore.retryRequest(requestId)
+      } catch (error) {
+        showToast('Failed to retry request. Please try again.', 'error')
+      }
+    }
+
+    const handleClearAllRequests = () => {
+      requestsStore.showDeleteAllModal()
+    }
+
     // Watch for authentication changes to reload albums
     watch(() => props.isAuthenticated, () => {
       loadAlbums()
@@ -284,7 +348,7 @@ export default {
       albums,
       visibleUserAlbums,
       getThumbnailUrl,
-      toggleCollapse,
+      handleHeaderAction,
       navigate,
       loadAlbums,
       // Editing
@@ -299,7 +363,14 @@ export default {
       isDeleting,
       confirmDeleteAlbum,
       handleCancelDelete,
-      handleDeleteAlbum
+      handleDeleteAlbum,
+      // Requests
+      requests,
+      hasDeletableRequests,
+      handleViewRequestImages,
+      handleDeleteRequest,
+      handleRetryRequest,
+      handleClearAllRequests
     }
   }
 }
@@ -311,7 +382,7 @@ export default {
   top: 0;
   left: 0;
   height: 100vh;
-  width: 280px;
+  width: 320px;
   background: var(--color-bg-elevated);
   z-index: var(--z-index-panel);
   display: flex;
@@ -323,25 +394,39 @@ export default {
   transform: translateX(-100%);
 }
 
-.collapse-toggle {
-  position: absolute;
-  right: -20px;
-  /* top: 50%;
-  transform: translateY(-50%); */
-  width: 20px;
-  height: 80px;
-  background: var(--color-bg-elevated);
+/* Sidebar Header */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.btn-collapse {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   border: none;
-  border-radius: 0 8px 8px 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-secondary);
   transition: all 0.2s;
 }
 
-.collapse-toggle:hover {
+.btn-collapse:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
@@ -349,7 +434,7 @@ export default {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
 }
 
 /* Navigation Section */
@@ -525,17 +610,6 @@ export default {
   color: var(--color-text-quaternary);
 }
 
-/* Mobile overlay */
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--overlay-dark);
-  z-index: calc(var(--z-index-panel) - 1);
-}
-
 /* Album actions (hover buttons) */
 .album-actions {
   display: none;
@@ -674,7 +748,43 @@ export default {
   cursor: not-allowed;
 }
 
-/* Mobile responsive */
+/* Requests Section */
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.requests-list .request-card {
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.requests-list .request-card:hover {
+  background: var(--color-surface-hover);
+}
+
+/* Match delete button style to album actions */
+.requests-list .request-card :deep(.delete-btn) {
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
+}
+
+.requests-list .request-card:hover :deep(.delete-btn) {
+  opacity: 1;
+}
+
+.requests-list .request-card :deep(.delete-btn:hover) {
+  background: var(--color-surface);
+  color: var(--color-error);
+}
+
+.btn-clear:hover {
+  color: var(--color-danger-tailwind);
+}
+
+/* Tablet responsive (768px - 1024px) */
 @media (max-width: 1024px) {
   .sidebar-container {
     width: 300px;
@@ -684,9 +794,56 @@ export default {
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
   }
 
-  /* Always show actions on mobile since no hover */
+  /* Always show actions on touch devices since no hover */
   .album-actions {
     display: flex;
+  }
+
+  .requests-list .request-card :deep(.delete-btn) {
+    opacity: 1;
+  }
+
+  .requests-list .request-card:hover {
+    background: transparent;
+  }
+}
+
+/* Mobile responsive - full screen menu mode */
+@media (max-width: 767px) {
+  /* Full-screen menu on mobile (visibility controlled by v-if in parent) */
+  .sidebar-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    z-index: var(--z-index-modal);
+    background: var(--color-bg-base);
+  }
+
+  /* Disable collapsed state on mobile */
+  .sidebar-container.collapsed {
+    transform: none;
+  }
+
+  /* Adjust header padding on mobile */
+  .sidebar-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .sidebar-header h1 {
+    font-size: 1.5rem;
+  }
+
+  /* Larger tap targets on mobile */
+  .nav-item {
+    padding: 1rem 1.5rem;
+  }
+
+  .album-item {
+    padding: 0.75rem 1rem;
   }
 }
 </style>

@@ -24,18 +24,18 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
    * Check for new images and prepend them to the list
    */
   const checkNewImages = async () => {
-    // Use currentAlbum as source of truth for album polling (not route-based currentView)
-    // This prevents issues when ImageModal changes the route temporarily
-    const albumId = currentAlbum?.value?.id
-    const view = currentView?.value
+    // Capture current state at the START of the poll
+    // We'll verify this hasn't changed before adding images
+    const albumIdAtStart = currentAlbum?.value?.id
+    const viewAtStart = currentView?.value
 
     // Determine context for image fetching
     // Poll for library, album, and hidden views
     // Hidden view can get new images when generating to hidden albums
     // Favorites view doesn't get new images from generation (requires manual favoriting)
-    const isAlbumContext = !!albumId
-    const isLibraryContext = view === 'library' && !albumId
-    const isHiddenContext = view === 'hidden' && !albumId
+    const isAlbumContext = !!albumIdAtStart
+    const isLibraryContext = viewAtStart === 'library' && !albumIdAtStart
+    const isHiddenContext = viewAtStart === 'hidden' && !albumIdAtStart
     const shouldFetchImages = isAlbumContext || isLibraryContext || isHiddenContext
 
     // Skip image fetching if searching or viewing specific request
@@ -49,7 +49,7 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
 
         if (isAlbumContext) {
           // Fetch latest images for the current album
-          const response = await albumsApi.getImages(albumId, 20, 0)
+          const response = await albumsApi.getImages(albumIdAtStart, 20, 0)
           newImages = response.data?.images || []
           newTotal = response.data?.total
         } else {
@@ -61,6 +61,18 @@ export function useImagePolling({ filters, images, totalCount, currentView, curr
           const response = await imagesApi.getAll(20, 0, apiOptions)
           newImages = response.data?.data || []
           newTotal = response.data?.total
+        }
+
+        // IMPORTANT: Verify the view/album hasn't changed while we were fetching
+        // This prevents adding images from one view to another if the user switched views
+        const albumIdNow = currentAlbum?.value?.id
+        const viewNow = currentView?.value
+        const viewChanged = viewAtStart !== viewNow || albumIdAtStart !== albumIdNow
+
+        if (viewChanged) {
+          // View changed during fetch - discard results to avoid mixing images
+          // The new view will fetch its own images
+          return
         }
 
         // Update total count if provided and changed
