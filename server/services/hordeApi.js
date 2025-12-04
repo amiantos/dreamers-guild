@@ -59,6 +59,7 @@ class HordeAPI {
   getClient() {
     return axios.create({
       baseURL: this.baseURL,
+      timeout: 30000, // 30 second timeout for API calls
       headers: {
         'Content-Type': 'application/json',
         'Client-Agent': 'dreamers-guild:0.1:github.com/amiantos/dreamers-guild',
@@ -337,6 +338,7 @@ class HordeAPI {
       // Use anonymous client - shared key lookup is public
       const client = axios.create({
         baseURL: this.baseURL,
+        timeout: 30000, // 30 second timeout for API calls
         headers: {
           'Content-Type': 'application/json',
           'Client-Agent': 'dreamers-guild:0.1:github.com/amiantos/dreamers-guild',
