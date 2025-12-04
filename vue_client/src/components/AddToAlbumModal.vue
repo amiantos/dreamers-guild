@@ -174,8 +174,8 @@ export default {
         // Add images to the new album
         await albumsApi.addImages(newAlbum.id, props.imageIds)
 
-        // Update album count in store
-        albumStore.updateAlbumCount(newAlbum.id, props.imageIds.length)
+        // Refresh album to get updated count and thumbnail from server
+        await albumStore.refreshAlbum(newAlbum.id)
 
         emit('added', { albumId: newAlbum.id, count: props.imageIds.length })
         emit('close')
@@ -201,8 +201,8 @@ export default {
       try {
         await albumsApi.addImages(selectedAlbumId.value, props.imageIds)
 
-        // Update album count in store
-        albumStore.updateAlbumCount(selectedAlbumId.value, props.imageIds.length)
+        // Refresh album to get updated count and thumbnail from server
+        await albumStore.refreshAlbum(selectedAlbumId.value)
 
         emit('added', { albumId: selectedAlbumId.value, count: props.imageIds.length })
         emit('close')
