@@ -127,8 +127,8 @@
         </div>
       </div>
 
-      <!-- Requests Section -->
-      <div class="section">
+      <!-- Requests Section (hidden when no requests) -->
+      <div v-if="requests.length > 0" class="section">
         <div class="section-header">
           <h3>Dreams</h3>
           <button
@@ -141,11 +141,7 @@
           </button>
         </div>
 
-        <div v-if="requests.length === 0" class="empty-requests">
-          <p>No dreams yet</p>
-        </div>
-
-        <div v-else class="requests-list">
+        <div class="requests-list">
           <RequestCard
             v-for="request in requests"
             :key="request.uuid"
