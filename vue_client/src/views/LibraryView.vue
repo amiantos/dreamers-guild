@@ -1665,7 +1665,7 @@ export default {
 .library-view {
   padding: 0;
   padding-bottom: 0;
-  --sidebar-width: 280px;
+  --sidebar-width: 320px;
   --action-bar-height: 70px;
   transition: padding-bottom 0.3s ease-in-out, padding-left 0.3s ease;
   padding-left: var(--sidebar-width);

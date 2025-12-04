@@ -391,7 +391,7 @@ export default {
   top: 0;
   left: 0;
   height: 100vh;
-  width: 280px;
+  width: 320px;
   background: var(--color-bg-elevated);
   z-index: var(--z-index-panel);
   display: flex;
