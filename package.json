@@ -13,7 +13,8 @@
     "client:preview": "cd vue_client && npm run preview",
     "install:all": "npm install && cd vue_client && npm install",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "ai",
@@ -35,6 +36,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.15",
     "concurrently": "^8.2.2",
     "nodemon": "^3.0.2",
     "vitest": "^4.0.15"
