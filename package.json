@@ -11,7 +11,9 @@
     "server": "node server/server.js",
     "client:build": "cd vue_client && npm run build",
     "client:preview": "cd vue_client && npm run preview",
-    "install:all": "npm install && cd vue_client && npm install"
+    "install:all": "npm install && cd vue_client && npm install",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "keywords": [
     "ai",
@@ -34,6 +36,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.0.2",
+    "vitest": "^4.0.15"
   }
 }
