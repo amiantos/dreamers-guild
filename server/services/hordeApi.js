@@ -10,31 +10,59 @@ const HORDE_API_BASE = 'https://stablehorde.net/api/v2';
 class HordeAPI {
   constructor() {
     this.baseURL = HORDE_API_BASE;
-    this.lastApiCallTime = 0;
-    this.minApiInterval = 1000; // 1 second minimum between API calls
-    this.throttleQueue = Promise.resolve(); // Queue for serializing API calls
+
+    // Background operations rate limiter (status polls, generation submits)
+    this.backgroundLastApiCallTime = 0;
+    this.backgroundThrottleQueue = Promise.resolve();
+
+    // UI operations rate limiter (kudos estimates, user info, shared keys)
+    this.uiLastApiCallTime = 0;
+    this.uiThrottleQueue = Promise.resolve();
+
+    this.minApiInterval = 1000; // 1 second minimum between API calls per bucket
   }
 
   /**
-   * Throttle API calls to ensure minimum interval between requests
-   * Uses a promise chain to serialize calls and prevent race conditions
+   * Throttle background API calls (status polls, generation submits, image downloads)
+   * Uses a separate bucket from UI operations
    */
-  async throttle() {
-    // Chain onto the queue to ensure only one call proceeds at a time
-    const waitPromise = this.throttleQueue.then(async () => {
+  async throttleBackground() {
+    const waitPromise = this.backgroundThrottleQueue.then(async () => {
       const now = Date.now();
-      const timeSinceLastCall = now - this.lastApiCallTime;
+      const timeSinceLastCall = now - this.backgroundLastApiCallTime;
       if (timeSinceLastCall < this.minApiInterval) {
         const waitTime = this.minApiInterval - timeSinceLastCall;
-        console.log(`[RateLimit] Waiting ${waitTime}ms before next API call`);
+        console.log(`[RateLimit:BG] Waiting ${waitTime}ms before next API call`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
-      this.lastApiCallTime = Date.now();
+      this.backgroundLastApiCallTime = Date.now();
     });
 
-    // Update the queue (catch to prevent unhandled rejection if a call fails)
-    this.throttleQueue = waitPromise.catch(() => {});
+    this.backgroundThrottleQueue = waitPromise.catch(() => {});
+    return waitPromise;
+  }
 
+  /**
+   * Throttle UI API calls (kudos estimates, user info, shared keys, workers)
+   * Uses a separate bucket from background operations, but also updates background
+   * to ensure UI always has priority
+   */
+  async throttleUI() {
+    const waitPromise = this.uiThrottleQueue.then(async () => {
+      const now = Date.now();
+      const timeSinceLastCall = now - this.uiLastApiCallTime;
+      if (timeSinceLastCall < this.minApiInterval) {
+        const waitTime = this.minApiInterval - timeSinceLastCall;
+        console.log(`[RateLimit:UI] Waiting ${waitTime}ms before next API call`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      // Update BOTH timestamps - UI takes priority and pushes back background
+      const timestamp = Date.now();
+      this.uiLastApiCallTime = timestamp;
+      this.backgroundLastApiCallTime = timestamp;
+    });
+
+    this.uiThrottleQueue = waitPromise.catch(() => {});
     return waitPromise;
   }
 
@@ -74,7 +102,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Response with request ID
    */
   async postImageAsyncGenerate(params) {
-    await this.throttle();
+    await this.throttleBackground();
     try {
       const client = this.getClient();
       const response = await client.post('/generate/async', params);
@@ -91,7 +119,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Status information
    */
   async getImageAsyncCheck(requestId) {
-    await this.throttle();
+    await this.throttleBackground();
     try {
       const client = this.getClient();
       const response = await client.get(`/generate/check/${requestId}`);
@@ -111,7 +139,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Generated images data
    */
   async getImageAsyncStatus(requestId) {
-    await this.throttle();
+    await this.throttleBackground();
     try {
       const client = this.getClient();
       const response = await client.get(`/generate/status/${requestId}`);
@@ -145,7 +173,7 @@ class HordeAPI {
    * @returns {Promise<Object>} User information
    */
   async getUserInfo() {
-    await this.throttle();
+    await this.throttleUI();
     try {
       const client = this.getClient();
       const response = await client.get('/find_user');
@@ -162,7 +190,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Cancellation response
    */
   async cancelRequest(requestId) {
-    await this.throttle();
+    await this.throttleBackground();
     try {
       const client = this.getClient();
       const response = await client.delete(`/generate/status/${requestId}`);
@@ -191,7 +219,7 @@ class HordeAPI {
       const client = this.getClient();
       const results = [];
       for (const id of workerIds) {
-        await this.throttle();
+        await this.throttleUI();
         try {
           const response = await client.get(`/workers/${id}`);
           results.push(response.data);
@@ -214,7 +242,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Updated worker data
    */
   async updateWorker(workerId, settings) {
-    await this.throttle();
+    await this.throttleUI();
     try {
       const client = this.getClient();
       const response = await client.put(`/workers/${workerId}`, settings);
@@ -238,7 +266,7 @@ class HordeAPI {
       const client = this.getClient();
       const results = [];
       for (const id of sharedKeyIds) {
-        await this.throttle();
+        await this.throttleUI();
         try {
           const response = await client.get(`/sharedkeys/${id}`);
           results.push(response.data);
@@ -260,7 +288,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Created shared key data
    */
   async createSharedKey(data) {
-    await this.throttle();
+    await this.throttleUI();
     try {
       const client = this.getClient();
       const response = await client.put('/sharedkeys', data);
@@ -278,7 +306,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Updated shared key data
    */
   async updateSharedKey(keyId, data) {
-    await this.throttle();
+    await this.throttleUI();
     try {
       const client = this.getClient();
       const response = await client.patch(`/sharedkeys/${keyId}`, data);
@@ -295,7 +323,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Deletion response
    */
   async deleteSharedKey(keyId) {
-    await this.throttle();
+    await this.throttleUI();
     try {
       const client = this.getClient();
       const response = await client.delete(`/sharedkeys/${keyId}`);
@@ -311,7 +339,7 @@ class HordeAPI {
    * @returns {Promise<Object|null>} Shared key details or null if not a shared key
    */
   async getCurrentSharedKeyInfo() {
-    await this.throttle();
+    await this.throttleUI();
     try {
       const apiKey = this.getApiKey();
       if (!apiKey || apiKey === '0000000000') {
@@ -333,7 +361,7 @@ class HordeAPI {
    * @returns {Promise<Object>} Shared key details if valid
    */
   async validateSharedKey(keyId) {
-    await this.throttle();
+    await this.throttleUI();
     try {
       // Use anonymous client - shared key lookup is public
       const client = axios.create({

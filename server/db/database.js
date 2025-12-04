@@ -261,6 +261,40 @@ function initDatabase() {
     ON image_albums(album_id)
   `);
 
+  // Migration: Clean up duplicate pending downloads before adding unique constraint
+  try {
+    const duplicates = db.prepare(`
+      SELECT request_id, uri, COUNT(*) as count
+      FROM horde_pending_downloads
+      GROUP BY request_id, uri
+      HAVING count > 1
+    `).all();
+
+    if (duplicates.length > 0) {
+      console.log(`Migration: Found ${duplicates.length} sets of duplicate pending downloads, cleaning up...`);
+      for (const dup of duplicates) {
+        const toDelete = db.prepare(`
+          SELECT uuid FROM horde_pending_downloads
+          WHERE request_id = ? AND uri = ?
+          ORDER BY uuid
+          LIMIT -1 OFFSET 1
+        `).all(dup.request_id, dup.uri);
+        for (const record of toDelete) {
+          db.prepare('DELETE FROM horde_pending_downloads WHERE uuid = ?').run(record.uuid);
+        }
+      }
+      console.log('Migration: Duplicate pending downloads cleaned up');
+    }
+  } catch (error) {
+    console.error('Migration error cleaning up duplicate downloads:', error.message);
+  }
+
+  // Unique constraint: prevent duplicate downloads for same request+URI
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_downloads_request_uri
+    ON horde_pending_downloads(request_id, uri)
+  `);
+
   console.log('Database initialized at', dbPath);
 }
 

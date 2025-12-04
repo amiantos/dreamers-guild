@@ -390,13 +390,15 @@ export const GeneratedImage = {
 export const HordePendingDownload = {
   create(data) {
     const uuid = data.uuid || uuidv4();
+
+    // Use INSERT OR IGNORE to silently skip duplicates (unique constraint on request_id, uri)
     const stmt = db.prepare(`
-      INSERT INTO horde_pending_downloads
+      INSERT OR IGNORE INTO horde_pending_downloads
       (uuid, request_id, uri, full_request, full_response)
       VALUES (?, ?, ?, ?, ?)
     `);
 
-    stmt.run(
+    const result = stmt.run(
       uuid,
       data.requestId || null,
       data.uri || null,
@@ -404,12 +406,26 @@ export const HordePendingDownload = {
       data.fullResponse || null
     );
 
+    // If no row was inserted (duplicate), return existing record
+    if (result.changes === 0) {
+      const existing = this.findByRequestAndUri(data.requestId, data.uri);
+      if (existing) {
+        console.log(`[Download] Skipping duplicate download for request ${data.requestId?.substring(0, 8)}...`);
+        return existing;
+      }
+    }
+
     return this.findById(uuid);
   },
 
   findById(uuid) {
     const stmt = db.prepare('SELECT * FROM horde_pending_downloads WHERE uuid = ?');
     return stmt.get(uuid);
+  },
+
+  findByRequestAndUri(requestId, uri) {
+    const stmt = db.prepare('SELECT * FROM horde_pending_downloads WHERE request_id = ? AND uri = ?');
+    return stmt.get(requestId, uri);
   },
 
   findAll() {

@@ -30,6 +30,7 @@ class QueueManager {
     this.isProcessing = false;
     this.isSubmitting = false; // Prevent concurrent submissions
     this.isDownloading = false; // Prevent concurrent downloads
+    this.isChecking = false; // Prevent concurrent status checks
     this.statusCheckInterval = null;
     this.downloadCheckInterval = null;
   }
@@ -222,14 +223,22 @@ class QueueManager {
    * Check status of active requests
    */
   async checkActiveRequests() {
-    if (this.activeRequests.size === 0) {
-      console.log('[Status] No active requests to check');
+    // Prevent concurrent status checking
+    if (this.isChecking) {
+      console.log('[Status] Already checking, skipping');
       return;
     }
+    this.isChecking = true;
 
-    console.log(`[Status] Checking status of ${this.activeRequests.size} active requests`);
+    try {
+      if (this.activeRequests.size === 0) {
+        console.log('[Status] No active requests to check');
+        return;
+      }
 
-    for (const [requestUuid, hordeId] of this.activeRequests.entries()) {
+      console.log(`[Status] Checking status of ${this.activeRequests.size} active requests`);
+
+      for (const [requestUuid, hordeId] of this.activeRequests.entries()) {
       // Skip requests that are still being submitted
       if (hordeId === 'submitting') {
         console.log(`[Status] Skipping ${requestUuid.substring(0, 8)}... (still submitting)`);
@@ -299,6 +308,9 @@ class QueueManager {
           console.error(`[Status] ✗ Error checking request ${hordeId}:`, error.message);
         }
       }
+    }
+    } finally {
+      this.isChecking = false;
     }
   }
 
