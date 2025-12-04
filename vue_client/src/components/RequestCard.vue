@@ -475,7 +475,7 @@ export default {
 
 @media (min-width: 769px) {
   .card-body {
-    gap: 0.7rem;
+    gap: 0.75rem;
   }
 
   .thumbnail {
@@ -543,7 +543,7 @@ export default {
 }
 
 .request-card.compact .meta {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .request-card.compact .progress-bar {
