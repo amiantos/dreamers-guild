@@ -327,10 +327,11 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick, inject } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { settingsApi } from '@api'
 import { useSettingsStore } from '../stores/settingsStore.js'
+import { useAuthStore } from '../stores/authStore.js'
 import { useTheme } from '../composables/useTheme.js'
 import PinInput from '../components/PinInput.vue'
 import BaseModal from '../components/BaseModal.vue'
@@ -341,7 +342,8 @@ export default {
   setup() {
     const router = useRouter()
     const settingsStore = useSettingsStore()
-    const clearHiddenAuth = inject('clearHiddenAuth')
+    const authStore = useAuthStore()
+    const clearHiddenAuth = () => authStore.clearAuth()
     const { currentTheme, toggleTheme } = useTheme()
     const settings = ref({})
     const apiKey = ref('')

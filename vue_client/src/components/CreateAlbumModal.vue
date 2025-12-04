@@ -49,9 +49,9 @@
 
 <script>
 import { ref, onMounted, nextTick } from 'vue'
-import { albumsApi } from '@api'
 import BaseModal from './BaseModal.vue'
 import { useToast } from '../composables/useToast.js'
+import { useAlbumStore } from '../stores/albumStore.js'
 
 export default {
   name: 'CreateAlbumModal',
@@ -67,6 +67,8 @@ export default {
   emits: ['close', 'created'],
   setup(props, { emit }) {
     const { showToast } = useToast()
+    const albumStore = useAlbumStore()
+
     const albumName = ref('')
     const isHidden = ref(false)
     const isSubmitting = ref(false)
@@ -78,12 +80,12 @@ export default {
       isSubmitting.value = true
 
       try {
-        const response = await albumsApi.create({
+        const newAlbum = await albumStore.createAlbum({
           title: albumName.value.trim(),
           isHidden: isHidden.value
         })
 
-        emit('created', response.data)
+        emit('created', newAlbum)
         emit('close')
         showToast('Album created successfully', 'success')
 

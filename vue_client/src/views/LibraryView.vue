@@ -7,14 +7,13 @@
       :activeAlbumSlug="currentAlbum?.slug"
       :isAuthenticated="isHiddenAuthenticated"
       @navigate="handleSidebarNavigate"
-      @toggle-collapse="handleSidebarToggle"
       @create-album="handleCreateAlbum"
     />
 
     <!-- Create Album Modal -->
     <CreateAlbumModal
       :isOpen="isCreateAlbumModalOpen"
-      @close="isCreateAlbumModalOpen = false"
+      @close="closeCreateAlbumModal"
       @created="handleAlbumCreated"
     />
 
@@ -23,7 +22,7 @@
       :isOpen="isAddToAlbumModalOpen"
       :imageIds="Array.from(selectedImages)"
       :includeHidden="isHiddenAuthenticated"
-      @close="isAddToAlbumModalOpen = false"
+      @close="closeAddToAlbumModal"
       @added="handleAddedToAlbum"
     />
 
@@ -60,14 +59,14 @@
     <DeleteRequestModal
       v-if="deleteModalVisible"
       :request="requestToDelete"
-      @close="deleteModalVisible = false"
+      @close="closeDeleteModal"
       @delete="confirmDelete"
     />
 
     <DeleteAllRequestsModal
       v-if="deleteAllModalVisible"
       :requests="deletableRequests"
-      @close="deleteAllModalVisible = false"
+      @close="closeDeleteAllModal"
       @delete="confirmDeleteAll"
     />
 
@@ -282,10 +281,15 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
 import { imagesApi, requestsApi, albumsApi } from '@api'
 import { useImagePolling } from '../composables/useImagePolling.js'
 import { useToast } from '../composables/useToast.js'
+import { useAuthStore } from '../stores/authStore.js'
+import { useAlbumStore } from '../stores/albumStore.js'
+import { useUiStore } from '../stores/uiStore.js'
+import { useRequestsStore } from '../stores/requestsStore.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
@@ -333,28 +337,32 @@ export default {
     })
     const routeBeforeModal = ref(null) // Store route before opening modal
 
-    // Requests panel state
-    const isPanelOpen = ref(false)
-    const requests = ref([])
-    const queueStatus = ref(null)
-    const deleteModalVisible = ref(false)
-    const deleteAllModalVisible = ref(false)
-    const requestToDelete = ref(null)
-    let pollInterval = null
-
-    // Sidebar state - initialize in sync with LibrarySidebar's logic
+    // Sidebar ref for component access
     const sidebarRef = ref(null)
-    const getInitialSidebarState = () => {
-      const savedState = localStorage.getItem('sidebarCollapsed')
-      if (savedState !== null) {
-        return savedState === 'true'
-      }
-      // Default to collapsed on mobile
-      return window.innerWidth < 1024
-    }
-    const sidebarCollapsed = ref(getInitialSidebarState())
-    const isCreateAlbumModalOpen = ref(false)
-    const isAddToAlbumModalOpen = ref(false)
+
+    // Requests Store
+    const requestsStore = useRequestsStore()
+    const {
+      requests,
+      queueStatus,
+      deleteModalVisible,
+      deleteAllModalVisible,
+      requestToDelete,
+      deletableRequests
+    } = storeToRefs(requestsStore)
+
+    // UI Store for centralized UI state
+    const uiStore = useUiStore()
+    const {
+      sidebarCollapsed,
+      isPanelOpen,
+      showMenu,
+      modals
+    } = storeToRefs(uiStore)
+
+    // Computed for template binding to modal states
+    const isCreateAlbumModalOpen = computed(() => modals.value.createAlbum)
+    const isAddToAlbumModalOpen = computed(() => modals.value.addToAlbum)
 
     // Current view based on route
     const currentView = computed(() => {
@@ -374,11 +382,11 @@ export default {
       currentView.value === 'favorites' || currentView.value === 'hidden-favorites'
     )
 
-    // Current album info (for album routes)
-    const currentAlbum = ref(null)
+    // Album store for centralized album state
+    const albumStore = useAlbumStore()
+    const { currentAlbum } = storeToRefs(albumStore)
 
-    // Menu state
-    const showMenu = ref(false)
+    // Menu container ref for click outside handling
     const menuContainer = ref(null)
 
     // Multi-select mode state
@@ -394,26 +402,27 @@ export default {
       currentView,
       currentAlbum,
       onPollComplete: () => {
-        // Refresh sidebar albums on every poll cycle (updates counts for all albums)
-        if (sidebarRef.value) {
-          sidebarRef.value.loadAlbums()
-        }
+        // Refresh albums from server to get latest counts
+        albumStore.loadAlbums(isAuthenticated.value)
       }
     })
 
-    // Inject functions from App.vue
+    // Inject functions from App.vue (non-auth)
     const loadSettingsFromImage = inject('loadSettingsFromImage')
     const openRequestModal = inject('openRequestModal')
     const shouldOpenRequestsPanel = inject('shouldOpenRequestsPanel')
-    const checkHiddenAuth = inject('checkHiddenAuth')
-    const requestHiddenAccess = inject('requestHiddenAccess')
-    const clearHiddenAuth = inject('clearHiddenAuth')
-    const hiddenAuthState = inject('hiddenAuthState')
+
+    // Use auth store instead of inject
+    const authStore = useAuthStore()
+    const { isAuthenticated } = storeToRefs(authStore)
+
+    // Auth functions from store
+    const checkHiddenAuth = () => authStore.checkHiddenAuth()
+    const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
+    const clearHiddenAuth = () => authStore.clearAuth()
 
     // Computed property for reactive auth state
-    const isHiddenAuthenticated = computed(() => {
-      return hiddenAuthState?.value?.isAuthenticated || false
-    })
+    const isHiddenAuthenticated = computed(() => isAuthenticated.value)
 
     const openNewRequest = () => {
       if (openRequestModal) {
@@ -678,21 +687,17 @@ export default {
     }
 
     const toggleMenu = () => {
-      showMenu.value = !showMenu.value
+      uiStore.toggleMenu()
     }
 
     const toggleHiddenImages = () => {
-      showMenu.value = false
+      uiStore.closeMenu()
 
       if (!isHiddenAuthenticated.value) {
-        // Enabling hidden mode
+        // Enabling hidden mode - sidebar watches auth state and refreshes automatically
         if (requestHiddenAccess) {
           requestHiddenAccess(() => {
             // Auth successful - hidden content now visible
-            // Refresh sidebar to show hidden albums
-            if (sidebarRef.value) {
-              sidebarRef.value.loadAlbums()
-            }
           })
         }
       } else {
@@ -712,7 +717,7 @@ export default {
     // Multi-select mode functions
     const toggleMultiSelectMode = () => {
       isMultiSelectMode.value = !isMultiSelectMode.value
-      showMenu.value = false
+      uiStore.closeMenu()
 
       if (!isMultiSelectMode.value) {
         // Clear selection when exiting mode
@@ -720,7 +725,7 @@ export default {
         lastSelectedIndex.value = -1
       } else {
         // Close requests panel when entering multi-select mode
-        isPanelOpen.value = false
+        uiStore.closePanel()
       }
     }
 
@@ -729,7 +734,7 @@ export default {
 
       // Close requests panel when starting selection (if not in dedicated multi-select mode)
       if (!isMultiSelectMode.value && selectedImages.value.size === 0) {
-        isPanelOpen.value = false
+        uiStore.closePanel()
       }
 
       // Handle Shift+click for range selection/deselection
@@ -1022,10 +1027,8 @@ export default {
         images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
         totalCount.value = Math.max(0, totalCount.value - removeCount)
 
-        // Update album count in sidebar
-        if (sidebarRef.value) {
-          sidebarRef.value.loadAlbums()
-        }
+        // Update album count in store (reactive update to sidebar)
+        albumStore.updateAlbumCount(albumId, -removeCount)
 
         // Clear selection
         selectedImages.value.clear()
@@ -1112,28 +1115,8 @@ export default {
 
     // Requests panel functions
     const togglePanel = () => {
-      isPanelOpen.value = !isPanelOpen.value
+      uiStore.togglePanel()
     }
-
-    const fetchRequests = async () => {
-      try {
-        const response = await requestsApi.getAll()
-        // Show newest to oldest
-        requests.value = response.data
-      } catch (error) {
-        console.error('Error fetching requests:', error)
-      }
-    }
-
-    const fetchQueueStatus = async () => {
-      try {
-        const response = await requestsApi.getQueueStatus()
-        queueStatus.value = response.data
-      } catch (error) {
-        console.error('Error fetching queue status:', error)
-      }
-    }
-
 
     const viewRequestImages = (requestId) => {
       // Navigate to library view with request filter
@@ -1142,86 +1125,56 @@ export default {
 
     const showDeleteModal = (requestId) => {
       const request = requests.value.find(r => r.uuid === requestId)
-
-      // For failed requests, delete immediately without confirmation
-      if (request.status === 'failed') {
-        requestToDelete.value = request
-        confirmDelete('prune')
-        return
+      if (request) {
+        requestsStore.showDeleteModal(request)
       }
-
-      requestToDelete.value = request
-      deleteModalVisible.value = true
     }
 
     const handleRetry = async (requestId) => {
       try {
-        const response = await requestsApi.retry(requestId)
-        // The failed request is deleted and a new one created
-        // Remove the old request from the list and add the new one
-        requests.value = requests.value.filter(r => r.uuid !== requestId)
-        requests.value.unshift(response.data)
+        await requestsStore.retryRequest(requestId)
       } catch (error) {
-        console.error('Error retrying request:', error)
         showToast('Failed to retry request. Please try again.', 'error')
       }
     }
 
     const confirmDelete = async (imageAction) => {
-      if (!requestToDelete.value) return
-
       try {
-        await requestsApi.delete(requestToDelete.value.uuid, imageAction)
-        requests.value = requests.value.filter(r => r.uuid !== requestToDelete.value.uuid)
-        deleteModalVisible.value = false
-        requestToDelete.value = null
-
+        await requestsStore.confirmDelete(imageAction)
         // Refresh the image library to reflect deleted images
         offset.value = 0
         hasMore.value = true
         await fetchImages()
       } catch (error) {
-        console.error('Error deleting request:', error)
         showToast('Failed to delete request. Please try again.', 'error')
       }
     }
 
     const showDeleteAllModal = () => {
-      deleteAllModalVisible.value = true
+      requestsStore.showDeleteAllModal()
+    }
+
+    const closeDeleteModal = () => {
+      requestsStore.closeDeleteModal()
+    }
+
+    const closeDeleteAllModal = () => {
+      requestsStore.closeDeleteAllModal()
     }
 
     const confirmDeleteAll = async (imageAction) => {
       try {
-        // Only delete completed and failed requests, skip processing/downloading
-        const deletableStatuses = ['completed', 'failed']
-        const requestsToDelete = requests.value.filter(r => deletableStatuses.includes(r.status))
-
-        // Delete each request individually
-        for (const request of requestsToDelete) {
-          await requestsApi.delete(request.uuid, imageAction)
-        }
-
-        // Remove only the deleted requests from the list
-        const deletedIds = new Set(requestsToDelete.map(r => r.uuid))
-        requests.value = requests.value.filter(r => !deletedIds.has(r.uuid))
-
-        deleteAllModalVisible.value = false
-
+        await requestsStore.confirmDeleteAll(imageAction)
         // Refresh the image library to reflect deleted images
         offset.value = 0
         hasMore.value = true
         await fetchImages()
       } catch (error) {
-        console.error('Error deleting requests:', error)
         showToast('Failed to delete requests. Please try again.', 'error')
       }
     }
 
     // Sidebar handlers
-    const handleSidebarToggle = (collapsed) => {
-      sidebarCollapsed.value = collapsed
-    }
-
     const handleSidebarNavigate = ({ view, albumSlug }) => {
       // Navigate based on view
       if (view === 'library') {
@@ -1238,45 +1191,39 @@ export default {
     }
 
     const handleCreateAlbum = () => {
-      isCreateAlbumModalOpen.value = true
+      uiStore.openModal('createAlbum')
+    }
+
+    const closeCreateAlbumModal = () => {
+      uiStore.closeModal('createAlbum')
     }
 
     const handleAlbumCreated = (album) => {
-      // Refresh sidebar
-      if (sidebarRef.value) {
-        sidebarRef.value.loadAlbums()
-      }
-      // Navigate to the new album
+      // Store already updated by CreateAlbumModal, just navigate
       router.push(`/album/${album.slug}`)
     }
 
     const handleAddToAlbum = () => {
-      isAddToAlbumModalOpen.value = true
+      uiStore.openModal('addToAlbum')
     }
 
-    const handleAddedToAlbum = ({ albumId, count }) => {
-      // Clear selection after adding
+    const closeAddToAlbumModal = () => {
+      uiStore.closeModal('addToAlbum')
+    }
+
+    const handleAddedToAlbum = () => {
+      // Store already updated by AddToAlbumModal, just clear selection
       selectedImages.value.clear()
       lastSelectedIndex.value = -1
       isMultiSelectMode.value = false
-      // Refresh sidebar
-      if (sidebarRef.value) {
-        sidebarRef.value.loadAlbums()
-      }
     }
 
     // Load album info when viewing an album
     const loadCurrentAlbum = async () => {
       if (props.albumSlug) {
-        try {
-          const response = await albumsApi.getBySlug(props.albumSlug)
-          currentAlbum.value = response.data
-        } catch (error) {
-          console.error('Error loading album:', error)
-          currentAlbum.value = null
-        }
+        await albumStore.loadCurrentAlbum(props.albumSlug)
       } else {
-        currentAlbum.value = null
+        albumStore.setCurrentAlbum(null)
       }
     }
 
@@ -1415,7 +1362,7 @@ export default {
     if (shouldOpenRequestsPanel) {
       watch(shouldOpenRequestsPanel, (shouldOpen) => {
         if (shouldOpen) {
-          isPanelOpen.value = true
+          uiStore.openPanel()
           // Reset the signal
           shouldOpenRequestsPanel.value = false
         }
@@ -1436,11 +1383,6 @@ export default {
 
       // All requests are complete (or no requests)
       return 'complete'
-    })
-
-    // Only completed/failed requests can be batch deleted
-    const deletableRequests = computed(() => {
-      return requests.value.filter(r => ['completed', 'failed'].includes(r.status))
     })
 
     // Watch queue status to start/stop image polling
@@ -1486,7 +1428,7 @@ export default {
           hasMore.value = true
           await fetchAlbumImages()
         } else {
-          currentAlbum.value = null
+          albumStore.setCurrentAlbum(null)
           offset.value = 0
           hasMore.value = true
           await fetchImages()
@@ -1496,7 +1438,7 @@ export default {
 
     const handleClickOutside = (event) => {
       if (menuContainer.value && !menuContainer.value.contains(event.target)) {
-        showMenu.value = false
+        uiStore.closeMenu()
       }
     }
 
@@ -1513,24 +1455,15 @@ export default {
 
       loadImageFromUrl()
 
-      // Fetch requests and queue status
-      fetchRequests()
-      fetchQueueStatus()
-
-      // Poll for updates every 2 seconds
-      pollInterval = setInterval(() => {
-        fetchRequests()
-        fetchQueueStatus()
-      }, 2000)
+      // Start requests polling (fetches and polls every 2 seconds)
+      requestsStore.startPolling()
 
       window.addEventListener('scroll', handleScroll)
       window.addEventListener('click', handleClickOutside)
     })
 
     onUnmounted(() => {
-      if (pollInterval) {
-        clearInterval(pollInterval)
-      }
+      requestsStore.stopPolling()
       imagePolling.cleanup()
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('click', handleClickOutside)
@@ -1576,6 +1509,8 @@ export default {
       deleteModalVisible,
       deleteAllModalVisible,
       showDeleteAllModal,
+      closeDeleteModal,
+      closeDeleteAllModal,
       confirmDeleteAll,
       requestToDelete,
       // Sidebar and albums
@@ -1585,11 +1520,12 @@ export default {
       currentAlbum,
       isCreateAlbumModalOpen,
       isAddToAlbumModalOpen,
-      handleSidebarToggle,
       handleSidebarNavigate,
       handleCreateAlbum,
+      closeCreateAlbumModal,
       handleAlbumCreated,
       handleAddToAlbum,
+      closeAddToAlbumModal,
       handleAddedToAlbum,
       // Menu and filters
       showMenu,

@@ -60,7 +60,7 @@
           </button>
         </div>
 
-        <div v-if="userAlbums.length === 0" class="empty-albums">
+        <div v-if="albums.length === 0" class="empty-albums">
           <p>No albums yet</p>
         </div>
 
@@ -110,14 +110,14 @@
         </div>
 
         <!-- Delete confirmation modal -->
-        <div v-if="albumToDelete" class="delete-confirm-overlay" @click="albumToDelete = null">
+        <div v-if="albumToDelete" class="delete-confirm-overlay" @click="handleCancelDelete">
           <div class="delete-confirm-modal" @click.stop>
             <h4>Delete Album</h4>
             <p>Are you sure you want to delete "{{ albumToDelete.title }}"?</p>
             <p class="delete-warning">This album contains {{ albumToDelete.count }} image(s). Images will not be deleted.</p>
             <div class="delete-confirm-actions">
-              <button class="btn-cancel" @click="albumToDelete = null">Cancel</button>
-              <button class="btn-delete" @click="deleteAlbum(albumToDelete)" :disabled="isDeleting">
+              <button class="btn-cancel" @click="handleCancelDelete">Cancel</button>
+              <button class="btn-delete" @click="handleDeleteAlbum" :disabled="isDeleting">
                 {{ isDeleting ? 'Deleting...' : 'Delete Album' }}
               </button>
             </div>
@@ -136,10 +136,13 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { albumsApi, imagesApi } from '@api'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
+import { imagesApi } from '@api'
 import AsyncImage from './AsyncImage.vue'
 import { useToast } from '../composables/useToast.js'
+import { useAlbumStore } from '../stores/albumStore.js'
+import { useUiStore } from '../stores/uiStore.js'
 
 export default {
   name: 'LibrarySidebar',
@@ -160,45 +163,40 @@ export default {
       default: false
     }
   },
-  emits: ['navigate', 'toggle-collapse', 'create-album', 'album-deleted', 'album-renamed'],
+  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed'],
   setup(props, { emit }) {
     const { showToast } = useToast()
+    const albumStore = useAlbumStore()
+    const uiStore = useUiStore()
 
-    // Initialize collapsed state from localStorage (single source of truth)
-    const getInitialCollapsedState = () => {
-      const savedState = localStorage.getItem('sidebarCollapsed')
-      if (savedState !== null) {
-        return savedState === 'true'
-      }
-      return window.innerWidth < 1024
-    }
+    // Get reactive state from stores
+    const {
+      albums,
+      editingAlbumId,
+      editingTitle,
+      albumToDelete,
+      isDeleting
+    } = storeToRefs(albumStore)
 
-    const isCollapsed = ref(getInitialCollapsedState())
-    const isMobile = ref(window.innerWidth < 1024)
-    const userAlbums = ref([])
+    const {
+      sidebarCollapsed: isCollapsed,
+      isMobile
+    } = storeToRefs(uiStore)
 
-    // Editing state
-    const editingAlbumId = ref(null)
-    const editingTitle = ref('')
     const editInput = ref(null)
 
-    // Deleting state
-    const albumToDelete = ref(null)
-    const isDeleting = ref(false)
-
+    // Filter albums based on authentication state
     const visibleUserAlbums = computed(() => {
       if (props.isAuthenticated) {
-        return userAlbums.value
+        return albums.value
       }
-      return userAlbums.value.filter(album => !album.is_hidden)
+      return albums.value.filter(album => !album.is_hidden)
     })
 
     const loadAlbums = async () => {
       try {
-        const response = await albumsApi.getAll({ includeHidden: props.isAuthenticated })
-        userAlbums.value = response.data || []
+        await albumStore.loadAlbums(props.isAuthenticated)
       } catch (error) {
-        console.error('Error loading albums:', error)
         showToast('Failed to load albums', 'error')
       }
     }
@@ -208,22 +206,19 @@ export default {
     }
 
     const toggleCollapse = () => {
-      isCollapsed.value = !isCollapsed.value
-      localStorage.setItem('sidebarCollapsed', isCollapsed.value)
-      emit('toggle-collapse', isCollapsed.value)
+      uiStore.toggleSidebar()
     }
 
     const navigate = (view, albumSlug = null) => {
       emit('navigate', { view, albumSlug })
       if (isMobile.value) {
-        isCollapsed.value = true
+        uiStore.setSidebarCollapsed(true)
       }
     }
 
-    // Album editing methods
+    // Album editing methods - wrap store actions for focus handling and toast
     const startEditing = (album) => {
-      editingAlbumId.value = album.id
-      editingTitle.value = album.title
+      albumStore.startEditing(album)
       nextTick(() => {
         if (editInput.value) {
           const input = Array.isArray(editInput.value) ? editInput.value[0] : editInput.value
@@ -236,68 +231,41 @@ export default {
     }
 
     const cancelEditing = () => {
-      editingAlbumId.value = null
-      editingTitle.value = ''
+      albumStore.cancelEditing()
     }
 
     const saveAlbumTitle = async (album) => {
-      const newTitle = editingTitle.value.trim()
-      if (!newTitle || newTitle === album.title) {
-        cancelEditing()
-        return
-      }
-
+      const oldSlug = album.slug
       try {
-        const response = await albumsApi.update(album.id, { title: newTitle })
-        const updatedAlbum = response.data
-
-        // Update local state
-        const index = userAlbums.value.findIndex(a => a.id === album.id)
-        if (index > -1) {
-          userAlbums.value[index] = { ...userAlbums.value[index], ...updatedAlbum }
+        const updated = await albumStore.saveAlbumTitle(album)
+        if (updated) {
+          // Emit event for parent to handle (e.g., redirect if viewing this album)
+          emit('album-renamed', { oldSlug, newSlug: updated.slug, album: updated })
+          showToast('Album renamed successfully', 'success')
         }
-
-        // Emit event for parent to handle (e.g., redirect if viewing this album)
-        emit('album-renamed', { oldSlug: album.slug, newSlug: updatedAlbum.slug, album: updatedAlbum })
-        showToast('Album renamed successfully', 'success')
       } catch (error) {
-        console.error('Error renaming album:', error)
         showToast('Failed to rename album', 'error')
-      } finally {
-        cancelEditing()
       }
     }
 
-    // Album deletion methods
+    // Album deletion methods - wrap store actions for toast and emit
     const confirmDeleteAlbum = (album) => {
-      albumToDelete.value = album
+      albumStore.confirmDeleteAlbum(album)
     }
 
-    const deleteAlbum = async (album) => {
-      isDeleting.value = true
+    const handleCancelDelete = () => {
+      albumStore.cancelDelete()
+    }
+
+    const handleDeleteAlbum = async () => {
+      const album = albumToDelete.value
       try {
-        await albumsApi.delete(album.id)
-
-        // Remove from local state
-        userAlbums.value = userAlbums.value.filter(a => a.id !== album.id)
-
+        await albumStore.executeDelete()
         // Emit event for parent to handle navigation
         emit('album-deleted', album)
         showToast('Album deleted successfully', 'success')
       } catch (error) {
-        console.error('Error deleting album:', error)
         showToast('Failed to delete album', 'error')
-      } finally {
-        isDeleting.value = false
-        albumToDelete.value = null
-      }
-    }
-
-    const handleResize = () => {
-      isMobile.value = window.innerWidth < 1024
-      // Auto-collapse on mobile if not explicitly set
-      if (isMobile.value && !localStorage.getItem('sidebarCollapsed')) {
-        isCollapsed.value = true
       }
     }
 
@@ -307,20 +275,13 @@ export default {
     })
 
     onMounted(() => {
-      window.addEventListener('resize', handleResize)
       loadAlbums()
-      // Emit initial state to parent for layout sync
-      emit('toggle-collapse', isCollapsed.value)
-    })
-
-    onUnmounted(() => {
-      window.removeEventListener('resize', handleResize)
     })
 
     return {
       isCollapsed,
       isMobile,
-      userAlbums,
+      albums,
       visibleUserAlbums,
       getThumbnailUrl,
       toggleCollapse,
@@ -337,7 +298,8 @@ export default {
       albumToDelete,
       isDeleting,
       confirmDeleteAlbum,
-      deleteAlbum
+      handleCancelDelete,
+      handleDeleteAlbum
     }
   }
 }

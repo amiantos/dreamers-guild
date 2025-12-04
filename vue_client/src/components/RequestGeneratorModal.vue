@@ -631,7 +631,8 @@
 </template>
 
 <script>
-import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { requestsApi, imagesApi, settingsApi, albumsApi } from '@api'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomSamplePrompt, baseDefaults } from '../config/presets.js'
@@ -639,6 +640,7 @@ import { useModelCache } from '../composables/useModelCache.js'
 import { useKudosEstimation } from '../composables/useKudosEstimation.js'
 import { splitPrompt, replaceNegativePlaceholder } from '../utils/promptUtils.js'
 import { useSettingsStore } from '../stores/settingsStore.js'
+import { useAuthStore } from '../stores/authStore.js'
 import axios from 'axios'
 import ModelPicker from './ModelPicker.vue'
 import InlineStylePicker from './InlineStylePicker.vue'
@@ -698,9 +700,10 @@ export default {
     const inlineStylePicker = ref(null)
     const allStyles = ref([])
 
-    // Album selection
-    const hiddenAuthState = inject('hiddenAuthState')
-    const isHiddenAuthenticated = computed(() => hiddenAuthState?.value?.isAuthenticated || false)
+    // Album selection - use auth store
+    const authStore = useAuthStore()
+    const { isAuthenticated } = storeToRefs(authStore)
+    const isHiddenAuthenticated = computed(() => isAuthenticated.value)
     const albums = ref([])
     const selectedAlbumId = ref(null)
 

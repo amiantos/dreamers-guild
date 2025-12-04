@@ -304,11 +304,13 @@
 </template>
 
 <script>
-import { computed, ref, watch, onMounted, onUnmounted, inject, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { imagesApi, albumsApi } from '@api'
 import DeleteImageModal from './DeleteImageModal.vue'
 import AddToAlbumModal from './AddToAlbumModal.vue'
 import { useToast } from '../composables/useToast.js'
+import { useAuthStore } from '../stores/authStore.js'
 import AccordionSection from './AccordionSection.vue'
 import InspectorGrid from './InspectorGrid.vue'
 import AsyncImage from './AsyncImage.vue'
@@ -353,10 +355,13 @@ export default {
     const { showToast } = useToast()
     const isFavorite = ref(!!props.image.is_favorite)
     const isHidden = ref(!!props.image.is_hidden)
-    const checkHiddenAuth = inject('checkHiddenAuth')
-    const requestHiddenAccess = inject('requestHiddenAccess')
-    const hiddenAuthState = inject('hiddenAuthState')
-    const isHiddenAuthenticated = computed(() => hiddenAuthState?.value?.isAuthenticated || false)
+
+    // Use auth store
+    const authStore = useAuthStore()
+    const { isAuthenticated } = storeToRefs(authStore)
+    const checkHiddenAuth = () => authStore.checkHiddenAuth()
+    const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
+    const isHiddenAuthenticated = computed(() => isAuthenticated.value)
     const showDetails = ref(false)
     const detailsType = ref('request')
     const copied = ref(false)

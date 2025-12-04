@@ -92,10 +92,12 @@
 </template>
 
 <script>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { albumsApi } from '@api'
 import BaseModal from './BaseModal.vue'
 import { useToast } from '../composables/useToast.js'
+import { useAlbumStore } from '../stores/albumStore.js'
 
 export default {
   name: 'AddToAlbumModal',
@@ -119,8 +121,19 @@ export default {
   emits: ['close', 'added'],
   setup(props, { emit }) {
     const { showToast } = useToast()
-    const albums = ref([])
-    const loading = ref(true)
+    const albumStore = useAlbumStore()
+
+    // Get reactive state from store
+    const { albums: storeAlbums, loading } = storeToRefs(albumStore)
+
+    // Filter albums based on includeHidden prop
+    const albums = computed(() => {
+      if (props.includeHidden) {
+        return storeAlbums.value
+      }
+      return storeAlbums.value.filter(album => !album.is_hidden)
+    })
+
     const selectedAlbumId = ref(null)
     const isAdding = ref(false)
     const isCreating = ref(false)
@@ -130,18 +143,6 @@ export default {
     const newAlbumName = ref('')
     const newAlbumHidden = ref(false)
     const quickCreateInput = ref(null)
-
-    const loadAlbums = async () => {
-      loading.value = true
-      try {
-        const response = await albumsApi.getAll({ includeHidden: props.includeHidden })
-        albums.value = response.data || []
-      } catch (error) {
-        console.error('Error loading albums:', error)
-      } finally {
-        loading.value = false
-      }
-    }
 
     const toggleQuickCreate = () => {
       showQuickCreate.value = !showQuickCreate.value
@@ -164,16 +165,17 @@ export default {
       isCreating.value = true
 
       try {
-        // Create the album
-        const createResponse = await albumsApi.create({
+        // Create the album using store
+        const newAlbum = await albumStore.createAlbum({
           title: newAlbumName.value.trim(),
           isHidden: newAlbumHidden.value
         })
 
-        const newAlbum = createResponse.data
-
         // Add images to the new album
         await albumsApi.addImages(newAlbum.id, props.imageIds)
+
+        // Update album count in store
+        albumStore.updateAlbumCount(newAlbum.id, props.imageIds.length)
 
         emit('added', { albumId: newAlbum.id, count: props.imageIds.length })
         emit('close')
@@ -199,6 +201,9 @@ export default {
       try {
         await albumsApi.addImages(selectedAlbumId.value, props.imageIds)
 
+        // Update album count in store
+        albumStore.updateAlbumCount(selectedAlbumId.value, props.imageIds.length)
+
         emit('added', { albumId: selectedAlbumId.value, count: props.imageIds.length })
         emit('close')
         showToast(`Added ${props.imageIds.length} image(s) to album`, 'success')
@@ -210,17 +215,11 @@ export default {
       }
     }
 
-    // Load albums when modal opens
+    // Refresh albums when modal opens (in case they changed elsewhere)
     watch(() => props.isOpen, (isOpen) => {
       if (isOpen) {
-        loadAlbums()
+        albumStore.loadAlbums(props.includeHidden)
         selectedAlbumId.value = null
-      }
-    })
-
-    onMounted(() => {
-      if (props.isOpen) {
-        loadAlbums()
       }
     })
 

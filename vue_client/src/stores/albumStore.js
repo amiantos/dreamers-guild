@@ -13,6 +13,14 @@ export const useAlbumStore = defineStore('albums', () => {
   const loading = ref(false)
   const error = ref(null)
 
+  // Editing state (for inline editing in sidebar)
+  const editingAlbumId = ref(null)
+  const editingTitle = ref('')
+
+  // Delete confirmation state
+  const albumToDelete = ref(null)
+  const isDeleting = ref(false)
+
   // Computed
   const visibleAlbums = computed(() => {
     return albums.value.filter(album => !album.is_hidden)
@@ -203,6 +211,63 @@ export const useAlbumStore = defineStore('albums', () => {
     albums.value = []
     currentAlbum.value = null
     error.value = null
+    editingAlbumId.value = null
+    editingTitle.value = ''
+    albumToDelete.value = null
+  }
+
+  // Inline editing actions
+  const startEditing = (album) => {
+    editingAlbumId.value = album.id
+    editingTitle.value = album.title
+  }
+
+  const cancelEditing = () => {
+    editingAlbumId.value = null
+    editingTitle.value = ''
+  }
+
+  const saveAlbumTitle = async (album) => {
+    const newTitle = editingTitle.value.trim()
+    if (!newTitle || newTitle === album.title) {
+      cancelEditing()
+      return null
+    }
+
+    try {
+      const updated = await updateAlbum(album.id, { title: newTitle })
+      cancelEditing()
+      return updated
+    } catch (err) {
+      console.error('Error renaming album:', err)
+      throw err
+    }
+  }
+
+  // Delete confirmation actions
+  const confirmDeleteAlbum = (album) => {
+    albumToDelete.value = album
+  }
+
+  const cancelDelete = () => {
+    albumToDelete.value = null
+  }
+
+  const executeDelete = async () => {
+    if (!albumToDelete.value) return
+
+    isDeleting.value = true
+    try {
+      const albumId = albumToDelete.value.id
+      await deleteAlbum(albumId)
+      albumToDelete.value = null
+      return albumId
+    } catch (err) {
+      console.error('Error deleting album:', err)
+      throw err
+    } finally {
+      isDeleting.value = false
+    }
   }
 
   return {
@@ -211,6 +276,12 @@ export const useAlbumStore = defineStore('albums', () => {
     currentAlbum,
     loading,
     error,
+    // Editing state
+    editingAlbumId,
+    editingTitle,
+    // Delete state
+    albumToDelete,
+    isDeleting,
     // Computed
     visibleAlbums,
     albumCount,
@@ -226,6 +297,14 @@ export const useAlbumStore = defineStore('albums', () => {
     updateAlbumCount,
     setAlbumThumbnail,
     refreshAlbum,
-    clearState
+    clearState,
+    // Editing actions
+    startEditing,
+    cancelEditing,
+    saveAlbumTitle,
+    // Delete actions
+    confirmDeleteAlbum,
+    cancelDelete,
+    executeDelete
   }
 })
