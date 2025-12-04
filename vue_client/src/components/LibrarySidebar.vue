@@ -701,14 +701,8 @@ export default {
 
 /* Mobile responsive - full screen menu mode */
 @media (max-width: 767px) {
-  /* Hide sidebar by default on mobile */
+  /* Full-screen menu on mobile (visibility controlled by v-if in parent) */
   .sidebar-container {
-    display: none;
-  }
-
-  /* Full-screen menu when open */
-  .sidebar-container.mobile-menu-open {
-    display: flex;
     position: fixed;
     top: 0;
     left: 0;
@@ -716,26 +710,30 @@ export default {
     bottom: 0;
     width: 100%;
     height: 100%;
-    transform: none;
     z-index: var(--z-index-modal);
     background: var(--color-bg-base);
   }
 
+  /* Disable collapsed state on mobile */
+  .sidebar-container.collapsed {
+    transform: none;
+  }
+
   /* Adjust header padding on mobile */
-  .sidebar-container.mobile-menu-open .sidebar-header {
+  .sidebar-header {
     padding: 1rem 1.5rem;
   }
 
-  .sidebar-container.mobile-menu-open .sidebar-header h1 {
+  .sidebar-header h1 {
     font-size: 1.5rem;
   }
 
   /* Larger tap targets on mobile */
-  .sidebar-container.mobile-menu-open .nav-item {
+  .nav-item {
     padding: 1rem 1.5rem;
   }
 
-  .sidebar-container.mobile-menu-open .album-item {
+  .album-item {
     padding: 0.75rem 1rem;
   }
 }

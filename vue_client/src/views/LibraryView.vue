@@ -1763,14 +1763,21 @@ export default {
 }
 
 /* Mobile menu slide transition */
-.mobile-menu-enter-active,
-.mobile-menu-leave-active {
-  transition: transform 0.3s ease-out;
-}
+@media (max-width: 767px) {
+  .mobile-menu-enter-active,
+  .mobile-menu-leave-active {
+    transition: transform 0.3s ease-out !important;
+  }
 
-.mobile-menu-enter-from,
-.mobile-menu-leave-to {
-  transform: translateX(-100%);
+  .mobile-menu-enter-from,
+  .mobile-menu-leave-to {
+    transform: translateX(-100%) !important;
+  }
+
+  .mobile-menu-enter-to,
+  .mobile-menu-leave-from {
+    transform: translateX(0) !important;
+  }
 }
 
 .header-controls {
