@@ -130,7 +130,7 @@
       <!-- Requests Section -->
       <div class="section">
         <div class="section-header">
-          <h3>Requests</h3>
+          <h3>Dreams</h3>
           <button
             v-if="hasDeletableRequests"
             class="btn-add btn-clear"
@@ -142,7 +142,7 @@
         </div>
 
         <div v-if="requests.length === 0" class="empty-requests">
-          <p>No requests yet</p>
+          <p>No dreams yet</p>
         </div>
 
         <div v-else class="requests-list">
