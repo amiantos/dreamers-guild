@@ -392,28 +392,26 @@ export default {
       }
     }
 
-    // Current view based on route
-    const currentView = computed(() => {
-      const path = route.path
+    // Helper to extract view from a path
+    const getViewFromPath = (path) => {
       if (path.startsWith('/favorites')) return 'favorites'
       if (path.startsWith('/hidden-favorites')) return 'hidden-favorites'
       if (path.startsWith('/hidden')) return 'hidden'
       if (path.startsWith('/album/')) return 'album'
       return 'library'
+    }
+
+    // Current view based on route (uses stored route when mobile menu is open to prevent refetch)
+    const currentView = computed(() => {
+      // When mobile menu is open, use the stored route to prevent gallery from changing
+      if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
+        return getViewFromPath(menuRouteBeforeOpen.value.path)
+      }
+      return getViewFromPath(route.path)
     })
 
-    // For sidebar: use stored route when mobile menu is open
-    const sidebarActiveView = computed(() => {
-      if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
-        const path = menuRouteBeforeOpen.value.path
-        if (path.startsWith('/favorites')) return 'favorites'
-        if (path.startsWith('/hidden-favorites')) return 'hidden-favorites'
-        if (path.startsWith('/hidden')) return 'hidden'
-        if (path.startsWith('/album/')) return 'album'
-        return 'library'
-      }
-      return currentView.value
-    })
+    // For sidebar: same logic (kept as alias for clarity)
+    const sidebarActiveView = computed(() => currentView.value)
 
     const sidebarActiveAlbumSlug = computed(() => {
       if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
@@ -1490,7 +1488,7 @@ export default {
         request: route.query.request
       }),
       async (newVal, oldVal) => {
-        // Ignore route changes when opening/closing/navigating the modal
+        // Ignore route changes when opening/closing/navigating the modal or mobile menu
         // This allows URL updates for bookmarking without triggering data reloads
         const newPath = route.path
         const oldParsed = oldVal ? JSON.parse(oldVal) : {}
@@ -1503,6 +1501,22 @@ export default {
         if (isNewPathModal || isOldPathModal) {
           // Modal-related route change - don't reload data
           return
+        }
+
+        // Check if this is mobile menu related
+        if (newPath === '/menu') {
+          // Opening mobile menu - don't reload data
+          return
+        }
+
+        if (oldPath === '/menu') {
+          // Closing mobile menu - only reload if going to a different view than where we started
+          // menuRouteBeforeOpen contains where we were before opening the menu
+          if (menuRouteBeforeOpen.value && menuRouteBeforeOpen.value.path === newPath) {
+            // Returning to same view (closed menu without selecting) - don't reload
+            return
+          }
+          // Otherwise, user selected something different - let it reload below
         }
 
         // Load filters based on new route
