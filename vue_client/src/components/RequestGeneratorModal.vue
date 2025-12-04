@@ -66,6 +66,16 @@
                 </div>
               </div>
 
+              <div class="form-group">
+                <label for="album">Save to Album</label>
+                <select id="album" v-model="selectedAlbumId" class="album-select">
+                  <option :value="null">None</option>
+                  <option v-for="album in albums" :key="album.id" :value="album.id">
+                    {{ album.title }}{{ album.is_hidden ? ' (Hidden)' : '' }}
+                  </option>
+                </select>
+              </div>
+
             </div>
 
             <!-- Inline Style Picker (Only visible in Simple mode) -->
@@ -622,13 +632,15 @@
 
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { requestsApi, imagesApi, settingsApi } from '@api'
+import { storeToRefs } from 'pinia'
+import { requestsApi, imagesApi, settingsApi, albumsApi } from '@api'
 import { baseRequest, styleCopyParams } from '../config/baseRequest.js'
 import { getRandomSamplePrompt, baseDefaults } from '../config/presets.js'
 import { useModelCache } from '../composables/useModelCache.js'
 import { useKudosEstimation } from '../composables/useKudosEstimation.js'
 import { splitPrompt, replaceNegativePlaceholder } from '../utils/promptUtils.js'
 import { useSettingsStore } from '../stores/settingsStore.js'
+import { useAuthStore } from '../stores/authStore.js'
 import axios from 'axios'
 import ModelPicker from './ModelPicker.vue'
 import InlineStylePicker from './InlineStylePicker.vue'
@@ -662,6 +674,10 @@ export default {
     includeSeed: {
       type: Boolean,
       default: false
+    },
+    initialAlbumSlug: {
+      type: String,
+      default: null
     }
   },
   emits: ['close', 'submit'],
@@ -683,6 +699,13 @@ export default {
     const showStyleSwitchConfirm = ref(false)
     const inlineStylePicker = ref(null)
     const allStyles = ref([])
+
+    // Album selection - use auth store
+    const authStore = useAuthStore()
+    const { isAuthenticated } = storeToRefs(authStore)
+    const isHiddenAuthenticated = computed(() => isAuthenticated.value)
+    const albums = ref([])
+    const selectedAlbumId = ref(null)
 
     const form = reactive({
       prompt: '',
@@ -1229,6 +1252,10 @@ export default {
         selectedStyleData.value = null
       }
 
+      // Clear album selection
+      selectedAlbumId.value = null
+      localStorage.removeItem('lastUsedAlbumId')
+
       estimateKudos()
     }
 
@@ -1669,7 +1696,8 @@ export default {
 
         await requestsApi.create({
           prompt: form.prompt,
-          params
+          params,
+          albumId: selectedAlbumId.value || null
         })
 
         // Save the RAW form settings (before style processing) for next time
@@ -1771,8 +1799,45 @@ export default {
       localStorage.setItem('generatorEditorMode', newMode)
     })
 
+    // Load albums for the album selector
+    const loadAlbums = async () => {
+      try {
+        const response = await albumsApi.getAll({ includeHidden: isHiddenAuthenticated.value })
+        albums.value = response.data || []
+      } catch (error) {
+        console.error('Error loading albums:', error)
+      }
+    }
+
+    // Reload albums when hidden authentication changes
+    watch(isHiddenAuthenticated, () => {
+      loadAlbums()
+    })
+
+    // Save album selection to localStorage when it changes
+    watch(selectedAlbumId, (newValue) => {
+      if (newValue) {
+        localStorage.setItem('lastUsedAlbumId', String(newValue))
+      } else {
+        localStorage.removeItem('lastUsedAlbumId')
+      }
+    })
+
     onMounted(async () => {
       await fetchModels()
+
+      // Load albums for selector
+      await loadAlbums()
+
+      // Restore last used album (will be overridden by prop if provided)
+      const savedAlbumId = localStorage.getItem('lastUsedAlbumId')
+      if (savedAlbumId) {
+        const albumId = parseInt(savedAlbumId, 10)
+        // Only restore if the album still exists in our list
+        if (albums.value.some(a => a.id === albumId)) {
+          selectedAlbumId.value = albumId
+        }
+      }
 
       // Set default model if not already set
       if (!form.model) {
@@ -1791,6 +1856,13 @@ export default {
         // Switch to advanced mode when loading settings from an image
         // (watch on editorMode handles localStorage persistence)
         editorMode.value = 'advanced'
+        // Auto-select album if user was viewing one
+        if (props.initialAlbumSlug) {
+          const matchingAlbum = albums.value.find(a => a.slug === props.initialAlbumSlug)
+          if (matchingAlbum) {
+            selectedAlbumId.value = matchingAlbum.id
+          }
+        }
       } else if (!hasLastUsedSettings) {
         // First time experience: load a random sample prompt with matching style
         await resetForm()
@@ -1855,6 +1927,8 @@ export default {
       aspectRatioText,
       selectedStyleName,
       selectedStyleData,
+      albums,
+      selectedAlbumId,
       submitRequest,
       onModelSelect,
       onStyleSelect,

@@ -23,6 +23,51 @@ const router = createRouter({
       props: true
     },
     {
+      path: '/favorites',
+      name: 'favorites',
+      component: LibraryView
+    },
+    {
+      path: '/favorites/image/:imageId',
+      name: 'favorites-image',
+      component: LibraryView,
+      props: true
+    },
+    {
+      path: '/hidden',
+      name: 'hidden',
+      component: LibraryView
+    },
+    {
+      path: '/hidden/image/:imageId',
+      name: 'hidden-image',
+      component: LibraryView,
+      props: true
+    },
+    {
+      path: '/hidden-favorites',
+      name: 'hidden-favorites',
+      component: LibraryView
+    },
+    {
+      path: '/hidden-favorites/image/:imageId',
+      name: 'hidden-favorites-image',
+      component: LibraryView,
+      props: true
+    },
+    {
+      path: '/album/:albumSlug',
+      name: 'album',
+      component: LibraryView,
+      props: true
+    },
+    {
+      path: '/album/:albumSlug/image/:imageId',
+      name: 'album-image',
+      component: LibraryView,
+      props: true
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: SettingsView

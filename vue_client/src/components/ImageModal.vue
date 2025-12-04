@@ -146,6 +146,27 @@
                     <span>{{ isHidden ? 'Hidden' : 'Hide' }}</span>
                   </button>
                 </div>
+                <!-- Add to Album button -->
+                <button
+                  @click="showAddToAlbumModal = true"
+                  class="btn-action btn-secondary"
+                  title="Add to album"
+                >
+                  <i class="fa-solid fa-folder-plus"></i>
+                  <span>Add to Album</span>
+                </button>
+                <!-- Set as Cover button (only when viewing in album context) -->
+                <button
+                  v-if="currentAlbum"
+                  @click="setAsAlbumCover"
+                  class="btn-action btn-secondary"
+                  :class="{ 'is-cover': isCurrentCover }"
+                  :disabled="isCurrentCover || isSettingCover"
+                  :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
+                >
+                  <i class="fa-solid" :class="isCurrentCover ? 'fa-check' : 'fa-image'"></i>
+                  <span>{{ isSettingCover ? 'Setting...' : (isCurrentCover ? 'Album Cover' : 'Set as Cover') }}</span>
+                </button>
                 <!-- Load settings row -->
                 <div v-if="hasSettings" class="action-row">
                   <button
@@ -225,6 +246,15 @@
         @delete="confirmDelete"
       />
 
+      <!-- Add to Album Modal -->
+      <AddToAlbumModal
+        :isOpen="showAddToAlbumModal"
+        :imageIds="[image.uuid]"
+        :includeHidden="isHiddenAuthenticated"
+        @close="showAddToAlbumModal = false"
+        @added="handleAddedToAlbum"
+      />
+
       <!-- Details Overlay -->
       <div v-if="showDetails" class="request-details-overlay">
         <div class="request-details-header">
@@ -274,9 +304,13 @@
 </template>
 
 <script>
-import { computed, ref, watch, onMounted, onUnmounted, inject, nextTick } from 'vue'
-import { imagesApi } from '@api'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
+import { imagesApi, albumsApi } from '@api'
 import DeleteImageModal from './DeleteImageModal.vue'
+import AddToAlbumModal from './AddToAlbumModal.vue'
+import { useToast } from '../composables/useToast.js'
+import { useAuthStore } from '../stores/authStore.js'
 import AccordionSection from './AccordionSection.vue'
 import InspectorGrid from './InspectorGrid.vue'
 import AsyncImage from './AsyncImage.vue'
@@ -285,6 +319,7 @@ export default {
   name: 'ImageModal',
   components: {
     DeleteImageModal,
+    AddToAlbumModal,
     AccordionSection,
     InspectorGrid,
     AsyncImage
@@ -309,18 +344,30 @@ export default {
     canNavigateNext: {
       type: Boolean,
       default: true
+    },
+    currentAlbum: {
+      type: Object,
+      default: null
     }
   },
-  emits: ['close', 'delete', 'navigate', 'load-settings', 'update'],
+  emits: ['close', 'delete', 'navigate', 'load-settings', 'update', 'album-cover-set'],
   setup(props, { emit }) {
+    const { showToast } = useToast()
     const isFavorite = ref(!!props.image.is_favorite)
     const isHidden = ref(!!props.image.is_hidden)
-    const checkHiddenAuth = inject('checkHiddenAuth')
-    const requestHiddenAccess = inject('requestHiddenAccess')
+
+    // Use auth store
+    const authStore = useAuthStore()
+    const { isAuthenticated } = storeToRefs(authStore)
+    const checkHiddenAuth = () => authStore.checkHiddenAuth()
+    const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
+    const isHiddenAuthenticated = computed(() => isAuthenticated.value)
     const showDetails = ref(false)
     const detailsType = ref('request')
     const copied = ref(false)
     const showDeleteModal = ref(false)
+    const showAddToAlbumModal = ref(false)
+    const isSettingCover = ref(false)
     const filmstripTrack = ref(null)
     const canScrollPrev = ref(false)
     const canScrollNext = ref(false)
@@ -789,6 +836,33 @@ export default {
       emit('delete', props.image.uuid)
     }
 
+    const handleAddedToAlbum = () => {
+      showAddToAlbumModal.value = false
+    }
+
+    // Album cover functionality
+    const isCurrentCover = computed(() => {
+      return props.currentAlbum?.cover_image_uuid === props.image.uuid
+    })
+
+    const setAsAlbumCover = async () => {
+      if (!props.currentAlbum || isSettingCover.value) return
+
+      isSettingCover.value = true
+      try {
+        await albumsApi.update(props.currentAlbum.id, {
+          coverImageUuid: props.image.uuid
+        })
+        emit('album-cover-set', props.image.uuid)
+        showToast('Album cover updated', 'success')
+      } catch (error) {
+        console.error('Error setting album cover:', error)
+        showToast('Failed to set album cover', 'error')
+      } finally {
+        isSettingCover.value = false
+      }
+    }
+
     const handleResize = () => {
       isDesktop.value = window.innerWidth > 1024
     }
@@ -909,6 +983,13 @@ export default {
       copyButtonText,
       showDeleteModal,
       confirmDelete,
+      showAddToAlbumModal,
+      handleAddedToAlbum,
+      isHiddenAuthenticated,
+      // Album cover
+      isSettingCover,
+      isCurrentCover,
+      setAsAlbumCover,
       // Parsed data
       negativePrompt,
       modelName,

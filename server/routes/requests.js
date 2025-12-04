@@ -78,7 +78,7 @@ function validateRequestParams(params) {
 // Create a new request
 router.post('/', (req, res) => {
   try {
-    const { prompt, params } = req.body;
+    const { prompt, params, albumId } = req.body;
 
     if (!prompt || !params) {
       return res.status(400).json({ error: 'Missing required fields: prompt, params' });
@@ -90,7 +90,7 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Invalid params', details: validationErrors });
     }
 
-    const request = queueManager.addRequest({ prompt, params });
+    const request = queueManager.addRequest({ prompt, params, albumId });
     res.status(201).json(request);
   } catch (error) {
     console.error('Error creating request:', error);
@@ -261,10 +261,11 @@ router.post('/:id/retry', (req, res) => {
       return res.status(400).json({ error: 'Invalid stored params', details: validationErrors });
     }
 
-    // Create a new request with the same data
+    // Create a new request with the same data (preserve album association)
     const newRequest = queueManager.addRequest({
       prompt: originalRequest.prompt,
-      params
+      params,
+      albumId: originalRequest.album_id
     });
 
     // Delete the failed request

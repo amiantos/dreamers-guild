@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 import { imagesDir } from './database.js';
+import { generateSlug } from '../utils/slugify.js';
 
 // HordeRequest model
 export const HordeRequest = {
@@ -10,8 +11,8 @@ export const HordeRequest = {
     const uuid = data.uuid || uuidv4();
     const stmt = db.prepare(`
       INSERT INTO horde_requests
-      (uuid, date_created, prompt, full_request, status, message, n, queue_position, wait_time, total_kudos_cost)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (uuid, date_created, prompt, full_request, status, message, n, queue_position, wait_time, total_kudos_cost, album_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -24,7 +25,8 @@ export const HordeRequest = {
       data.n || 0,
       data.queuePosition || 0,
       data.waitTime || 0,
-      data.totalKudosCost || 0
+      data.totalKudosCost || 0,
+      data.albumId || null
     );
 
     return this.findById(uuid);
@@ -266,9 +268,10 @@ export const GeneratedImage = {
     }
     if (globalFilters.showHiddenOnly) {
       query += ` AND is_hidden = 1`;
-    } else {
+    } else if (!globalFilters.includeHidden) {
       query += ` AND is_hidden = 0`;
     }
+    // If includeHidden is true, don't add any hidden filter (include all)
 
     query += ` ORDER BY date_created DESC LIMIT ? OFFSET ?`;
     params.push(limit, offset);
@@ -314,9 +317,10 @@ export const GeneratedImage = {
     }
     if (globalFilters.showHiddenOnly) {
       query += ` AND is_hidden = 1`;
-    } else {
+    } else if (!globalFilters.includeHidden) {
       query += ` AND is_hidden = 0`;
     }
+    // If includeHidden is true, don't add any hidden filter (include all)
 
     const stmt = db.prepare(query);
     const result = stmt.get(...params);
@@ -372,6 +376,10 @@ export const GeneratedImage = {
       }
     }
 
+    // Delete album associations
+    const deleteAlbumAssocStmt = db.prepare('DELETE FROM image_albums WHERE image_uuid = ?');
+    deleteAlbumAssocStmt.run(uuid);
+
     // Delete database record
     const stmt = db.prepare('DELETE FROM generated_images WHERE uuid = ?');
     return stmt.run(uuid);
@@ -425,31 +433,261 @@ export const HordePendingDownload = {
   }
 };
 
-// KeywordAlbum model
-export const KeywordAlbum = {
+// Album model (user-created albums)
+export const Album = {
   create(data) {
+    const now = Date.now();
+    const slug = generateSlug(data.title);
+
     const stmt = db.prepare(`
-      INSERT INTO keyword_albums (title, keywords)
-      VALUES (?, ?)
+      INSERT INTO albums (slug, title, is_hidden, cover_image_uuid, date_created, date_modified)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-    const result = stmt.run(data.title || null, data.keywords || null);
+    const result = stmt.run(
+      slug,
+      data.title,
+      data.isHidden ? 1 : 0,
+      data.coverImageUuid || null,
+      now,
+      now
+    );
+
     return this.findById(result.lastInsertRowid);
   },
 
   findById(id) {
-    const stmt = db.prepare('SELECT * FROM keyword_albums WHERE id = ?');
+    const stmt = db.prepare('SELECT * FROM albums WHERE id = ?');
     return stmt.get(id);
   },
 
-  findAll() {
-    const stmt = db.prepare('SELECT * FROM keyword_albums');
+  findBySlug(slug) {
+    const stmt = db.prepare('SELECT * FROM albums WHERE slug = ?');
+    return stmt.get(slug);
+  },
+
+  findAll(includeHidden = false) {
+    let query = 'SELECT * FROM albums';
+    if (!includeHidden) {
+      query += ' WHERE is_hidden = 0';
+    }
+    query += ' ORDER BY date_created DESC';
+
+    const stmt = db.prepare(query);
     return stmt.all();
   },
 
+  /**
+   * Get all albums with count and thumbnail in a single efficient query
+   * Avoids N+1 problem by using subqueries
+   */
+  findAllWithDetails(includeHidden = false) {
+    const whereClause = includeHidden ? '' : 'WHERE a.is_hidden = 0';
+
+    const stmt = db.prepare(`
+      SELECT
+        a.*,
+        COALESCE(counts.count, 0) as count,
+        COALESCE(
+          a.cover_image_uuid,
+          (
+            SELECT ia2.image_uuid
+            FROM image_albums ia2
+            WHERE ia2.album_id = a.id
+            ORDER BY ia2.date_added DESC
+            LIMIT 1
+          )
+        ) as thumbnail
+      FROM albums a
+      LEFT JOIN (
+        SELECT album_id, COUNT(*) as count
+        FROM image_albums
+        GROUP BY album_id
+      ) counts ON counts.album_id = a.id
+      ${whereClause}
+      ORDER BY a.date_created DESC
+    `);
+
+    return stmt.all();
+  },
+
+  update(id, data) {
+    const fields = [];
+    const values = [];
+
+    // Update title only - slug remains unchanged to preserve URLs
+    if (data.title !== undefined) {
+      fields.push('title = ?');
+      values.push(data.title);
+    }
+    if (data.isHidden !== undefined) { fields.push('is_hidden = ?'); values.push(data.isHidden ? 1 : 0); }
+    if (data.coverImageUuid !== undefined) { fields.push('cover_image_uuid = ?'); values.push(data.coverImageUuid); }
+
+    if (fields.length === 0) return this.findById(id);
+
+    fields.push('date_modified = ?');
+    values.push(Date.now());
+
+    values.push(id);
+    const stmt = db.prepare(`UPDATE albums SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...values);
+
+    return this.findById(id);
+  },
+
   delete(id) {
-    const stmt = db.prepare('DELETE FROM keyword_albums WHERE id = ?');
+    // Delete all image associations first
+    const deleteAssocStmt = db.prepare('DELETE FROM image_albums WHERE album_id = ?');
+    deleteAssocStmt.run(id);
+
+    // Delete the album
+    const stmt = db.prepare('DELETE FROM albums WHERE id = ?');
     return stmt.run(id);
+  },
+
+  getImageCount(id) {
+    const stmt = db.prepare('SELECT COUNT(*) as count FROM image_albums WHERE album_id = ?');
+    const result = stmt.get(id);
+    return result.count;
+  },
+
+  getCoverImage(id) {
+    // First check if album has an explicit cover
+    const album = this.findById(id);
+    if (album && album.cover_image_uuid) {
+      const imageStmt = db.prepare('SELECT * FROM generated_images WHERE uuid = ?');
+      return imageStmt.get(album.cover_image_uuid);
+    }
+
+    // Fall back to most recent image in album
+    const stmt = db.prepare(`
+      SELECT gi.* FROM generated_images gi
+      INNER JOIN image_albums ia ON gi.uuid = ia.image_uuid
+      WHERE ia.album_id = ?
+      ORDER BY ia.date_added DESC
+      LIMIT 1
+    `);
+    return stmt.get(id);
+  }
+};
+
+// ImageAlbum model (junction table for images in albums)
+export const ImageAlbum = {
+  addImageToAlbum(imageUuid, albumId, autoHide = true) {
+    const now = Date.now();
+
+    // Check if the album is hidden and auto-hide the image
+    const album = Album.findById(albumId);
+    const albumIsHidden = album && (album.is_hidden === 1 || album.is_hidden === true);
+    if (albumIsHidden && autoHide) {
+      const updateStmt = db.prepare('UPDATE generated_images SET is_hidden = 1 WHERE uuid = ?');
+      updateStmt.run(imageUuid);
+    }
+
+    // Check if already exists
+    const existingStmt = db.prepare('SELECT id FROM image_albums WHERE image_uuid = ? AND album_id = ?');
+    const existing = existingStmt.get(imageUuid, albumId);
+    if (existing) {
+      return existing;
+    }
+
+    const stmt = db.prepare(`
+      INSERT INTO image_albums (image_uuid, album_id, date_added)
+      VALUES (?, ?, ?)
+    `);
+
+    const result = stmt.run(imageUuid, albumId, now);
+    return { id: result.lastInsertRowid, image_uuid: imageUuid, album_id: albumId, date_added: now };
+  },
+
+  addImagesToAlbum(imageUuids, albumId) {
+    const results = [];
+    for (const imageUuid of imageUuids) {
+      results.push(this.addImageToAlbum(imageUuid, albumId));
+    }
+    return results;
+  },
+
+  removeImageFromAlbum(imageUuid, albumId) {
+    const stmt = db.prepare('DELETE FROM image_albums WHERE image_uuid = ? AND album_id = ?');
+    return stmt.run(imageUuid, albumId);
+  },
+
+  findAlbumsForImage(imageUuid, includeHidden = false) {
+    let query = `
+      SELECT a.* FROM albums a
+      INNER JOIN image_albums ia ON a.id = ia.album_id
+      WHERE ia.image_uuid = ?
+    `;
+    if (!includeHidden) {
+      query += ' AND a.is_hidden = 0';
+    }
+    query += ' ORDER BY a.date_created DESC';
+
+    const stmt = db.prepare(query);
+    return stmt.all(imageUuid);
+  },
+
+  findImagesInAlbum(albumId, limit = 100, offset = 0, filters = {}) {
+    let query = `
+      SELECT gi.* FROM generated_images gi
+      INNER JOIN image_albums ia ON gi.uuid = ia.image_uuid
+      WHERE ia.album_id = ?
+    `;
+    const params = [albumId];
+
+    if (filters.showFavorites) {
+      query += ' AND gi.is_favorite = 1';
+    }
+
+    // For album view, we show all images in the album regardless of hidden status
+    // unless specifically filtering for hidden only
+    if (filters.showHiddenOnly) {
+      query += ' AND gi.is_hidden = 1';
+    }
+
+    // Keyword search - search in prompt_simple
+    if (filters.keywords && filters.keywords.length > 0) {
+      for (const keyword of filters.keywords) {
+        query += ' AND gi.prompt_simple LIKE ?';
+        params.push(`%${keyword}%`);
+      }
+    }
+
+    query += ' ORDER BY gi.date_created DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const stmt = db.prepare(query);
+    return stmt.all(...params);
+  },
+
+  countImagesInAlbum(albumId, filters = {}) {
+    let query = `
+      SELECT COUNT(*) as count FROM generated_images gi
+      INNER JOIN image_albums ia ON gi.uuid = ia.image_uuid
+      WHERE ia.album_id = ?
+    `;
+    const params = [albumId];
+
+    if (filters.showFavorites) {
+      query += ' AND gi.is_favorite = 1';
+    }
+
+    if (filters.showHiddenOnly) {
+      query += ' AND gi.is_hidden = 1';
+    }
+
+    // Keyword search - search in prompt_simple
+    if (filters.keywords && filters.keywords.length > 0) {
+      for (const keyword of filters.keywords) {
+        query += ' AND gi.prompt_simple LIKE ?';
+        params.push(`%${keyword}%`);
+      }
+    }
+
+    const stmt = db.prepare(query);
+    const result = stmt.get(...params);
+    return result.count;
   }
 };
 

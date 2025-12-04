@@ -192,18 +192,71 @@ export const stylesApi = {
 }
 
 export const albumsApi = {
-  getAll(filters = {}) {
-    let url = '/albums'
+  // Get all user albums
+  getAll(options = {}) {
     const params = []
-    if (filters.showFavoritesOnly) {
+    if (options.includeHidden) {
+      params.push('includeHidden=true')
+    }
+    const url = params.length > 0 ? `/albums?${params.join('&')}` : '/albums'
+    return apiClient.get(url)
+  },
+
+  // Create a new album
+  create(data) {
+    return apiClient.post('/albums', data)
+  },
+
+  // Get album by slug
+  getBySlug(slug) {
+    return apiClient.get(`/albums/${slug}`)
+  },
+
+  // Update an album
+  update(id, data) {
+    return apiClient.patch(`/albums/${id}`, data)
+  },
+
+  // Delete an album
+  delete(id) {
+    return apiClient.delete(`/albums/${id}`)
+  },
+
+  // Get images in an album
+  getImages(albumId, limit = 100, offset = 0, options = {}) {
+    const params = [`limit=${limit}`, `offset=${offset}`]
+    if (options.showFavorites) {
       params.push('favorites=true')
     }
-    if (filters.showHidden) {
+    if (options.showHiddenOnly) {
       params.push('showHiddenOnly=true')
     }
-    if (params.length > 0) {
-      url += '?' + params.join('&')
+    if (options.keywords && options.keywords.length > 0) {
+      params.push(`keywords=${encodeURIComponent(options.keywords.join(','))}`)
     }
+    return apiClient.get(`/albums/${albumId}/images?${params.join('&')}`)
+  },
+
+  // Add images to an album
+  addImages(albumId, imageIds) {
+    return apiClient.post(`/albums/${albumId}/images`, { imageIds })
+  },
+
+  // Remove an image from an album
+  removeImage(albumId, imageId) {
+    return apiClient.delete(`/albums/${albumId}/images/${imageId}`)
+  },
+
+  // Bulk remove images from an album
+  removeImages(albumId, imageIds) {
+    return apiClient.delete(`/albums/${albumId}/images`, { data: { imageIds } })
+  },
+
+  // Get albums for a specific image
+  getAlbumsForImage(imageId, includeHidden = false) {
+    const url = includeHidden
+      ? `/images/${imageId}/albums?includeHidden=true`
+      : `/images/${imageId}/albums`
     return apiClient.get(url)
   }
 }

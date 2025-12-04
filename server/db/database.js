@@ -81,12 +81,27 @@ function initDatabase() {
     )
   `);
 
-  // KeywordAlbum table
+  // User Albums table
   db.exec(`
-    CREATE TABLE IF NOT EXISTS keyword_albums (
+    CREATE TABLE IF NOT EXISTS albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      keywords TEXT
+      slug TEXT UNIQUE NOT NULL,
+      title TEXT NOT NULL,
+      is_hidden INTEGER DEFAULT 0,
+      cover_image_uuid TEXT,
+      date_created INTEGER NOT NULL,
+      date_modified INTEGER NOT NULL
+    )
+  `);
+
+  // Image-Albums junction table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS image_albums (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      image_uuid TEXT NOT NULL,
+      album_id INTEGER NOT NULL,
+      date_added INTEGER NOT NULL,
+      UNIQUE(image_uuid, album_id)
     )
   `);
 
@@ -118,6 +133,7 @@ function initDatabase() {
   addColumnIfNotExists('horde_requests', 'finished', 'INTEGER DEFAULT 0', 'Number of finished images');
   addColumnIfNotExists('horde_requests', 'waiting', 'INTEGER DEFAULT 0', 'Number of images waiting in queue');
   addColumnIfNotExists('horde_requests', 'processing', 'INTEGER DEFAULT 0', 'Number of images being processed');
+  addColumnIfNotExists('horde_requests', 'album_id', 'INTEGER', 'Album ID to add generated images to');
 
   // Migration: Delete any trashed images (soft-delete cleanup)
   // This permanently removes images that were previously soft-deleted
@@ -222,6 +238,27 @@ function initDatabase() {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_requests_date_created
     ON horde_requests(date_created DESC)
+  `);
+
+  // Albums indexes
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_albums_slug
+    ON albums(slug)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_albums_hidden
+    ON albums(is_hidden)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_image_albums_image
+    ON image_albums(image_uuid)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_image_albums_album
+    ON image_albums(album_id)
   `);
 
   console.log('Database initialized at', dbPath);

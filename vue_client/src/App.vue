@@ -49,6 +49,7 @@
       ref="requestModalRef"
       :initialSettings="modalInitialSettings"
       :includeSeed="modalIncludeSeed"
+      :initialAlbumSlug="modalInitialAlbumSlug"
       @close="handleCloseRequestModal"
       @submit="handleNewRequest"
     />
@@ -72,19 +73,24 @@
       :sharedKeyName="sharedKeyInfo?.name"
       @close="handleWelcomeModalClose"
     />
+
+    <ToastContainer />
   </div>
 </template>
 
 <script>
 import { ref, provide, nextTick, computed, onMounted, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import BaseModal from './components/BaseModal.vue'
 import WelcomeModal from './components/WelcomeModal.vue'
+import ToastContainer from './components/ToastContainer.vue'
 import { settingsApi, imagesApi } from '@api'
 import { useTheme } from './composables/useTheme.js'
+import { useAuthStore } from './stores/authStore.js'
 
 const isDemoMode = typeof __DEMO_MODE__ !== 'undefined' && __DEMO_MODE__
 const APP_NAME = 'Dreamers Guild'
@@ -96,7 +102,8 @@ export default {
     PinSetupModal,
     PinEntryModal,
     BaseModal,
-    WelcomeModal
+    WelcomeModal,
+    ToastContainer
   },
   setup() {
     // Initialize theme
@@ -267,17 +274,22 @@ export default {
     const requestModalRef = ref(null)
     const modalInitialSettings = ref(null)
     const modalIncludeSeed = ref(false)
+    const modalInitialAlbumSlug = ref(null)
     const shouldOpenRequestsPanel = ref(false)
 
-    // PIN protection state
-    const showPinSetupModal = ref(false)
-    const showPinEntryModal = ref(false)
-    const settings = ref({})
-    const settingsLoaded = ref(false)
-    const hiddenAuthState = ref({
-      isAuthenticated: false
-    })
-    const pendingHiddenAccess = ref(null) // Callback to run after successful PIN entry
+    // Use auth store for PIN protection
+    const authStore = useAuthStore()
+    const {
+      showPinSetupModal,
+      showPinEntryModal,
+      isAuthenticated,
+      settings
+    } = storeToRefs(authStore)
+
+    // Create hiddenAuthState computed for backward compatibility with provide/inject
+    const hiddenAuthState = computed(() => ({
+      isAuthenticated: isAuthenticated.value
+    }))
 
     // Load settings on mount
     onMounted(async () => {
@@ -287,16 +299,13 @@ export default {
     const loadSettings = async () => {
       try {
         console.log('[Settings] Loading settings...')
-        const data = await settingsApi.get()
+        const data = await authStore.loadSettings()
         console.log('[Settings] Loaded:', data)
-        settings.value = data
-        settingsLoaded.value = true
 
         // Check for shared API key in URL
         await processSharedKeyFromUrl(data)
       } catch (error) {
         console.error('[Settings] Error loading settings:', error)
-        settingsLoaded.value = true // Mark as loaded even on error to prevent blocking
         // Still try to show welcome modal
         const dismissed = localStorage.getItem(WELCOME_DISMISSED_KEY)
         if (!dismissed) {
@@ -376,93 +385,20 @@ export default {
       }
     }
 
-    const checkHiddenAuth = () => {
-      // Wait for settings to load first
-      if (!settingsLoaded.value) {
-        return false
-      }
-
-      // If PIN not configured yet (null), need to set it up
-      if (settings.value.hidden_pin_enabled === null) {
-        return false
-      }
-
-      // If explicitly declined PIN, allow access
-      if (settings.value.hidden_pin_enabled === 0) {
-        return true
-      }
-
-      // If no PIN hash (shouldn't happen if enabled=1, but check anyway)
-      if (!settings.value.hasPinProtection) {
-        return true
-      }
-
-      // Check if authenticated (session-based, no timeout)
-      return hiddenAuthState.value.isAuthenticated
-    }
-
-    const requestHiddenAccess = (callback) => {
-      // Wait for settings to load
-      if (!settingsLoaded.value) {
-        // Settings not loaded yet, wait a bit and retry
-        setTimeout(() => requestHiddenAccess(callback), 100)
-        return
-      }
-
-      // Check if PIN is configured
-      if (settings.value.hidden_pin_enabled === null || settings.value.hidden_pin_enabled === undefined) {
-        // Not configured - show setup modal
-        showPinSetupModal.value = true
-        pendingHiddenAccess.value = callback
-        return
-      }
-
-      // Check if already authenticated
-      if (checkHiddenAuth()) {
-        callback()
-        return
-      }
-
-      // Need to verify PIN
-      showPinEntryModal.value = true
-      pendingHiddenAccess.value = callback
-    }
-
-    const handlePinSetupComplete = async ({ hasPin }) => {
-      await loadSettings()
-      hiddenAuthState.value.isAuthenticated = hasPin
-
-      // Execute pending callback
-      if (pendingHiddenAccess.value) {
-        pendingHiddenAccess.value()
-        pendingHiddenAccess.value = null
-      }
-    }
-
-    const handlePinVerified = () => {
-      hiddenAuthState.value.isAuthenticated = true
-
-      // Execute pending callback
-      if (pendingHiddenAccess.value) {
-        pendingHiddenAccess.value()
-        pendingHiddenAccess.value = null
-      }
-    }
-
-    const handlePinEntryCancel = () => {
-      showPinEntryModal.value = false
-      pendingHiddenAccess.value = null
-    }
-
-    const clearHiddenAuth = () => {
-      hiddenAuthState.value.isAuthenticated = false
-    }
+    // Auth functions - delegate to store
+    const checkHiddenAuth = () => authStore.checkHiddenAuth()
+    const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
+    const handlePinSetupComplete = (data) => authStore.handlePinSetupComplete(data)
+    const handlePinVerified = () => authStore.handlePinVerified()
+    const handlePinEntryCancel = () => authStore.handlePinEntryCancel()
+    const clearHiddenAuth = () => authStore.clearAuth()
 
     const handleCloseRequestModal = () => {
       showRequestModal.value = false
       // Clear the initial settings when modal closes
       modalInitialSettings.value = null
       modalIncludeSeed.value = false
+      modalInitialAlbumSlug.value = null
     }
 
     const handleNewRequest = () => {
@@ -475,7 +411,7 @@ export default {
       showRequestModal.value = true
     }
 
-    const loadSettingsFromImage = async (image, includeSeed = false) => {
+    const loadSettingsFromImage = async (image, includeSeed = false, albumSlug = null) => {
       if (!image.full_request) {
         console.error('No settings available for this image')
         return
@@ -500,6 +436,10 @@ export default {
           }
         }
 
+        // Auto-select album if user is currently viewing one
+        modalInitialAlbumSlug.value = albumSlug
+        console.log('[App] loadSettingsFromImage - albumSlug:', modalInitialAlbumSlug.value)
+
         // Set the initial settings and show the modal
         modalInitialSettings.value = settings
         modalIncludeSeed.value = includeSeed
@@ -509,13 +449,10 @@ export default {
       }
     }
 
-    // Provide functions to child components
+    // Provide functions to child components (non-auth functions only - auth is now in authStore)
     provide('loadSettingsFromImage', loadSettingsFromImage)
     provide('openRequestModal', openRequestModal)
     provide('shouldOpenRequestsPanel', shouldOpenRequestsPanel)
-    provide('checkHiddenAuth', checkHiddenAuth)
-    provide('requestHiddenAccess', requestHiddenAccess)
-    provide('clearHiddenAuth', clearHiddenAuth)
 
     return {
       isDemoMode,
@@ -527,6 +464,7 @@ export default {
       requestModalRef,
       modalInitialSettings,
       modalIncludeSeed,
+      modalInitialAlbumSlug,
       handleCloseRequestModal,
       handleNewRequest,
       loadSettingsFromImage,

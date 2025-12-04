@@ -1,11 +1,29 @@
 <template>
-  <div class="library-view" :class="{ 'panel-open': isPanelOpen }">
-    <!-- Albums Modal -->
-    <AlbumsModal
-      :keywords="keywords"
-      :isOpen="isAlbumsModalOpen"
-      @close="isAlbumsModalOpen = false"
-      @select="selectKeyword"
+  <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
+    <!-- Sidebar -->
+    <LibrarySidebar
+      ref="sidebarRef"
+      :activeView="currentView"
+      :activeAlbumSlug="currentAlbum?.slug"
+      :isAuthenticated="isHiddenAuthenticated"
+      @navigate="handleSidebarNavigate"
+      @create-album="handleCreateAlbum"
+    />
+
+    <!-- Create Album Modal -->
+    <CreateAlbumModal
+      :isOpen="isCreateAlbumModalOpen"
+      @close="closeCreateAlbumModal"
+      @created="handleAlbumCreated"
+    />
+
+    <!-- Add to Album Modal -->
+    <AddToAlbumModal
+      :isOpen="isAddToAlbumModalOpen"
+      :imageIds="Array.from(selectedImages)"
+      :includeHidden="isHiddenAuthenticated"
+      @close="closeAddToAlbumModal"
+      @added="handleAddedToAlbum"
     />
 
     <!-- Requests Panel -->
@@ -41,14 +59,14 @@
     <DeleteRequestModal
       v-if="deleteModalVisible"
       :request="requestToDelete"
-      @close="deleteModalVisible = false"
+      @close="closeDeleteModal"
       @delete="confirmDelete"
     />
 
     <DeleteAllRequestsModal
       v-if="deleteAllModalVisible"
       :requests="deletableRequests"
-      @close="deleteAllModalVisible = false"
+      @close="closeDeleteAllModal"
       @delete="confirmDeleteAll"
     />
 
@@ -80,43 +98,19 @@
               <button @click="applySearch" class="btn-search">Search</button>
             </div>
 
-            <!-- Favorites Toggle Button (hidden on mobile) -->
-            <button
-              @click="toggleFavorites"
-              class="btn-favorites-toggle hide-mobile"
-              :class="{ active: filters.showFavoritesOnly }"
-              title="Show Favorites"
-              aria-label="Show Favorites"
-            >
-              <i class="fa-solid fa-star" aria-hidden="true"></i>
-            </button>
-
-            <!-- Albums Modal Toggle Button (hidden on mobile) -->
-            <button @click="toggleAlbumsModal" class="btn-albums-toggle hide-mobile" title="Albums" aria-label="Open Albums">
-              <i class="fa-solid fa-images" aria-hidden="true"></i>
-            </button>
-
             <!-- Overflow Menu -->
             <div class="menu-container" ref="menuContainer">
               <button @click="toggleMenu" class="btn-menu" title="More options" aria-label="More options">
                 <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
               </button>
               <div v-if="showMenu" class="menu-dropdown">
-                <div class="menu-item show-mobile-only" @click="toggleFavorites">
-                  <i class="fa-solid fa-star" :class="{ active: filters.showFavoritesOnly }" aria-hidden="true"></i>
-                  <span>{{ filters.showFavoritesOnly ? 'Show All' : 'Show Favorites' }}</span>
-                </div>
-                <div class="menu-item show-mobile-only" @click="toggleAlbumsModal">
-                  <i class="fa-solid fa-images" aria-hidden="true"></i>
-                  <span>Albums</span>
-                </div>
                 <div class="menu-item" @click="toggleMultiSelectMode">
                   <i class="fa-solid fa-check-double" aria-hidden="true"></i>
                   <span>Multi-Select Mode</span>
                 </div>
                 <div class="menu-item" @click="toggleHiddenImages">
-                  <i class="fa-solid" :class="filters.showHidden ? 'fa-eye' : 'fa-eye-slash'" aria-hidden="true"></i>
-                  <span>{{ filters.showHidden ? 'Exit Hidden View' : 'Show Hidden Only' }}</span>
+                  <i class="fa-solid" :class="isHiddenAuthenticated ? 'fa-eye' : 'fa-eye-slash'" aria-hidden="true"></i>
+                  <span>{{ isHiddenAuthenticated ? 'Hide Hidden' : 'Show Hidden' }}</span>
                 </div>
               </div>
             </div>
@@ -251,6 +245,14 @@
             <i class="fa-regular fa-star"></i>
             <span>Unfavorite</span>
           </button>
+          <button @click="handleAddToAlbum" :disabled="selectedCount === 0" class="btn-action btn-album" title="Add to Album">
+            <i class="fa-solid fa-folder-plus"></i>
+            <span>Album</span>
+          </button>
+          <button v-if="currentAlbum" @click="batchRemoveFromAlbum" :disabled="selectedCount === 0" class="btn-action btn-remove-album" title="Remove from Album">
+            <i class="fa-solid fa-folder-minus"></i>
+            <span>Remove</span>
+          </button>
           <button @click="batchHide" :disabled="selectedCount === 0" class="btn-action btn-hide" title="Hide">
             <i class="fa-solid fa-eye-slash"></i>
             <span>Hide</span>
@@ -279,15 +281,23 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted, watch, inject } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter, useRoute } from 'vue-router'
 import { imagesApi, requestsApi, albumsApi } from '@api'
 import { useImagePolling } from '../composables/useImagePolling.js'
+import { useToast } from '../composables/useToast.js'
+import { useAuthStore } from '../stores/authStore.js'
+import { useAlbumStore } from '../stores/albumStore.js'
+import { useUiStore } from '../stores/uiStore.js'
+import { useRequestsStore } from '../stores/requestsStore.js'
 import ImageModal from '../components/ImageModal.vue'
 import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
-import AlbumsModal from '../components/AlbumsModal.vue'
+import LibrarySidebar from '../components/LibrarySidebar.vue'
+import CreateAlbumModal from '../components/CreateAlbumModal.vue'
+import AddToAlbumModal from '../components/AddToAlbumModal.vue'
 import AsyncImage from '../components/AsyncImage.vue'
 
 export default {
@@ -298,15 +308,19 @@ export default {
     DeleteRequestModal,
     DeleteAllRequestsModal,
     BatchDeleteModal,
-    AlbumsModal,
+    LibrarySidebar,
+    CreateAlbumModal,
+    AddToAlbumModal,
     AsyncImage
   },
   props: {
-    imageId: String // selected image ID from URL
+    imageId: String, // selected image ID from URL
+    albumSlug: String // album slug from URL
   },
   setup(props) {
     const router = useRouter()
     const route = useRoute()
+    const { showToast } = useToast()
     const images = ref([])
     const totalCount = ref(0)
     const loading = ref(true)
@@ -319,27 +333,60 @@ export default {
     const filters = ref({
       requestId: null,
       keywords: [], // Changed to array for multiple keywords
-      filterCriteria: [], // Flexible filter criteria from albums [{type, value}]
-      showFavoritesOnly: false,
-      showHidden: false
+      filterCriteria: [] // Flexible filter criteria from albums [{type, value}]
     })
     const routeBeforeModal = ref(null) // Store route before opening modal
 
-    // Requests panel state
-    const isPanelOpen = ref(false)
-    const requests = ref([])
-    const queueStatus = ref(null)
-    const deleteModalVisible = ref(false)
-    const deleteAllModalVisible = ref(false)
-    const requestToDelete = ref(null)
-    let pollInterval = null
+    // Sidebar ref for component access
+    const sidebarRef = ref(null)
 
-    // Albums modal state
-    const isAlbumsModalOpen = ref(false)
-    const keywords = ref([])
+    // Requests Store
+    const requestsStore = useRequestsStore()
+    const {
+      requests,
+      queueStatus,
+      deleteModalVisible,
+      deleteAllModalVisible,
+      requestToDelete,
+      deletableRequests
+    } = storeToRefs(requestsStore)
 
-    // Menu state
-    const showMenu = ref(false)
+    // UI Store for centralized UI state
+    const uiStore = useUiStore()
+    const {
+      sidebarCollapsed,
+      isPanelOpen,
+      showMenu,
+      modals
+    } = storeToRefs(uiStore)
+
+    // Computed for template binding to modal states
+    const isCreateAlbumModalOpen = computed(() => modals.value.createAlbum)
+    const isAddToAlbumModalOpen = computed(() => modals.value.addToAlbum)
+
+    // Current view based on route
+    const currentView = computed(() => {
+      const path = route.path
+      if (path.startsWith('/favorites')) return 'favorites'
+      if (path.startsWith('/hidden-favorites')) return 'hidden-favorites'
+      if (path.startsWith('/hidden')) return 'hidden'
+      if (path.startsWith('/album/')) return 'album'
+      return 'library'
+    })
+
+    // View-based flags derived from currentView
+    const isHiddenView = computed(() =>
+      currentView.value === 'hidden' || currentView.value === 'hidden-favorites'
+    )
+    const isFavoritesView = computed(() =>
+      currentView.value === 'favorites' || currentView.value === 'hidden-favorites'
+    )
+
+    // Album store for centralized album state
+    const albumStore = useAlbumStore()
+    const { currentAlbum } = storeToRefs(albumStore)
+
+    // Menu container ref for click outside handling
     const menuContainer = ref(null)
 
     // Multi-select mode state
@@ -352,19 +399,30 @@ export default {
       filters,
       images,
       totalCount,
-      onNewImages: () => {
-        // Refresh keywords when new images are added
-        fetchKeywords()
+      currentView,
+      currentAlbum,
+      onPollComplete: () => {
+        // Refresh albums from server to get latest counts
+        albumStore.loadAlbums(isAuthenticated.value)
       }
     })
 
-    // Inject functions from App.vue
+    // Inject functions from App.vue (non-auth)
     const loadSettingsFromImage = inject('loadSettingsFromImage')
     const openRequestModal = inject('openRequestModal')
     const shouldOpenRequestsPanel = inject('shouldOpenRequestsPanel')
-    const checkHiddenAuth = inject('checkHiddenAuth')
-    const requestHiddenAccess = inject('requestHiddenAccess')
-    const clearHiddenAuth = inject('clearHiddenAuth')
+
+    // Use auth store instead of inject
+    const authStore = useAuthStore()
+    const { isAuthenticated } = storeToRefs(authStore)
+
+    // Auth functions from store
+    const checkHiddenAuth = () => authStore.checkHiddenAuth()
+    const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
+    const clearHiddenAuth = () => authStore.clearAuth()
+
+    // Computed property for reactive auth state
+    const isHiddenAuthenticated = computed(() => isAuthenticated.value)
 
     const openNewRequest = () => {
       if (openRequestModal) {
@@ -387,7 +445,18 @@ export default {
 
     const galleryTitle = computed(() => {
       const count = totalCount.value
-      return `${count} Image${count !== 1 ? 's' : ''}`
+      const suffix = count !== 1 ? 's' : ''
+
+      if (currentView.value === 'favorites') {
+        return `${count} Favorite${suffix}`
+      } else if (currentView.value === 'hidden-favorites') {
+        return `${count} Hidden Favorite${suffix}`
+      } else if (currentView.value === 'hidden') {
+        return `${count} Hidden Image${suffix}`
+      } else if (currentView.value === 'album' && currentAlbum.value) {
+        return `${currentAlbum.value.title} (${count})`
+      }
+      return `${count} Image${suffix}`
     })
 
     const totalFilterCount = computed(() => {
@@ -424,18 +493,25 @@ export default {
         loading.value = true
         let response
 
+        // Build API options from filters and view state
+        const apiOptions = {
+          ...filters.value,
+          showFavoritesOnly: isFavoritesView.value,
+          showHidden: isHiddenView.value
+        }
+
         if (filters.value.requestId) {
           response = await imagesApi.getByRequestId(filters.value.requestId, limit)
           hasMore.value = false // Request images don't paginate
         } else if (filters.value.filterCriteria.length > 0) {
           // Use flexible filter criteria (from album selection)
-          response = await imagesApi.getAll(limit, offset.value, filters.value)
+          response = await imagesApi.getAll(limit, offset.value, apiOptions)
         } else if (filters.value.keywords.length > 0) {
           // Join keywords with comma for search (supports AND filtering)
           const searchTerms = filters.value.keywords.join(',')
-          response = await imagesApi.search(searchTerms, limit, offset.value, filters.value)
+          response = await imagesApi.search(searchTerms, limit, offset.value, apiOptions)
         } else {
-          response = await imagesApi.getAll(limit, offset.value, filters.value)
+          response = await imagesApi.getAll(limit, offset.value, apiOptions)
         }
 
         const newImages = response.data.data || []
@@ -470,8 +546,13 @@ export default {
       const clientHeight = window.innerHeight
 
       // Load more when scrolled near bottom
+      // Use currentAlbum as source of truth (persists when ImageModal changes route)
       if (scrollTop + clientHeight >= scrollHeight - 500) {
-        fetchImages(true)
+        if (currentAlbum.value) {
+          fetchAlbumImages(true)
+        } else {
+          fetchImages(true)
+        }
       }
     }
 
@@ -553,7 +634,7 @@ export default {
       filters.value[filterType] = value
       offset.value = 0
       hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
     }
 
     const clearFilter = (filterType, value = null) => {
@@ -576,7 +657,7 @@ export default {
       }
       offset.value = 0
       hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
       updateFilterUrl()
     }
 
@@ -588,7 +669,7 @@ export default {
         searchQuery.value = '' // Clear search box
         offset.value = 0
         hasMore.value = true
-        fetchImages()
+        fetchForCurrentView()
         updateFilterUrl()
       }
     }
@@ -601,70 +682,42 @@ export default {
       searchQuery.value = ''
       offset.value = 0
       hasMore.value = true
-      fetchImages()
-      updateFilterUrl()
-    }
-
-    const toggleFavorites = () => {
-      filters.value.showFavoritesOnly = !filters.value.showFavoritesOnly
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
+      fetchForCurrentView()
       updateFilterUrl()
     }
 
     const toggleMenu = () => {
-      showMenu.value = !showMenu.value
+      uiStore.toggleMenu()
     }
 
     const toggleHiddenImages = () => {
-      // Close the menu
-      showMenu.value = false
+      uiStore.closeMenu()
 
-      // If turning on, check authentication first
-      if (!filters.value.showHidden) {
-        // Check if user has access
-        if (checkHiddenAuth && !checkHiddenAuth()) {
-          // Request PIN access
-          if (requestHiddenAccess) {
-            requestHiddenAccess(() => {
-              // After successful auth, toggle on
-              filters.value.showHidden = true
-              sessionStorage.setItem('showHidden', 'true')
-              offset.value = 0
-              hasMore.value = true
-              fetchImages()
-              fetchKeywords()
-            })
-          }
-          return
+      if (!isHiddenAuthenticated.value) {
+        // Enabling hidden mode - sidebar watches auth state and refreshes automatically
+        if (requestHiddenAccess) {
+          requestHiddenAccess(() => {
+            // Auth successful - hidden content now visible
+          })
         }
-      }
-
-      // Toggle the hidden images filter
-      filters.value.showHidden = !filters.value.showHidden
-
-      // Save to sessionStorage
-      if (filters.value.showHidden) {
-        sessionStorage.setItem('showHidden', 'true')
       } else {
-        sessionStorage.removeItem('showHidden')
-        // Clear authentication when manually disabling hidden images mode
+        // Disabling hidden mode
         if (clearHiddenAuth) {
           clearHiddenAuth()
         }
+        // If on a hidden-specific view or a hidden album, go back to library
+        const isOnHiddenView = currentView.value === 'hidden' || currentView.value === 'hidden-favorites'
+        const isOnHiddenAlbum = currentView.value === 'album' && currentAlbum.value?.is_hidden
+        if (isOnHiddenView || isOnHiddenAlbum) {
+          router.push('/')
+        }
       }
-
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-      fetchKeywords()
     }
 
     // Multi-select mode functions
     const toggleMultiSelectMode = () => {
       isMultiSelectMode.value = !isMultiSelectMode.value
-      showMenu.value = false
+      uiStore.closeMenu()
 
       if (!isMultiSelectMode.value) {
         // Clear selection when exiting mode
@@ -672,7 +725,7 @@ export default {
         lastSelectedIndex.value = -1
       } else {
         // Close requests panel when entering multi-select mode
-        isPanelOpen.value = false
+        uiStore.closePanel()
       }
     }
 
@@ -681,7 +734,7 @@ export default {
 
       // Close requests panel when starting selection (if not in dedicated multi-select mode)
       if (!isMultiSelectMode.value && selectedImages.value.size === 0) {
-        isPanelOpen.value = false
+        uiStore.closePanel()
       }
 
       // Handle Shift+click for range selection/deselection
@@ -811,12 +864,9 @@ export default {
         if (wasSelected) {
           navigateAfterRemoval(imageIndex)
         }
-
-        // Refresh keywords since counts and keywords may have changed
-        fetchKeywords()
       } catch (error) {
         console.error('Error deleting image:', error)
-        alert('Failed to delete image. Please try again.')
+        showToast('Failed to delete image. Please try again.', 'error')
       }
     }
 
@@ -851,12 +901,9 @@ export default {
         selectedImages.value.clear()
         isMultiSelectMode.value = false
         lastSelectedIndex.value = -1
-
-        // Refresh keywords
-        fetchKeywords()
       } catch (error) {
         console.error('Error batch deleting images:', error)
-        alert('Failed to delete some images. Please try again.')
+        showToast('Failed to delete some images. Please try again.', 'error')
       }
     }
 
@@ -875,11 +922,9 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-        fetchKeywords()
       } catch (error) {
         console.error('Error batch favoriting images:', error)
-        alert('Failed to favorite some images. Please try again.')
+        showToast('Failed to favorite some images. Please try again.', 'error')
       }
     }
 
@@ -890,8 +935,8 @@ export default {
 
         await imagesApi.batchUpdate(imageIds, { isFavorite: false })
 
-        // Update images in the array, or remove if in favorites-only view
-        if (filters.value.showFavoritesOnly) {
+        // Update images in the array, or remove if in favorites view
+        if (isFavoritesView.value) {
           images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
           totalCount.value = Math.max(0, totalCount.value - removeCount)
         } else {
@@ -905,11 +950,9 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-        fetchKeywords()
       } catch (error) {
         console.error('Error batch unfavoriting images:', error)
-        alert('Failed to unfavorite some images. Please try again.')
+        showToast('Failed to unfavorite some images. Please try again.', 'error')
       }
     }
 
@@ -920,8 +963,8 @@ export default {
 
         await imagesApi.batchUpdate(imageIds, { isHidden: true })
 
-        // Update images in the array, or remove if not showing hidden
-        if (!filters.value.showHidden) {
+        // Update images in the array, or remove if not in hidden view
+        if (!isHiddenView.value) {
           images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
           totalCount.value = Math.max(0, totalCount.value - removeCount)
         } else {
@@ -935,11 +978,9 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-        fetchKeywords()
       } catch (error) {
         console.error('Error batch hiding images:', error)
-        alert('Failed to hide some images. Please try again.')
+        showToast('Failed to hide some images. Please try again.', 'error')
       }
     }
 
@@ -950,8 +991,8 @@ export default {
 
         await imagesApi.batchUpdate(imageIds, { isHidden: false })
 
-        // Update images in the array, or remove if in hidden-only view
-        if (filters.value.showHidden && !filters.value.showFavoritesOnly) {
+        // Update images in the array, or remove if in hidden-only view (not hidden-favorites)
+        if (currentView.value === 'hidden') {
           images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
           totalCount.value = Math.max(0, totalCount.value - removeCount)
         } else {
@@ -965,17 +1006,44 @@ export default {
         // Clear selection
         selectedImages.value.clear()
         lastSelectedIndex.value = -1
-
-        fetchKeywords()
       } catch (error) {
         console.error('Error batch unhiding images:', error)
-        alert('Failed to unhide some images. Please try again.')
+        showToast('Failed to unhide some images. Please try again.', 'error')
+      }
+    }
+
+    const batchRemoveFromAlbum = async () => {
+      if (!currentAlbum.value) return
+
+      try {
+        const imageIds = Array.from(selectedImages.value)
+        const removeCount = imageIds.length
+        const albumId = currentAlbum.value.id
+
+        // Bulk remove images from the album
+        await albumsApi.removeImages(albumId, imageIds)
+
+        // Remove from current view
+        images.value = images.value.filter(img => !selectedImages.value.has(img.uuid))
+        totalCount.value = Math.max(0, totalCount.value - removeCount)
+
+        // Update album count in store (reactive update to sidebar)
+        albumStore.updateAlbumCount(albumId, -removeCount)
+
+        // Clear selection
+        selectedImages.value.clear()
+        lastSelectedIndex.value = -1
+
+        showToast(`Removed ${removeCount} image(s) from album`, 'success')
+      } catch (error) {
+        console.error('Error removing images from album:', error)
+        showToast('Failed to remove some images from album', 'error')
       }
     }
 
     const handleLoadSettings = (includeSeed) => {
       if (selectedImage.value && loadSettingsFromImage) {
-        loadSettingsFromImage(selectedImage.value, includeSeed)
+        loadSettingsFromImage(selectedImage.value, includeSeed, currentAlbum.value?.slug)
       }
     }
 
@@ -988,10 +1056,10 @@ export default {
         // Check if hidden status changed and image should be removed from current view
         if ('is_hidden' in updates) {
           const shouldRemove = (
-            // Image was hidden and we're NOT in hidden gallery
-            (updates.is_hidden === 1 && !filters.value.showHidden) ||
-            // Image was unhidden and we ARE in hidden gallery
-            (updates.is_hidden === 0 && filters.value.showHidden)
+            // Image was hidden and we're NOT in hidden view
+            (updates.is_hidden === 1 && !isHiddenView.value) ||
+            // Image was unhidden and we ARE in hidden view
+            (updates.is_hidden === 0 && isHiddenView.value)
           )
 
           if (shouldRemove) {
@@ -1001,11 +1069,9 @@ export default {
               navigateAfterRemoval(imageIndex)
             }
           }
-
-          fetchKeywords()
         } else if ('is_favorite' in updates) {
           const shouldRemove = (
-            (updates.is_favorite === 0 && filters.value.showFavoritesOnly)
+            (updates.is_favorite === 0 && isFavoritesView.value)
           )
 
           if (shouldRemove) {
@@ -1015,9 +1081,6 @@ export default {
               navigateAfterRemoval(imageIndex)
             }
           }
-
-          // Refresh keywords for favorite changes
-          fetchKeywords()
         }
       }
     }
@@ -1052,131 +1115,165 @@ export default {
 
     // Requests panel functions
     const togglePanel = () => {
-      isPanelOpen.value = !isPanelOpen.value
+      uiStore.togglePanel()
     }
-
-    const fetchRequests = async () => {
-      try {
-        const response = await requestsApi.getAll()
-        // Show newest to oldest
-        requests.value = response.data
-      } catch (error) {
-        console.error('Error fetching requests:', error)
-      }
-    }
-
-    const fetchQueueStatus = async () => {
-      try {
-        const response = await requestsApi.getQueueStatus()
-        queueStatus.value = response.data
-      } catch (error) {
-        console.error('Error fetching queue status:', error)
-      }
-    }
-
 
     const viewRequestImages = (requestId) => {
-      filters.value.requestId = requestId
-      filters.value.keywords = []
-      filters.value.filterCriteria = []
-
-      // Don't close the panel - keep it open for user convenience
-
-      // Refresh images
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-      updateFilterUrl()
+      // Navigate to library view with request filter
+      router.push({ path: '/', query: { request: requestId } })
     }
 
     const showDeleteModal = (requestId) => {
       const request = requests.value.find(r => r.uuid === requestId)
-
-      // For failed requests, delete immediately without confirmation
-      if (request.status === 'failed') {
-        requestToDelete.value = request
-        confirmDelete('prune')
-        return
+      if (request) {
+        requestsStore.showDeleteModal(request)
       }
-
-      requestToDelete.value = request
-      deleteModalVisible.value = true
     }
 
     const handleRetry = async (requestId) => {
       try {
-        const response = await requestsApi.retry(requestId)
-        // The failed request is deleted and a new one created
-        // Remove the old request from the list and add the new one
-        requests.value = requests.value.filter(r => r.uuid !== requestId)
-        requests.value.unshift(response.data)
+        await requestsStore.retryRequest(requestId)
       } catch (error) {
-        console.error('Error retrying request:', error)
-        alert('Failed to retry request. Please try again.')
+        showToast('Failed to retry request. Please try again.', 'error')
       }
     }
 
     const confirmDelete = async (imageAction) => {
-      if (!requestToDelete.value) return
-
       try {
-        await requestsApi.delete(requestToDelete.value.uuid, imageAction)
-        requests.value = requests.value.filter(r => r.uuid !== requestToDelete.value.uuid)
-        deleteModalVisible.value = false
-        requestToDelete.value = null
-
+        await requestsStore.confirmDelete(imageAction)
         // Refresh the image library to reflect deleted images
         offset.value = 0
         hasMore.value = true
         await fetchImages()
       } catch (error) {
-        console.error('Error deleting request:', error)
-        alert('Failed to delete request. Please try again.')
+        showToast('Failed to delete request. Please try again.', 'error')
       }
     }
 
     const showDeleteAllModal = () => {
-      deleteAllModalVisible.value = true
+      requestsStore.showDeleteAllModal()
+    }
+
+    const closeDeleteModal = () => {
+      requestsStore.closeDeleteModal()
+    }
+
+    const closeDeleteAllModal = () => {
+      requestsStore.closeDeleteAllModal()
     }
 
     const confirmDeleteAll = async (imageAction) => {
       try {
-        // Only delete completed and failed requests, skip processing/downloading
-        const deletableStatuses = ['completed', 'failed']
-        const requestsToDelete = requests.value.filter(r => deletableStatuses.includes(r.status))
-
-        // Delete each request individually
-        for (const request of requestsToDelete) {
-          await requestsApi.delete(request.uuid, imageAction)
-        }
-
-        // Remove only the deleted requests from the list
-        const deletedIds = new Set(requestsToDelete.map(r => r.uuid))
-        requests.value = requests.value.filter(r => !deletedIds.has(r.uuid))
-
-        deleteAllModalVisible.value = false
-
+        await requestsStore.confirmDeleteAll(imageAction)
         // Refresh the image library to reflect deleted images
         offset.value = 0
         hasMore.value = true
         await fetchImages()
       } catch (error) {
-        console.error('Error deleting requests:', error)
-        alert('Failed to delete requests. Please try again.')
+        showToast('Failed to delete requests. Please try again.', 'error')
       }
     }
 
-    // Albums modal functions
-    const toggleAlbumsModal = () => {
-      isAlbumsModalOpen.value = !isAlbumsModalOpen.value
+    // Sidebar handlers
+    const handleSidebarNavigate = ({ view, albumSlug }) => {
+      // Navigate based on view
+      if (view === 'library') {
+        router.push('/')
+      } else if (view === 'favorites') {
+        router.push('/favorites')
+      } else if (view === 'hidden') {
+        router.push('/hidden')
+      } else if (view === 'hidden-favorites') {
+        router.push('/hidden-favorites')
+      } else if (view === 'album' && albumSlug) {
+        router.push(`/album/${albumSlug}`)
+      }
     }
 
-    const fetchKeywords = async () => {
+    const handleCreateAlbum = () => {
+      uiStore.openModal('createAlbum')
+    }
+
+    const closeCreateAlbumModal = () => {
+      uiStore.closeModal('createAlbum')
+    }
+
+    const handleAlbumCreated = (album) => {
+      // Store already updated by CreateAlbumModal, just navigate
+      router.push(`/album/${album.slug}`)
+    }
+
+    const handleAddToAlbum = () => {
+      uiStore.openModal('addToAlbum')
+    }
+
+    const closeAddToAlbumModal = () => {
+      uiStore.closeModal('addToAlbum')
+    }
+
+    const handleAddedToAlbum = () => {
+      // Store already updated by AddToAlbumModal, just clear selection
+      selectedImages.value.clear()
+      lastSelectedIndex.value = -1
+      isMultiSelectMode.value = false
+    }
+
+    // Load album info when viewing an album
+    const loadCurrentAlbum = async () => {
+      if (props.albumSlug) {
+        await albumStore.loadCurrentAlbum(props.albumSlug)
+      } else {
+        albumStore.setCurrentAlbum(null)
+      }
+    }
+
+    // Fetch album images
+    const fetchAlbumImages = async (append = false) => {
+      if (!currentAlbum.value || (!hasMore.value && append)) return
+
       try {
-        const response = await albumsApi.getAll(filters.value)
-        keywords.value = response.data
+        loading.value = true
+        // For album view, don't filter by hidden status - show all images in the album
+        const response = await albumsApi.getImages(
+          currentAlbum.value.id,
+          limit,
+          offset.value,
+          {
+            showFavorites: isFavoritesView.value,
+            keywords: filters.value.keywords
+          }
+        )
+
+        const newImages = response.data.images || []
+        totalCount.value = response.data.total || 0
+
+        if (append) {
+          images.value = [...images.value, ...newImages]
+        } else {
+          images.value = newImages
+          offset.value = 0
+        }
+
+        if (newImages.length < limit) {
+          hasMore.value = false
+        } else {
+          offset.value += limit
+        }
       } catch (error) {
-        console.error('Error fetching keywords:', error)
+        console.error('Error fetching album images:', error)
+        totalCount.value = 0
+      } finally {
+        loading.value = false
+      }
+    }
+
+    // Helper to fetch based on current view
+    // Use currentAlbum as source of truth (persists when ImageModal changes route)
+    const fetchForCurrentView = (append = false) => {
+      if (currentAlbum.value) {
+        return fetchAlbumImages(append)
+      } else {
+        return fetchImages(append)
       }
     }
 
@@ -1184,14 +1281,8 @@ export default {
       // Build query params
       const query = {}
 
-      // Add favorites as special keyword if enabled
-      const queryKeywords = [...filters.value.keywords]
-      if (filters.value.showFavoritesOnly) {
-        queryKeywords.unshift('favorites')
-      }
-
-      if (queryKeywords.length > 0) {
-        query.q = queryKeywords.join(',')
+      if (filters.value.keywords.length > 0) {
+        query.q = filters.value.keywords.join(',')
       }
 
       // Add request ID (check both direct filter and filterCriteria)
@@ -1227,13 +1318,17 @@ export default {
         }
       }
 
-      // Update URL without triggering navigation
-      router.replace({ path: '/', query })
+      // Update URL without triggering navigation - preserve current view path
+      const currentPath = route.path.includes('/image/') ? '/' : route.path
+      if (currentPath === '/favorites' || currentPath === '/hidden' || currentPath.startsWith('/album/')) {
+        router.replace({ path: currentPath, query })
+      } else {
+        router.replace({ path: '/', query })
+      }
     }
 
     const loadFiltersFromUrl = () => {
       // Reset filters
-      filters.value.showFavoritesOnly = false
       filters.value.keywords = []
       filters.value.requestId = null
       filters.value.filterCriteria = []
@@ -1241,16 +1336,6 @@ export default {
       // Load keywords from query params
       if (route.query.q) {
         const queryKeywords = route.query.q.split(',').filter(k => k.trim().length > 0)
-
-        // Check for special 'favorites' keyword
-        const favoritesIndex = queryKeywords.indexOf('favorites')
-        if (favoritesIndex !== -1) {
-          filters.value.showFavoritesOnly = true
-          // Remove 'favorites' from keywords array (it's not a real search term)
-          queryKeywords.splice(favoritesIndex, 1)
-        }
-
-        // Set remaining keywords
         filters.value.keywords = queryKeywords
       }
 
@@ -1271,89 +1356,18 @@ export default {
       if (route.query.model) {
         filters.value.filterCriteria.push({ type: 'model', value: route.query.model })
       }
-
-      // Load showHidden from sessionStorage (persists across navigation)
-      const savedShowHidden = sessionStorage.getItem('showHidden')
-      if (savedShowHidden === 'true') {
-        // Only restore showHidden if user still has authentication
-        if (checkHiddenAuth && checkHiddenAuth()) {
-          filters.value.showHidden = true
-        } else {
-          // Clear sessionStorage if no longer authenticated
-          sessionStorage.removeItem('showHidden')
-        }
-      }
-    }
-
-    const selectKeyword = (album) => {
-      // Update filters based on album selection
-      filters.value.requestId = null
-      filters.value.keywords = []
-
-      // Check if this album has flexible filters (new format)
-      if (album.filters && Array.isArray(album.filters)) {
-        // Check if this album's filters are already active (toggle off)
-        const filtersMatch = album.filters.length === filters.value.filterCriteria.length &&
-          album.filters.every(f =>
-            filters.value.filterCriteria.some(fc => fc.type === f.type && fc.value === f.value)
-          )
-
-        if (filtersMatch) {
-          // Clear filters (toggle off)
-          filters.value.filterCriteria = []
-        } else {
-          // Apply this album's filters
-          filters.value.filterCriteria = [...album.filters]
-        }
-      } else if (album.keywords && Array.isArray(album.keywords)) {
-        // Legacy: Multi-keyword group
-        filters.value.filterCriteria = []
-        const allPresent = album.keywords.every(kw =>
-          filters.value.keywords.includes(kw)
-        ) && filters.value.keywords.length === album.keywords.length
-
-        if (allPresent) {
-          filters.value.keywords = []
-        } else {
-          filters.value.keywords = [...album.keywords]
-        }
-      } else if (album.id.startsWith('keyword:')) {
-        // Legacy: Single keyword album
-        filters.value.filterCriteria = []
-        const keywordText = album.id.replace('keyword:', '').split('+')[0]
-
-        if (filters.value.keywords.length === 1 && filters.value.keywords[0] === keywordText) {
-          filters.value.keywords = []
-        } else {
-          filters.value.keywords = [keywordText]
-        }
-      }
-
-      // Refresh images with new filters
-      offset.value = 0
-      hasMore.value = true
-      fetchImages()
-      updateFilterUrl()
     }
 
     // Watch for signal to open requests panel
     if (shouldOpenRequestsPanel) {
       watch(shouldOpenRequestsPanel, (shouldOpen) => {
         if (shouldOpen) {
-          isPanelOpen.value = true
+          uiStore.openPanel()
           // Reset the signal
           shouldOpenRequestsPanel.value = false
         }
       })
     }
-
-    // Watch for filter changes to refresh keywords
-    watch(
-      () => ({ showFavoritesOnly: filters.value.showFavoritesOnly, showHidden: filters.value.showHidden }),
-      () => {
-        fetchKeywords()
-      }
-    )
 
     // Computed property for request status dot color
     const requestStatusClass = computed(() => {
@@ -1371,76 +1385,85 @@ export default {
       return 'complete'
     })
 
-    // Only completed/failed requests can be batch deleted
-    const deletableRequests = computed(() => {
-      return requests.value.filter(r => ['completed', 'failed'].includes(r.status))
-    })
-
     // Watch queue status to start/stop image polling
     imagePolling.watchQueueStatus(queueStatus)
 
     // Watch for route changes to update filters
-    // Watch all filter-related query params
+    // Watch all filter-related query params and route path
     watch(
       () => JSON.stringify({
         path: route.path,
+        albumSlug: props.albumSlug,
         q: route.query.q,
         lora: route.query.lora,
         model: route.query.model,
         request: route.query.request
       }),
-      (newVal, oldVal) => {
+      async (newVal, oldVal) => {
         // Ignore route changes when opening/closing/navigating the modal
         // This allows URL updates for bookmarking without triggering data reloads
         const newPath = route.path
         const oldParsed = oldVal ? JSON.parse(oldVal) : {}
         const oldPath = oldParsed.path || ''
 
-        if (newPath.startsWith('/image/') || oldPath.startsWith('/image/')) {
+        // Check if this is just a modal open/close/navigation
+        const isNewPathModal = newPath.includes('/image/')
+        const isOldPathModal = oldPath.includes('/image/')
+
+        if (isNewPathModal || isOldPathModal) {
           // Modal-related route change - don't reload data
           return
         }
 
+        // Load filters based on new route
         loadFiltersFromUrl()
-        offset.value = 0
-        hasMore.value = true
-        fetchImages()
-        fetchKeywords()
+
+        // Scroll to top when switching views
+        window.scrollTo(0, 0)
+
+        // Check if viewing an album
+        if (currentView.value === 'album' && props.albumSlug) {
+          await loadCurrentAlbum()
+          offset.value = 0
+          hasMore.value = true
+          await fetchAlbumImages()
+        } else {
+          albumStore.setCurrentAlbum(null)
+          offset.value = 0
+          hasMore.value = true
+          await fetchImages()
+        }
       }
     )
 
     const handleClickOutside = (event) => {
       if (menuContainer.value && !menuContainer.value.contains(event.target)) {
-        showMenu.value = false
+        uiStore.closeMenu()
       }
     }
 
     onMounted(async () => {
       loadFiltersFromUrl()
-      await fetchImages()
+
+      // Check if viewing an album
+      if (currentView.value === 'album' && props.albumSlug) {
+        await loadCurrentAlbum()
+        await fetchAlbumImages()
+      } else {
+        await fetchImages()
+      }
+
       loadImageFromUrl()
 
-      // Fetch requests and queue status
-      fetchRequests()
-      fetchQueueStatus()
-
-      // Fetch keywords
-      fetchKeywords()
-
-      // Poll for updates every 2 seconds
-      pollInterval = setInterval(() => {
-        fetchRequests()
-        fetchQueueStatus()
-      }, 2000)
+      // Start requests polling (fetches and polls every 2 seconds)
+      requestsStore.startPolling()
 
       window.addEventListener('scroll', handleScroll)
       window.addEventListener('click', handleClickOutside)
     })
 
     onUnmounted(() => {
-      if (pollInterval) {
-        clearInterval(pollInterval)
-      }
+      requestsStore.stopPolling()
       imagePolling.cleanup()
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('click', handleClickOutside)
@@ -1486,20 +1509,31 @@ export default {
       deleteModalVisible,
       deleteAllModalVisible,
       showDeleteAllModal,
+      closeDeleteModal,
+      closeDeleteAllModal,
       confirmDeleteAll,
       requestToDelete,
-      // Albums modal
-      isAlbumsModalOpen,
-      toggleAlbumsModal,
-      keywords,
-      selectKeyword,
+      // Sidebar and albums
+      sidebarRef,
+      sidebarCollapsed,
+      currentView,
+      currentAlbum,
+      isCreateAlbumModalOpen,
+      isAddToAlbumModalOpen,
+      handleSidebarNavigate,
+      handleCreateAlbum,
+      closeCreateAlbumModal,
+      handleAlbumCreated,
+      handleAddToAlbum,
+      closeAddToAlbumModal,
+      handleAddedToAlbum,
       // Menu and filters
       showMenu,
       menuContainer,
-      toggleFavorites,
       toggleMenu,
       toggleHiddenImages,
       checkHiddenAuth,
+      isHiddenAuthenticated,
       // Multi-select mode
       isMultiSelectMode,
       selectedImages,
@@ -1513,7 +1547,8 @@ export default {
       batchFavorite,
       batchUnfavorite,
       batchHide,
-      batchUnhide
+      batchUnhide,
+      batchRemoveFromAlbum
     }
   }
 }
@@ -1522,12 +1557,31 @@ export default {
 <style scoped>
 .library-view {
   padding: 0;
+  padding-bottom: 0;
   --panel-height: 30vh;
-  transition: padding-bottom 0.3s ease-out;
+  --sidebar-width: 280px;
+  --action-bar-height: 70px;
+  transition: padding-bottom 0.3s ease-in-out, padding-left 0.3s ease;
+  padding-left: var(--sidebar-width);
+}
+
+.library-view.sidebar-collapsed {
+  padding-left: 0;
 }
 
 .library-view.panel-open {
   padding-bottom: var(--panel-height);
+}
+
+.library-view.action-bar-open {
+  padding-bottom: var(--action-bar-height);
+}
+
+/* On mobile, don't add padding for sidebar */
+@media (max-width: 1024px) {
+  .library-view {
+    padding-left: 0;
+  }
 }
 
 .header {
@@ -1576,28 +1630,6 @@ export default {
   white-space: nowrap;
   margin: 0;
 }
-
-.btn-albums-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: var(--color-surface);
-  border: 1px solid #333;
-  color: var(--color-text-tertiary);
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-albums-toggle:hover {
-  background: var(--color-surface);
-  border-color: var(--color-text-disabled);
-  color: var(--color-text-primary);
-}
-
 
 .header-controls {
   display: flex;
@@ -1732,33 +1764,6 @@ export default {
 
 .btn-search:hover {
   background: var(--color-primary-hover);
-}
-
-.btn-favorites-toggle {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: var(--color-surface);
-  border: 1px solid #333;
-  color: var(--color-text-tertiary);
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-favorites-toggle:hover {
-  background: var(--color-surface);
-  border-color: var(--color-text-disabled);
-  color: var(--color-warning);
-}
-
-.btn-favorites-toggle.active {
-  background: var(--color-surface);
-  border-color: var(--color-warning);
-  color: var(--color-warning);
 }
 
 .menu-container {
@@ -2057,6 +2062,12 @@ export default {
 .fab-settings {
   left: 2rem;
   background: var(--color-border-lighter);
+  transition: all 0.2s, transform 0.3s ease-out, left 0.3s ease;
+}
+
+/* Move settings FAB when sidebar is expanded */
+.library-view:not(.sidebar-collapsed) .fab-settings {
+  left: calc(var(--sidebar-width) + 2rem);
 }
 
 .fab:hover {
@@ -2184,10 +2195,14 @@ export default {
   color: var(--color-text-tertiary);
 }
 
+.btn-action.btn-album {
+  color: var(--color-info);
+}
+
 /* Requests Panel Tab */
 .panel-tab {
   position: fixed;
-  bottom: 2.7rem;
+  bottom: 0;
   top: auto;
   left: 50%;
   transform: translateX(-50%);
@@ -2197,22 +2212,29 @@ export default {
 }
 
 .library-view.panel-open .panel-tab {
-  transform: translate(-50%, calc(-1 * var(--panel-height)));
+  transform: translate(-50%, calc(-1 * var(--panel-height) + 1px));
 }
 
 .panel-tab .tab-content {
-  background: var(--color-bg-secondary);
-  border-radius: 9999px;
+  background: var(--color-bg-elevated);
+  border-radius: 12px 12px 0 0;
+  border-bottom: none;
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
   padding: 0.75rem 1.5rem;
-  transition: background 0.2s;
 }
 
 .panel-tab:hover .tab-content {
-  background: var(--color-bg-tertiary);
+  animation: bounce 0.4s ease-in-out;
+}
+
+@keyframes bounce {
+  0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  50% { padding-top: 0.75rem; padding-bottom: 1rem; }
+  100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
 }
 
 .status-dot {
@@ -2254,11 +2276,12 @@ export default {
   top: auto;
   left: 0;
   right: 0;
-  background: var(--color-bg-base);
+  background: var(--color-bg-elevated);
   max-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   z-index: 55; /* Above header but below tab */
   display: flex;
   flex-direction: column; /* Normal direction now */
@@ -2269,12 +2292,11 @@ export default {
 
 .requests-panel.open {
   transform: translateY(0);
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .panel-content {
   padding: 1.5rem 2rem;
-  background: var(--color-bg-base);
+  background: var(--color-bg-elevated);
   position: relative;
 }
 
@@ -2410,15 +2432,16 @@ export default {
     left: 1rem;
   }
 
-  /* Smaller requests tab on mobile */
-  .panel-tab {
-    bottom: 1.25rem;
+  /* On mobile, don't move FAB when sidebar opens (sidebar overlays content) */
+  .library-view:not(.sidebar-collapsed) .fab-settings {
+    left: 1rem;
   }
 
+  /* Smaller requests tab on mobile */
   .panel-tab .tab-content {
     padding: 0.5rem 1rem;
     gap: 0.5rem;
-    border-radius: 9999px;
+    border-radius: 10px 10px 0 0;
   }
 
   .status-dot {
@@ -2427,7 +2450,7 @@ export default {
   }
 
   .tab-text {
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
 }
 
