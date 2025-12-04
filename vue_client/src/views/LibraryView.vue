@@ -367,11 +367,16 @@ export default {
       return 'library'
     }
 
-    // Current view based on route (uses stored route when mobile menu is open to prevent refetch)
+    // Current view based on route (uses stored route when modal/menu is open to prevent refetch)
     const currentView = computed(() => {
       // When mobile menu is open, use the stored route to prevent gallery from changing
       if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
         return getViewFromPath(menuRouteBeforeOpen.value.path)
+      }
+      // When image modal is open, use the stored route to maintain correct view context
+      // This prevents polling from fetching wrong images (e.g., library images while viewing hidden)
+      if (routeBeforeModal.value) {
+        return getViewFromPath(routeBeforeModal.value.path)
       }
       return getViewFromPath(route.path)
     })
@@ -382,6 +387,12 @@ export default {
     const sidebarActiveAlbumSlug = computed(() => {
       if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
         const path = menuRouteBeforeOpen.value.path
+        const match = path.match(/^\/album\/([^/]+)/)
+        return match ? match[1] : null
+      }
+      // When image modal is open, check the stored route for album context
+      if (routeBeforeModal.value) {
+        const path = routeBeforeModal.value.path
         const match = path.match(/^\/album\/([^/]+)/)
         return match ? match[1] : null
       }
