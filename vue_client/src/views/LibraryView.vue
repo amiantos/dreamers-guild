@@ -58,20 +58,24 @@
       <div class="header-content">
         <div class="header-row-1">
           <div class="header-left">
-            <span
-              v-if="(isMobile || sidebarCollapsed) && requests.length > 0"
-              class="header-status-dot"
-              :class="requestStatusClass"
-              title="Request status"
-            ></span>
-            <button
+            <div
               v-if="isMobile || sidebarCollapsed"
-              @click="handleHamburgerClick"
-              class="btn-hamburger"
-              aria-label="Open menu"
+              class="hamburger-wrapper"
             >
-              <i class="fa-solid fa-bars"></i>
-            </button>
+              <button
+                @click="handleHamburgerClick"
+                class="btn-hamburger"
+                aria-label="Open menu"
+              >
+                <i class="fa-solid fa-bars"></i>
+              </button>
+              <span
+                v-if="requests.length > 0"
+                class="header-status-dot"
+                :class="requestStatusClass"
+                title="Request status"
+              ></span>
+            </div>
             <h2>{{ galleryTitle }}</h2>
           </div>
 
@@ -1749,13 +1753,21 @@ export default {
   background: var(--color-surface-hover);
 }
 
-/* Header status dot */
+/* Hamburger button wrapper for status dot overlay */
+.hamburger-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Header status dot - overlay on hamburger button */
 .header-status-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  flex-shrink: 0;
-  margin-right: 4px;
+  pointer-events: none;
 }
 
 .header-status-dot.complete {
