@@ -2,6 +2,8 @@
 
 A self-hosted web app for generating AI images using the [AI Horde](https://aihorde.net/) network.
 
+[![codecov](https://codecov.io/gh/amiantos/dreamers-guild/graph/badge.svg?token=7O76LLA6Y7)](https://codecov.io/gh/amiantos/dreamers-guild)
+
 ## Features
 
 - Generate images with full control over models, samplers, and parameters
