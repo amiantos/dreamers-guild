@@ -133,11 +133,11 @@
           <h3>Requests</h3>
           <button
             v-if="hasDeletableRequests"
-            class="btn-clear-link"
+            class="btn-add btn-clear"
             @click="handleClearAllRequests"
             title="Clear completed requests"
           >
-            Clear
+            <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
 
@@ -773,28 +773,12 @@ export default {
 }
 
 .requests-list .request-card {
-  background: var(--color-surface);
   border-radius: 8px;
-  padding: 0.625rem;
+  padding-bottom: 1.25rem;
 }
 
-.btn-clear-link {
-  background: none;
-  border: none;
-  padding: 0.25rem 0.5rem;
-  cursor: pointer;
+.btn-clear:hover {
   color: var(--color-danger-tailwind);
-  font-size: 0.7rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.btn-clear-link:hover {
-  background: var(--color-surface-hover);
-  opacity: 0.8;
 }
 
 /* Tablet responsive (768px - 1024px) */

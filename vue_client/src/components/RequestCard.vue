@@ -502,7 +502,7 @@ export default {
 
 .request-card.compact .card-main {
   gap: 0.6rem;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .request-card.compact .thumbnail {
@@ -533,7 +533,7 @@ export default {
 }
 
 .request-card.compact .card-body {
-  gap: 0.6rem;
+  gap: 0.45rem;
   display: flex;
   flex-direction: column;
 }
