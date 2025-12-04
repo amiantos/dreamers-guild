@@ -146,7 +146,6 @@
             v-for="request in requests"
             :key="request.uuid"
             :request="request"
-            :compact="true"
             @view-images="handleViewRequestImages"
             @delete="handleDeleteRequest"
             @retry="handleRetryRequest"

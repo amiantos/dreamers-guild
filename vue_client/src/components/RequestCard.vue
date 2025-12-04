@@ -1,5 +1,5 @@
 <template>
-  <div class="request-card" :class="{ compact: compact }">
+  <div class="request-card">
     <!-- Delete button in top-right corner -->
     <button
       @click="$emit('delete', request.uuid)"
@@ -88,10 +88,6 @@ export default {
     request: {
       type: Object,
       required: true
-    },
-    compact: {
-      type: Boolean,
-      default: false
     }
   },
   emits: ['view-images', 'delete', 'retry'],
@@ -243,10 +239,6 @@ export default {
 </script>
 
 <style scoped>
-/* ==============================================
-   BASE STYLES
-   ============================================== */
-
 .request-card {
   position: relative;
 }
@@ -254,12 +246,13 @@ export default {
 .card-content {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.6rem;
 }
 
 .card-main {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  align-items: center;
 }
 
 .card-body {
@@ -267,16 +260,16 @@ export default {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
-/* Delete button - top right corner */
+/* Delete button - bottom right corner */
 .delete-btn {
   position: absolute;
   bottom: 5px;
   right: 5px;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: none;
   background: transparent;
@@ -287,7 +280,7 @@ export default {
   justify-content: center;
   opacity: 0.5;
   transition: opacity 0.2s, color 0.2s;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
 }
 
 .delete-btn:hover {
@@ -301,9 +294,9 @@ export default {
 }
 
 .thumbnail {
-  width: 70px;
-  height: 70px;
-  border-radius: 8px;
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
   overflow: hidden;
   background: var(--color-bg-elevated);
 }
@@ -328,7 +321,7 @@ export default {
 
 .thumbnail.placeholder.error i {
   color: var(--color-danger-tailwind);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
 }
 
 .thumbnail.clickable {
@@ -345,12 +338,12 @@ export default {
   justify-content: center;
   opacity: 0;
   transition: opacity 0.2s;
-  border-radius: 8px;
+  border-radius: 6px;
 }
 
 .thumbnail-overlay i {
   color: white;
-  font-size: 1.25rem;
+  font-size: 1rem;
 }
 
 .thumbnail.clickable:hover .thumbnail-overlay {
@@ -358,8 +351,8 @@ export default {
 }
 
 .spinner {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: 2px solid var(--color-border);
   border-top-color: var(--color-primary);
   border-radius: 50%;
@@ -373,22 +366,23 @@ export default {
 .prompt {
   flex: 1;
   min-width: 0;
-  font-size: 0.95rem;
+  font-size: 0.8rem;
+  line-height: 1.05rem;
   font-weight: 500;
   margin: 0;
-  padding-right: 1.5rem; /* Space for delete button */
+  padding-right: 0.5rem;
   color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
 .meta {
   display: flex;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--color-text-tertiary);
   flex-wrap: wrap;
   align-items: center;
@@ -411,11 +405,12 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  order: -1;
 }
 
 .progress-bar {
   flex: 1;
-  height: 4px;
+  height: 3px;
   background: var(--color-border);
   border-radius: 2px;
   overflow: hidden;
@@ -453,7 +448,7 @@ export default {
 
 /* Retry action text */
 .progress-action {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
@@ -467,96 +462,5 @@ export default {
 
 .progress-action.retry {
   color: var(--color-danger-tailwind);
-}
-
-/* ==============================================
-   DESKTOP (>768px)
-   ============================================== */
-
-@media (min-width: 769px) {
-  .card-body {
-    gap: 0.75rem;
-  }
-
-  .thumbnail {
-    width: 80px;
-    height: 80px;
-  }
-
-  .prompt {
-    font-size: 1rem;
-    line-height: 1.3rem;
-    -webkit-line-clamp: 2;
-    padding-bottom:0px;
-    margin-bottom:-3px;
-  }
-}
-
-/* ==============================================
-   COMPACT MODE (for sidebar)
-   ============================================== */
-
-.request-card.compact .card-content {
-  gap: 0.6rem;
-}
-
-.request-card.compact .card-main {
-  gap: 0.6rem;
-  align-items: center;
-}
-
-.request-card.compact .thumbnail {
-  width: 50px;
-  height: 50px;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.request-card.compact .thumbnail.placeholder.error i {
-  font-size: 1.25rem;
-}
-
-.request-card.compact .thumbnail-overlay i {
-  font-size: 1rem;
-}
-
-.request-card.compact .spinner {
-  width: 16px;
-  height: 16px;
-}
-
-.request-card.compact .prompt {
-  font-size: 0.8rem;
-  line-height: 1.05rem;
-  -webkit-line-clamp: 3;
-  padding-right: 0.5rem;
-}
-
-.request-card.compact .card-body {
-  gap: 0.45rem;
-  display: flex;
-  flex-direction: column;
-}
-
-.request-card.compact .progress-container {
-  order: -1;
-}
-
-.request-card.compact .meta {
-  font-size: 0.75rem;
-}
-
-.request-card.compact .progress-bar {
-  height: 3px;
-}
-
-.request-card.compact .delete-btn {
-  width: 20px;
-  height: 20px;
-  font-size: 0.75rem;
-}
-
-.request-card.compact .progress-action {
-  font-size: 0.65rem;
 }
 </style>
