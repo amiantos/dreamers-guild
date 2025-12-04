@@ -1,5 +1,5 @@
 <template>
-  <div class="sidebar-container" :class="{ collapsed: isCollapsed, 'mobile-menu-open': isMobileMenuOpen }">
+  <div class="sidebar-container" :class="{ collapsed: isCollapsed }">
     <div class="sidebar-content">
       <!-- Sidebar Header -->
       <div class="sidebar-header">
@@ -146,6 +146,7 @@
             v-for="request in requests"
             :key="request.uuid"
             :request="request"
+            :showHiddenThumbnails="isAuthenticated"
             @view-images="handleViewRequestImages"
             @delete="handleDeleteRequest"
             @retry="handleRetryRequest"
@@ -240,10 +241,6 @@ export default {
 
     const getThumbnailUrl = (imageId) => {
       return imagesApi.getThumbnailUrl(imageId)
-    }
-
-    const toggleCollapse = () => {
-      uiStore.toggleSidebar()
     }
 
     const handleHeaderAction = () => {
@@ -351,7 +348,6 @@ export default {
       albums,
       visibleUserAlbums,
       getThumbnailUrl,
-      toggleCollapse,
       handleHeaderAction,
       navigate,
       loadAlbums,
@@ -753,13 +749,6 @@ export default {
 }
 
 /* Requests Section */
-.empty-requests {
-  padding: 1rem;
-  text-align: center;
-  color: var(--color-text-disabled);
-  font-size: 0.875rem;
-}
-
 .requests-list {
   display: flex;
   flex-direction: column;

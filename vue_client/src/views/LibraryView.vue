@@ -2358,7 +2358,6 @@ export default {
   color: var(--color-info);
 }
 
-/* Requests Panel Tab */
 /* Status dot animation (used in header) */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -2393,19 +2392,6 @@ export default {
 
   .header-row-2 {
     order: 3;
-  }
-
-  /* Requests panel mobile adjustments */
-  .panel-content {
-    padding: 1rem;
-  }
-
-  .requests-grid {
-    gap: 0.5rem;
-  }
-
-  .request-card-item {
-    padding: 0.75rem;
   }
 
   /* Hide standalone buttons, show in menu */

@@ -1,6 +1,6 @@
 <template>
   <div class="request-card">
-    <!-- Delete button in top-right corner -->
+    <!-- Delete button in bottom-right corner -->
     <button
       @click="$emit('delete', request.uuid)"
       class="delete-btn"
@@ -22,6 +22,14 @@
             <div class="thumbnail-overlay">
               <i class="fa-solid fa-eye"></i>
             </div>
+          </div>
+          <!-- Completed but thumbnail is hidden -->
+          <div
+            v-else-if="request.status === 'completed' && thumbnailHidden"
+            class="thumbnail placeholder clickable hidden"
+            @click="$emit('view-images', request.uuid)"
+          >
+            <i class="fa-solid fa-eye-slash"></i>
           </div>
           <!-- Failed state - show alert icon -->
           <div v-else-if="request.status === 'failed'" class="thumbnail placeholder error">
@@ -88,11 +96,16 @@ export default {
     request: {
       type: Object,
       required: true
+    },
+    showHiddenThumbnails: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['view-images', 'delete', 'retry'],
   setup(props) {
     const thumbnailUrl = ref(null)
+    const thumbnailHidden = ref(false)
     const actualImageCount = ref(null)
 
     const truncatedPrompt = computed(() => {
@@ -110,7 +123,15 @@ export default {
           const response = await imagesApi.getByRequestId(props.request.uuid, 1)
           // Backend returns { data: images, total }
           if (response.data && response.data.data && response.data.data.length > 0) {
-            thumbnailUrl.value = imagesApi.getThumbnailUrl(response.data.data[0].uuid)
+            const firstImage = response.data.data[0]
+            // Check if the thumbnail image is hidden (show anyway if in hidden mode)
+            if (firstImage.is_hidden && !props.showHiddenThumbnails) {
+              thumbnailHidden.value = true
+              thumbnailUrl.value = null
+            } else {
+              thumbnailHidden.value = false
+              thumbnailUrl.value = imagesApi.getThumbnailUrl(firstImage.uuid)
+            }
             actualImageCount.value = response.data.total
           }
         } catch (error) {
@@ -124,6 +145,17 @@ export default {
       () => props.request.status,
       (newStatus) => {
         if (newStatus === 'completed' && !thumbnailUrl.value) {
+          fetchThumbnail()
+        }
+      }
+    )
+
+    // Watch for authentication changes to show/hide thumbnails
+    watch(
+      () => props.showHiddenThumbnails,
+      () => {
+        // Re-fetch to update hidden state based on new auth status
+        if (props.request.status === 'completed') {
           fetchThumbnail()
         }
       }
@@ -226,6 +258,7 @@ export default {
 
     return {
       thumbnailUrl,
+      thumbnailHidden,
       truncatedPrompt,
       statusMessage,
       imageCount,
@@ -321,6 +354,11 @@ export default {
 
 .thumbnail.placeholder.error i {
   color: var(--color-danger-tailwind);
+  font-size: 1.25rem;
+}
+
+.thumbnail.placeholder.hidden i {
+  color: var(--color-text-tertiary);
   font-size: 1.25rem;
 }
 
