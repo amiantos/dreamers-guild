@@ -10,33 +10,36 @@
     </button>
 
     <div class="card-content">
-      <div class="thumbnail-container">
-        <!-- Completed with thumbnail -->
-        <div
-          v-if="request.status === 'completed' && thumbnailUrl"
-          class="thumbnail clickable"
-          @click="$emit('view-images', request.uuid)"
-        >
-          <AsyncImage :src="thumbnailUrl" alt="Request thumbnail" />
-          <div class="thumbnail-overlay">
-            <i class="fa-solid fa-eye"></i>
+      <div class="card-main">
+        <div class="thumbnail-container">
+          <!-- Completed with thumbnail -->
+          <div
+            v-if="request.status === 'completed' && thumbnailUrl"
+            class="thumbnail clickable"
+            @click="$emit('view-images', request.uuid)"
+          >
+            <AsyncImage :src="thumbnailUrl" alt="Request thumbnail" />
+            <div class="thumbnail-overlay">
+              <i class="fa-solid fa-eye"></i>
+            </div>
+          </div>
+          <!-- Failed state - show alert icon -->
+          <div v-else-if="request.status === 'failed'" class="thumbnail placeholder error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <!-- Completed but no images -->
+          <div v-else-if="request.status === 'completed'" class="thumbnail placeholder">
+          </div>
+          <!-- Processing states - show spinner -->
+          <div v-else class="thumbnail placeholder">
+            <div class="spinner"></div>
           </div>
         </div>
-        <!-- Failed state - show alert icon -->
-        <div v-else-if="request.status === 'failed'" class="thumbnail placeholder error">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-        </div>
-        <!-- Completed but no images -->
-        <div v-else-if="request.status === 'completed'" class="thumbnail placeholder">
-        </div>
-        <!-- Processing states - show spinner -->
-        <div v-else class="thumbnail placeholder">
-          <div class="spinner"></div>
-        </div>
+
+        <h3 class="prompt">{{ truncatedPrompt }}</h3>
       </div>
 
       <div class="card-body">
-        <h3 class="prompt">{{ truncatedPrompt }}</h3>
         <div class="meta">
           <!-- Show image count only when completed, otherwise show status -->
           <template v-if="request.status === 'completed'">
@@ -250,6 +253,12 @@ export default {
 
 .card-content {
   display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.card-main {
+  display: flex;
   gap: 0.75rem;
 }
 
@@ -362,6 +371,8 @@ export default {
 }
 
 .prompt {
+  flex: 1;
+  min-width: 0;
   font-size: 0.95rem;
   font-weight: 500;
   margin: 0;
@@ -485,10 +496,20 @@ export default {
    COMPACT MODE (for sidebar)
    ============================================== */
 
+.request-card.compact .card-content {
+  gap: 0.6rem;
+}
+
+.request-card.compact .card-main {
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
 .request-card.compact .thumbnail {
   width: 50px;
   height: 50px;
   border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .request-card.compact .thumbnail.placeholder.error i {
@@ -504,19 +525,21 @@ export default {
   height: 16px;
 }
 
-.request-card.compact .card-content {
-  gap: 0.5rem;
+.request-card.compact .prompt {
+  font-size: 0.8rem;
+  line-height: 1.05rem;
+  -webkit-line-clamp: 3;
+  padding-right: 0.5rem;
 }
 
 .request-card.compact .card-body {
-  gap: 0.25rem;
+  gap: 0.6rem;
+  display: flex;
+  flex-direction: column;
 }
 
-.request-card.compact .prompt {
-  font-size: 0.8rem;
-  line-height: 1.1rem;
-  -webkit-line-clamp: 1;
-  padding-right: 1.25rem;
+.request-card.compact .progress-container {
+  order: -1;
 }
 
 .request-card.compact .meta {
