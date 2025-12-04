@@ -1,15 +1,17 @@
 <template>
-  <div class="sidebar-container" :class="{ collapsed: isCollapsed }">
-    <!-- Collapse toggle button -->
-    <button
-      class="collapse-toggle"
-      @click="toggleCollapse"
-      :title="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-    >
-      <i class="fa-solid" :class="isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'"></i>
-    </button>
-
-    <div class="sidebar-content" v-show="!isCollapsed">
+  <div class="sidebar-container" :class="{ collapsed: isCollapsed, 'mobile-menu-open': isMobileMenuOpen }">
+    <div class="sidebar-content">
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <h1>Dreamers Guild</h1>
+        <button
+          @click="handleHeaderAction"
+          class="btn-collapse"
+          :title="isMobile ? 'Close menu' : 'Collapse sidebar'"
+        >
+          <i class="fa-solid" :class="isMobile ? 'fa-xmark' : 'fa-chevron-left'"></i>
+        </button>
+      </div>
       <!-- Navigation Section -->
       <nav class="nav-section">
         <div
@@ -126,13 +128,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Mobile overlay -->
-  <div
-    v-if="!isCollapsed && isMobile"
-    class="sidebar-overlay"
-    @click="toggleCollapse"
-  ></div>
 </template>
 
 <script>
@@ -161,9 +156,13 @@ export default {
     isAuthenticated: {
       type: Boolean,
       default: false
+    },
+    isMobileMenuOpen: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed'],
+  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed', 'close'],
   setup(props, { emit }) {
     const { showToast } = useToast()
     const albumStore = useAlbumStore()
@@ -209,11 +208,17 @@ export default {
       uiStore.toggleSidebar()
     }
 
+    const handleHeaderAction = () => {
+      if (isMobile.value) {
+        emit('close')  // Close full-screen menu on mobile
+      } else {
+        uiStore.toggleSidebar()  // Collapse sidebar on desktop
+      }
+    }
+
     const navigate = (view, albumSlug = null) => {
       emit('navigate', { view, albumSlug })
-      if (isMobile.value) {
-        uiStore.setSidebarCollapsed(true)
-      }
+      // Note: On mobile, the parent (LibraryView) handles closing the menu
     }
 
     // Album editing methods - wrap store actions for focus handling and toast
@@ -285,6 +290,7 @@ export default {
       visibleUserAlbums,
       getThumbnailUrl,
       toggleCollapse,
+      handleHeaderAction,
       navigate,
       loadAlbums,
       // Editing
@@ -323,25 +329,39 @@ export default {
   transform: translateX(-100%);
 }
 
-.collapse-toggle {
-  position: absolute;
-  right: -20px;
-  /* top: 50%;
-  transform: translateY(-50%); */
-  width: 20px;
-  height: 80px;
-  background: var(--color-bg-elevated);
+/* Sidebar Header */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 0.5rem;
+}
+
+.sidebar-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.btn-collapse {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   border: none;
-  border-radius: 0 8px 8px 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-secondary);
   transition: all 0.2s;
 }
 
-.collapse-toggle:hover {
+.btn-collapse:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
@@ -349,7 +369,7 @@ export default {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem 0;
+  padding: 0.5rem 0;
 }
 
 /* Navigation Section */
@@ -525,17 +545,6 @@ export default {
   color: var(--color-text-quaternary);
 }
 
-/* Mobile overlay */
-.sidebar-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--overlay-dark);
-  z-index: calc(var(--z-index-panel) - 1);
-}
-
 /* Album actions (hover buttons) */
 .album-actions {
   display: none;
@@ -674,7 +683,7 @@ export default {
   cursor: not-allowed;
 }
 
-/* Mobile responsive */
+/* Tablet responsive (768px - 1024px) */
 @media (max-width: 1024px) {
   .sidebar-container {
     width: 300px;
@@ -684,9 +693,50 @@ export default {
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
   }
 
-  /* Always show actions on mobile since no hover */
+  /* Always show actions on touch devices since no hover */
   .album-actions {
     display: flex;
+  }
+}
+
+/* Mobile responsive - full screen menu mode */
+@media (max-width: 767px) {
+  /* Hide sidebar by default on mobile */
+  .sidebar-container {
+    display: none;
+  }
+
+  /* Full-screen menu when open */
+  .sidebar-container.mobile-menu-open {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    transform: none;
+    z-index: var(--z-index-modal);
+    background: var(--color-bg-base);
+  }
+
+  /* Adjust header padding on mobile */
+  .sidebar-container.mobile-menu-open .sidebar-header {
+    padding: 1rem 1.5rem;
+  }
+
+  .sidebar-container.mobile-menu-open .sidebar-header h1 {
+    font-size: 1.5rem;
+  }
+
+  /* Larger tap targets on mobile */
+  .sidebar-container.mobile-menu-open .nav-item {
+    padding: 1rem 1.5rem;
+  }
+
+  .sidebar-container.mobile-menu-open .album-item {
+    padding: 0.75rem 1rem;
   }
 }
 </style>

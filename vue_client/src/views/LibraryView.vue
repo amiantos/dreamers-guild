@@ -1,14 +1,19 @@
 <template>
   <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
     <!-- Sidebar -->
-    <LibrarySidebar
-      ref="sidebarRef"
-      :activeView="currentView"
-      :activeAlbumSlug="currentAlbum?.slug"
-      :isAuthenticated="isHiddenAuthenticated"
-      @navigate="handleSidebarNavigate"
-      @create-album="handleCreateAlbum"
-    />
+    <Transition name="mobile-menu">
+      <LibrarySidebar
+        v-if="!isMobile || isMobileMenuOpen"
+        ref="sidebarRef"
+        :activeView="sidebarActiveView"
+        :activeAlbumSlug="sidebarActiveAlbumSlug"
+        :isAuthenticated="isHiddenAuthenticated"
+        :isMobileMenuOpen="isMobileMenuOpen"
+        @navigate="handleSidebarNavigate"
+        @create-album="handleCreateAlbum"
+        @close="closeMobileMenu"
+      />
+    </Transition>
 
     <!-- Create Album Modal -->
     <CreateAlbumModal
@@ -82,6 +87,14 @@
       <div class="header-content">
         <div class="header-row-1">
           <div class="header-left">
+            <button
+              v-if="isMobile || sidebarCollapsed"
+              @click="handleHamburgerClick"
+              class="btn-hamburger"
+              aria-label="Open menu"
+            >
+              <i class="fa-solid fa-bars"></i>
+            </button>
             <h2>{{ galleryTitle }}</h2>
           </div>
 
@@ -364,6 +377,21 @@ export default {
     const isCreateAlbumModalOpen = computed(() => modals.value.createAlbum)
     const isAddToAlbumModalOpen = computed(() => modals.value.addToAlbum)
 
+    // Mobile menu state
+    const isMobileMenuOpen = ref(false)
+    const menuRouteBeforeOpen = ref(null)
+    const isMobile = ref(window.innerWidth < 768)
+
+    // Update isMobile on resize
+    const updateIsMobile = () => {
+      isMobile.value = window.innerWidth < 768
+      // Close mobile menu if screen becomes desktop
+      if (!isMobile.value && isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false
+        menuRouteBeforeOpen.value = null
+      }
+    }
+
     // Current view based on route
     const currentView = computed(() => {
       const path = route.path
@@ -372,6 +400,28 @@ export default {
       if (path.startsWith('/hidden')) return 'hidden'
       if (path.startsWith('/album/')) return 'album'
       return 'library'
+    })
+
+    // For sidebar: use stored route when mobile menu is open
+    const sidebarActiveView = computed(() => {
+      if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
+        const path = menuRouteBeforeOpen.value.path
+        if (path.startsWith('/favorites')) return 'favorites'
+        if (path.startsWith('/hidden-favorites')) return 'hidden-favorites'
+        if (path.startsWith('/hidden')) return 'hidden'
+        if (path.startsWith('/album/')) return 'album'
+        return 'library'
+      }
+      return currentView.value
+    })
+
+    const sidebarActiveAlbumSlug = computed(() => {
+      if (isMobileMenuOpen.value && menuRouteBeforeOpen.value) {
+        const path = menuRouteBeforeOpen.value.path
+        const match = path.match(/^\/album\/([^/]+)/)
+        return match ? match[1] : null
+      }
+      return currentAlbum.value?.slug || null
     })
 
     // View-based flags derived from currentView
@@ -1174,8 +1224,48 @@ export default {
       }
     }
 
+    // Mobile menu methods
+    const openMobileMenu = () => {
+      // Store current route before opening (same pattern as ImageModal)
+      menuRouteBeforeOpen.value = {
+        path: route.path,
+        query: { ...route.query }
+      }
+      isMobileMenuOpen.value = true
+      router.replace('/menu')
+    }
+
+    const handleHamburgerClick = () => {
+      if (isMobile.value) {
+        openMobileMenu()
+      } else {
+        // Desktop: just expand the sidebar
+        uiStore.setSidebarCollapsed(false)
+      }
+    }
+
+    const closeMobileMenu = () => {
+      isMobileMenuOpen.value = false
+      // Restore previous route
+      if (menuRouteBeforeOpen.value) {
+        router.replace({
+          path: menuRouteBeforeOpen.value.path,
+          query: menuRouteBeforeOpen.value.query
+        })
+        menuRouteBeforeOpen.value = null
+      } else {
+        router.replace('/')
+      }
+    }
+
     // Sidebar handlers
     const handleSidebarNavigate = ({ view, albumSlug }) => {
+      // Close mobile menu first (if open)
+      if (isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false
+        menuRouteBeforeOpen.value = null  // Don't restore, we're navigating to new route
+      }
+
       // Navigate based on view
       if (view === 'library') {
         router.push('/')
@@ -1443,6 +1533,17 @@ export default {
     }
 
     onMounted(async () => {
+      // Handle direct navigation to /menu
+      if (route.path === '/menu') {
+        if (window.innerWidth >= 768) {
+          // Desktop: redirect to home
+          router.replace('/')
+        } else {
+          // Mobile: open menu (no previous route to restore)
+          isMobileMenuOpen.value = true
+        }
+      }
+
       loadFiltersFromUrl()
 
       // Check if viewing an album
@@ -1460,6 +1561,7 @@ export default {
 
       window.addEventListener('scroll', handleScroll)
       window.addEventListener('click', handleClickOutside)
+      window.addEventListener('resize', updateIsMobile)
     })
 
     onUnmounted(() => {
@@ -1467,6 +1569,7 @@ export default {
       imagePolling.cleanup()
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('click', handleClickOutside)
+      window.removeEventListener('resize', updateIsMobile)
     })
 
     return {
@@ -1518,6 +1621,8 @@ export default {
       sidebarCollapsed,
       currentView,
       currentAlbum,
+      sidebarActiveView,
+      sidebarActiveAlbumSlug,
       isCreateAlbumModalOpen,
       isAddToAlbumModalOpen,
       handleSidebarNavigate,
@@ -1527,6 +1632,12 @@ export default {
       handleAddToAlbum,
       closeAddToAlbumModal,
       handleAddedToAlbum,
+      // Mobile menu
+      isMobile,
+      isMobileMenuOpen,
+      openMobileMenu,
+      closeMobileMenu,
+      handleHamburgerClick,
       // Menu and filters
       showMenu,
       menuContainer,
@@ -1629,6 +1740,37 @@ export default {
   font-weight: 600;
   white-space: nowrap;
   margin: 0;
+}
+
+/* Hamburger button (mobile, or desktop when sidebar collapsed) */
+.btn-hamburger {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-hamburger:hover {
+  background: var(--color-surface-hover);
+}
+
+/* Mobile menu slide transition */
+.mobile-menu-enter-active,
+.mobile-menu-leave-active {
+  transition: transform 0.3s ease-out;
+}
+
+.mobile-menu-enter-from,
+.mobile-menu-leave-to {
+  transform: translateX(-100%);
 }
 
 .header-controls {
