@@ -1,5 +1,5 @@
 <template>
-  <div class="request-card">
+  <div class="request-card" :class="{ compact: compact }">
     <!-- Delete button in top-right corner -->
     <button
       @click="$emit('delete', request.uuid)"
@@ -85,6 +85,10 @@ export default {
     request: {
       type: Object,
       required: true
+    },
+    compact: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['view-images', 'delete', 'retry'],
@@ -475,5 +479,61 @@ export default {
     padding-bottom:0px;
     margin-bottom:-3px;
   }
+}
+
+/* ==============================================
+   COMPACT MODE (for sidebar)
+   ============================================== */
+
+.request-card.compact .thumbnail {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+}
+
+.request-card.compact .thumbnail.placeholder.error i {
+  font-size: 1.25rem;
+}
+
+.request-card.compact .thumbnail-overlay i {
+  font-size: 1rem;
+}
+
+.request-card.compact .spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.request-card.compact .card-content {
+  gap: 0.5rem;
+}
+
+.request-card.compact .card-body {
+  gap: 0.25rem;
+}
+
+.request-card.compact .prompt {
+  font-size: 0.8rem;
+  line-height: 1.1rem;
+  -webkit-line-clamp: 1;
+  padding-right: 1.25rem;
+}
+
+.request-card.compact .meta {
+  font-size: 0.7rem;
+}
+
+.request-card.compact .progress-bar {
+  height: 3px;
+}
+
+.request-card.compact .delete-btn {
+  width: 20px;
+  height: 20px;
+  font-size: 0.75rem;
+}
+
+.request-card.compact .progress-action {
+  font-size: 0.65rem;
 }
 </style>

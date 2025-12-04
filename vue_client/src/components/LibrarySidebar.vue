@@ -126,6 +126,37 @@
           </div>
         </div>
       </div>
+
+      <!-- Requests Section -->
+      <div class="section">
+        <div class="section-header">
+          <h3>Requests</h3>
+          <button
+            v-if="hasDeletableRequests"
+            class="btn-clear-link"
+            @click="handleClearAllRequests"
+            title="Clear completed requests"
+          >
+            Clear
+          </button>
+        </div>
+
+        <div v-if="requests.length === 0" class="empty-requests">
+          <p>No requests yet</p>
+        </div>
+
+        <div v-else class="requests-list">
+          <RequestCard
+            v-for="request in requests"
+            :key="request.uuid"
+            :request="request"
+            :compact="true"
+            @view-images="handleViewRequestImages"
+            @delete="handleDeleteRequest"
+            @retry="handleRetryRequest"
+          />
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -135,14 +166,17 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { storeToRefs } from 'pinia'
 import { imagesApi } from '@api'
 import AsyncImage from './AsyncImage.vue'
+import RequestCard from './RequestCard.vue'
 import { useToast } from '../composables/useToast.js'
 import { useAlbumStore } from '../stores/albumStore.js'
 import { useUiStore } from '../stores/uiStore.js'
+import { useRequestsStore } from '../stores/requestsStore.js'
 
 export default {
   name: 'LibrarySidebar',
   components: {
-    AsyncImage
+    AsyncImage,
+    RequestCard
   },
   props: {
     activeView: {
@@ -162,11 +196,12 @@ export default {
       default: false
     }
   },
-  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed', 'close'],
+  emits: ['navigate', 'create-album', 'album-deleted', 'album-renamed', 'close', 'view-request-images'],
   setup(props, { emit }) {
     const { showToast } = useToast()
     const albumStore = useAlbumStore()
     const uiStore = useUiStore()
+    const requestsStore = useRequestsStore()
 
     // Get reactive state from stores
     const {
@@ -181,6 +216,14 @@ export default {
       sidebarCollapsed: isCollapsed,
       isMobile
     } = storeToRefs(uiStore)
+
+    const {
+      requests,
+      deletableRequests
+    } = storeToRefs(requestsStore)
+
+    // Computed for requests
+    const hasDeletableRequests = computed(() => deletableRequests.value.length > 0)
 
     const editInput = ref(null)
 
@@ -274,6 +317,30 @@ export default {
       }
     }
 
+    // Request handlers
+    const handleViewRequestImages = (requestId) => {
+      emit('view-request-images', requestId)
+    }
+
+    const handleDeleteRequest = (requestId) => {
+      const request = requests.value.find(r => r.uuid === requestId)
+      if (request) {
+        requestsStore.showDeleteModal(request)
+      }
+    }
+
+    const handleRetryRequest = async (requestId) => {
+      try {
+        await requestsStore.retryRequest(requestId)
+      } catch (error) {
+        showToast('Failed to retry request. Please try again.', 'error')
+      }
+    }
+
+    const handleClearAllRequests = () => {
+      requestsStore.showDeleteAllModal()
+    }
+
     // Watch for authentication changes to reload albums
     watch(() => props.isAuthenticated, () => {
       loadAlbums()
@@ -305,7 +372,14 @@ export default {
       isDeleting,
       confirmDeleteAlbum,
       handleCancelDelete,
-      handleDeleteAlbum
+      handleDeleteAlbum,
+      // Requests
+      requests,
+      hasDeletableRequests,
+      handleViewRequestImages,
+      handleDeleteRequest,
+      handleRetryRequest,
+      handleClearAllRequests
     }
   }
 }
@@ -681,6 +755,46 @@ export default {
 .btn-delete:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Requests Section */
+.empty-requests {
+  padding: 1rem;
+  text-align: center;
+  color: var(--color-text-disabled);
+  font-size: 0.875rem;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.requests-list .request-card {
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 0.625rem;
+}
+
+.btn-clear-link {
+  background: none;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  color: var(--color-danger-tailwind);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-clear-link:hover {
+  background: var(--color-surface-hover);
+  opacity: 0.8;
 }
 
 /* Tablet responsive (768px - 1024px) */

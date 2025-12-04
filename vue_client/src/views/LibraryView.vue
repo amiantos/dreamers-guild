@@ -1,5 +1,5 @@
 <template>
-  <div class="library-view" :class="{ 'panel-open': isPanelOpen, 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
+  <div class="library-view" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'action-bar-open': selectedCount > 0 || isMultiSelectMode }">
     <!-- Sidebar -->
     <Transition name="mobile-menu">
       <LibrarySidebar
@@ -12,6 +12,7 @@
         @navigate="handleSidebarNavigate"
         @create-album="handleCreateAlbum"
         @close="closeMobileMenu"
+        @view-request-images="handleViewRequestImages"
       />
     </Transition>
 
@@ -30,36 +31,6 @@
       @close="closeAddToAlbumModal"
       @added="handleAddedToAlbum"
     />
-
-    <!-- Requests Panel -->
-    <div class="requests-panel" :class="{ open: isPanelOpen }">
-      <div class="panel-content">
-        <div v-if="requests.length === 0" class="panel-empty-state">
-          <p>No requests yet</p>
-          <p class="hint">Click the + button to generate your first AI image</p>
-        </div>
-
-        <div v-else class="requests-grid">
-          <RequestCard
-            v-for="request in requests"
-            :key="request.uuid"
-            :request="request"
-            class="request-card-item"
-            @view-images="viewRequestImages"
-            @delete="showDeleteModal"
-            @retry="handleRetry"
-          />
-
-          <button
-            @click="showDeleteAllModal"
-            class="btn-clear-history"
-          >
-            <i class="fa-solid fa-trash"></i>
-            Clear Dream History
-          </button>
-        </div>
-      </div>
-    </div>
 
     <DeleteRequestModal
       v-if="deleteModalVisible"
@@ -87,6 +58,12 @@
       <div class="header-content">
         <div class="header-row-1">
           <div class="header-left">
+            <span
+              v-if="(isMobile || sidebarCollapsed) && requests.length > 0"
+              class="header-status-dot"
+              :class="requestStatusClass"
+              title="Request status"
+            ></span>
             <button
               v-if="isMobile || sidebarCollapsed"
               @click="handleHamburgerClick"
@@ -281,14 +258,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Requests Panel Toggle Tab (moved to bottom) -->
-    <div v-if="selectedCount === 0" class="panel-tab" @click="togglePanel" :class="{ open: isPanelOpen }">
-      <div class="tab-content">
-        <span class="status-dot" :class="requestStatusClass"></span>
-        <span class="tab-text">Dreams</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -304,7 +273,6 @@ import { useAlbumStore } from '../stores/albumStore.js'
 import { useUiStore } from '../stores/uiStore.js'
 import { useRequestsStore } from '../stores/requestsStore.js'
 import ImageModal from '../components/ImageModal.vue'
-import RequestCard from '../components/RequestCard.vue'
 import DeleteRequestModal from '../components/DeleteRequestModal.vue'
 import DeleteAllRequestsModal from '../components/DeleteAllRequestsModal.vue'
 import BatchDeleteModal from '../components/BatchDeleteModal.vue'
@@ -317,7 +285,6 @@ export default {
   name: 'LibraryView',
   components: {
     ImageModal,
-    RequestCard,
     DeleteRequestModal,
     DeleteAllRequestsModal,
     BatchDeleteModal,
@@ -368,7 +335,6 @@ export default {
     const uiStore = useUiStore()
     const {
       sidebarCollapsed,
-      isPanelOpen,
       showMenu,
       modals
     } = storeToRefs(uiStore)
@@ -1162,10 +1128,6 @@ export default {
     })
 
     // Requests panel functions
-    const togglePanel = () => {
-      uiStore.togglePanel()
-    }
-
     const viewRequestImages = (requestId) => {
       // Navigate to library view with request filter
       router.push({ path: '/', query: { request: requestId } })
@@ -1276,6 +1238,16 @@ export default {
       } else if (view === 'album' && albumSlug) {
         router.push(`/album/${albumSlug}`)
       }
+    }
+
+    const handleViewRequestImages = (requestId) => {
+      // Close mobile menu first (if open) - must be before navigation
+      if (isMobileMenuOpen.value) {
+        isMobileMenuOpen.value = false
+        menuRouteBeforeOpen.value = null  // Don't restore, we're navigating to new route
+      }
+      // Navigate to library filtered by request
+      router.push({ path: '/', query: { request: requestId } })
     }
 
     const handleCreateAlbum = () => {
@@ -1612,9 +1584,7 @@ export default {
       clearFilter,
       clearAllFilters,
       openNewRequest,
-      // Requests panel
-      isPanelOpen,
-      togglePanel,
+      // Requests
       requests,
       queueStatus,
       requestStatusClass,
@@ -1640,6 +1610,7 @@ export default {
       isCreateAlbumModalOpen,
       isAddToAlbumModalOpen,
       handleSidebarNavigate,
+      handleViewRequestImages,
       handleCreateAlbum,
       closeCreateAlbumModal,
       handleAlbumCreated,
@@ -1683,7 +1654,6 @@ export default {
 .library-view {
   padding: 0;
   padding-bottom: 0;
-  --panel-height: 30vh;
   --sidebar-width: 280px;
   --action-bar-height: 70px;
   transition: padding-bottom 0.3s ease-in-out, padding-left 0.3s ease;
@@ -1692,10 +1662,6 @@ export default {
 
 .library-view.sidebar-collapsed {
   padding-left: 0;
-}
-
-.library-view.panel-open {
-  padding-bottom: var(--panel-height);
 }
 
 .library-view.action-bar-open {
@@ -1715,10 +1681,6 @@ export default {
   background: var(--color-bg-base);
   z-index: 50;
   transition: top 0.3s ease-out;
-}
-
-.library-view.panel-open .header {
-  /* No longer pushing header down */
 }
 
 .header-content {
@@ -1774,6 +1736,29 @@ export default {
 
 .btn-hamburger:hover {
   background: var(--color-surface-hover);
+}
+
+/* Header status dot */
+.header-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+
+.header-status-dot.complete {
+  background: #00ff00;
+}
+
+.header-status-dot.active {
+  background: var(--color-warning-hover);
+  animation: pulse 2s infinite;
+}
+
+.header-status-dot.error {
+  background: var(--color-danger-ios);
+  animation: pulse 2s infinite;
 }
 
 /* Mobile menu slide transition */
@@ -2247,18 +2232,6 @@ export default {
   transform: scale(0.95);
 }
 
-.library-view.panel-open .fab {
-  transform: translateY(calc(-1 * var(--panel-height)));
-}
-
-.library-view.panel-open .fab:hover {
-  transform: translateY(calc(-1 * var(--panel-height))) scale(1.05);
-}
-
-.library-view.panel-open .fab:active {
-  transform: translateY(calc(-1 * var(--panel-height))) scale(0.95);
-}
-
 /* Multi-Select Action Bar */
 .multi-select-action-bar {
   position: fixed;
@@ -2363,168 +2336,10 @@ export default {
 }
 
 /* Requests Panel Tab */
-.panel-tab {
-  position: fixed;
-  bottom: 0;
-  top: auto;
-  left: 50%;
-  transform: translateX(-50%);
-  cursor: pointer;
-  z-index: 60; /* Higher than FABs (40) and Header (50) */
-  transition: transform 0.3s ease-out;
-}
-
-.library-view.panel-open .panel-tab {
-  transform: translate(-50%, calc(-1 * var(--panel-height) + 1px));
-}
-
-.panel-tab .tab-content {
-  background: var(--color-bg-elevated);
-  border-radius: 12px 12px 0 0;
-  border-bottom: none;
-  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-}
-
-.panel-tab:hover .tab-content {
-  animation: bounce 0.4s ease-in-out;
-}
-
-@keyframes bounce {
-  0% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-  50% { padding-top: 0.75rem; padding-bottom: 1rem; }
-  100% { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-dot.complete {
-  background: #00ff00;
-}
-
-.status-dot.active {
-  background: var(--color-warning-hover);
-  animation: pulse 2s infinite;
-}
-
-.status-dot.error {
-  background: var(--color-danger-ios);
-  animation: pulse 2s infinite;
-}
-
+/* Status dot animation (used in header) */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
-}
-
-.tab-text {
-  font-size: 0.95rem;
-  color: var(--color-text-primary);
-  font-weight: 500;
-}
-
-/* Requests Panel */
-.requests-panel {
-  position: fixed;
-  bottom: 0;
-  top: auto;
-  left: 0;
-  right: 0;
-  background: var(--color-bg-elevated);
-  max-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
-  box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
-  z-index: 55; /* Above header but below tab */
-  display: flex;
-  flex-direction: column; /* Normal direction now */
-  height: var(--panel-height);
-  max-height: var(--panel-height);
-  transform: translateY(100%);
-}
-
-.requests-panel.open {
-  transform: translateY(0);
-}
-
-.panel-content {
-  padding: 1.5rem 2rem;
-  background: var(--color-bg-elevated);
-  position: relative;
-}
-
-.btn-clear-history {
-  width: 100%;
-  padding: 0.75rem 1.5rem;
-  background: var(--color-primary);
-  border: none;
-  border-radius: 9999px;
-  color: white;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-clear-history:hover {
-  background: var(--color-primary-hover);
-}
-
-.btn-clear-history:active {
-  transform: scale(0.98);
-}
-
-.panel-empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
-  color: var(--color-text-disabled);
-}
-
-.panel-empty-state p {
-  margin-bottom: 0.5rem;
-}
-
-.panel-empty-state .hint {
-  font-size: 0.9rem;
-  color: var(--color-border-lighter);
-}
-
-.requests-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.request-card-item {
-  background: var(--color-bg-tertiary);
-  border-radius: 8px;
-  padding: 1rem;
-}
-
-@media (min-width: 769px) {
-  .requests-grid {
-    align-items: center;
-  }
-
-  .request-card-item,
-  .btn-clear-history {
-    max-width: 800px;
-    width: 100%;
-  }
 }
 
 /* Mobile responsive */
@@ -2598,22 +2413,6 @@ export default {
   /* On mobile, don't move FAB when sidebar opens (sidebar overlays content) */
   .library-view:not(.sidebar-collapsed) .fab-settings {
     left: 1rem;
-  }
-
-  /* Smaller requests tab on mobile */
-  .panel-tab .tab-content {
-    padding: 0.5rem 1rem;
-    gap: 0.5rem;
-    border-radius: 10px 10px 0 0;
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-  }
-
-  .tab-text {
-    font-size: 0.85rem;
   }
 }
 
