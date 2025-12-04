@@ -7,9 +7,9 @@
         <button
           @click="handleHeaderAction"
           class="btn-collapse"
-          :title="isMobile ? 'Close menu' : 'Collapse sidebar'"
+          :title="isMobileMenuOpen ? 'Close menu' : 'Collapse sidebar'"
         >
-          <i class="fa-solid" :class="isMobile ? 'fa-xmark' : 'fa-chevron-left'"></i>
+          <i class="fa-solid" :class="isMobileMenuOpen ? 'fa-xmark' : 'fa-chevron-left'"></i>
         </button>
       </div>
       <!-- Navigation Section -->
@@ -209,7 +209,7 @@ export default {
     }
 
     const handleHeaderAction = () => {
-      if (isMobile.value) {
+      if (props.isMobileMenuOpen) {
         emit('close')  // Close full-screen menu on mobile
       } else {
         uiStore.toggleSidebar()  // Collapse sidebar on desktop
