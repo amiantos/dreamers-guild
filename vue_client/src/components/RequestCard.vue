@@ -6,7 +6,7 @@
       class="delete-btn"
       title="Delete request"
     >
-      <i class="fa-solid fa-xmark"></i>
+      <i class="fa-solid fa-trash"></i>
     </button>
 
     <div class="card-content">
@@ -273,8 +273,8 @@ export default {
 /* Delete button - top right corner */
 .delete-btn {
   position: absolute;
-  top: 0;
-  right: 0;
+  bottom: 5px;
+  right: 5px;
   width: 24px;
   height: 24px;
   padding: 0;

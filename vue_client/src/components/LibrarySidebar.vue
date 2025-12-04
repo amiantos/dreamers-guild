@@ -137,7 +137,7 @@
             @click="handleClearAllRequests"
             title="Clear completed requests"
           >
-            <i class="fa-solid fa-xmark"></i>
+            <i class="fa-solid fa-trash"></i>
           </button>
         </div>
 
@@ -782,16 +782,16 @@ export default {
 }
 
 /* Match delete button style to album actions */
-.requests-list .request-card .delete-btn {
+.requests-list .request-card :deep(.delete-btn) {
   opacity: 0;
   transition: opacity 0.2s, background 0.2s, color 0.2s;
 }
 
-.requests-list .request-card:hover .delete-btn {
+.requests-list .request-card:hover :deep(.delete-btn) {
   opacity: 1;
 }
 
-.requests-list .request-card .delete-btn:hover {
+.requests-list .request-card :deep(.delete-btn:hover) {
   background: var(--color-surface);
   color: var(--color-error);
 }
@@ -813,6 +813,14 @@ export default {
   /* Always show actions on touch devices since no hover */
   .album-actions {
     display: flex;
+  }
+
+  .requests-list .request-card :deep(.delete-btn) {
+    opacity: 1;
+  }
+
+  .requests-list .request-card:hover {
+    background: transparent;
   }
 }
 
