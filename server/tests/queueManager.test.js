@@ -1,85 +1,103 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 /**
- * Tests for the QueueManager isChecking flag
+ * Tests for the real QueueManager implementation
  *
- * These tests verify that concurrent calls to checkActiveRequests()
- * are prevented by the isChecking flag, avoiding duplicate processing
- * of the same request.
+ * We mock hordeApi and database models to prevent external calls,
+ * but test the real queue management logic including the isChecking flag.
  */
 
-// Mock implementation of key parts of QueueManager for testing
-class MockQueueManager {
-  constructor() {
-    this.maxActiveRequests = 5;
-    this.activeRequests = new Map();
-    this.activeDownloads = new Set();
-    this.lastPollTime = new Map();
-    this.minPollInterval = 100; // Short for testing
-    this.isProcessing = false;
-    this.isSubmitting = false;
-    this.isDownloading = false;
-    this.isChecking = false;
+// Mock hordeApi
+vi.mock('../services/hordeApi.js', () => ({
+  default: {
+    postImageAsyncGenerate: vi.fn().mockResolvedValue({ id: 'horde-123' }),
+    getImageAsyncCheck: vi.fn().mockResolvedValue({ done: false, queue_position: 1 }),
+    getImageAsyncStatus: vi.fn().mockResolvedValue({
+      generations: [
+        { img: 'https://example.com/image1.png', censored: false },
+        { img: 'https://example.com/image2.png', censored: false },
+      ],
+    }),
+    cancelRequest: vi.fn().mockResolvedValue({ cancelled: true }),
+    downloadImage: vi.fn().mockResolvedValue(Buffer.from('fake-image-data')),
+  },
+}));
 
-    // Track calls for testing
-    this.checkActiveRequestsCalls = [];
-    this.handleCompletedRequestCalls = [];
-  }
+// Mock database models
+vi.mock('../db/models.js', () => ({
+  HordeRequest: {
+    findPending: vi.fn(() => []),
+    findById: vi.fn(() => ({ uuid: 'req-123', prompt: 'test', full_request: '{}' })),
+    create: vi.fn((data) => ({ uuid: 'new-req-uuid', ...data })),
+    update: vi.fn(),
+  },
+  GeneratedImage: {
+    create: vi.fn(),
+  },
+  HordePendingDownload: {
+    create: vi.fn((data) => ({ uuid: 'download-uuid', ...data })),
+    findAll: vi.fn(() => []),
+    delete: vi.fn(),
+  },
+  ImageAlbum: {
+    addImageToAlbum: vi.fn(),
+  },
+}));
 
-  async checkActiveRequests() {
-    // Prevent concurrent status checking
-    if (this.isChecking) {
-      this.checkActiveRequestsCalls.push({ skipped: true, time: Date.now() });
-      return;
-    }
-    this.isChecking = true;
+// Mock sharp
+vi.mock('sharp', () => ({
+  default: vi.fn(() => ({
+    metadata: vi.fn().mockResolvedValue({ format: 'png' }),
+    resize: vi.fn().mockReturnThis(),
+    webp: vi.fn().mockReturnThis(),
+    toFile: vi.fn().mockResolvedValue(),
+  })),
+}));
 
-    try {
-      this.checkActiveRequestsCalls.push({ skipped: false, time: Date.now() });
+// Mock fs
+vi.mock('fs', () => ({
+  default: {
+    writeFileSync: vi.fn(),
+    existsSync: vi.fn(() => true),
+    mkdirSync: vi.fn(),
+  },
+}));
 
-      if (this.activeRequests.size === 0) {
-        return;
-      }
+// Mock database.js to avoid initialization
+vi.mock('../db/database.js', () => ({
+  imagesDir: '/tmp/test-images',
+}));
 
-      for (const [requestUuid, hordeId] of this.activeRequests.entries()) {
-        if (hordeId === 'submitting') {
-          continue;
-        }
+// Now import the real queueManager
+import queueManager from '../services/queueManager.js';
+import hordeApi from '../services/hordeApi.js';
+import { HordeRequest, HordePendingDownload } from '../db/models.js';
 
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        // Simulate a completed request
-        if (this.mockRequestDone) {
-          this.activeRequests.delete(requestUuid);
-          this.lastPollTime.delete(requestUuid);
-          await this.handleCompletedRequest(requestUuid, hordeId);
-        }
-      }
-    } finally {
-      this.isChecking = false;
-    }
-  }
-
-  async handleCompletedRequest(requestUuid, hordeId) {
-    this.handleCompletedRequestCalls.push({ requestUuid, hordeId, time: Date.now() });
-    // Simulate some work
-    await new Promise(resolve => setTimeout(resolve, 20));
-  }
-}
-
-describe('QueueManager isChecking Flag', () => {
-  let queueManager;
-
+describe('QueueManager (Real Implementation)', () => {
   beforeEach(() => {
-    queueManager = new MockQueueManager();
+    // Reset queue manager state
+    queueManager.activeRequests.clear();
+    queueManager.activeDownloads.clear();
+    queueManager.lastPollTime.clear();
+    queueManager.isProcessing = false;
+    queueManager.isSubmitting = false;
+    queueManager.isDownloading = false;
+    queueManager.isChecking = false;
+
+    // Reset all mocks
+    vi.clearAllMocks();
   });
 
-  describe('Concurrent Call Prevention', () => {
+  describe('isChecking Flag', () => {
     it('should prevent concurrent checkActiveRequests calls', async () => {
-      // Add some active requests
-      queueManager.activeRequests.set('request-1', 'horde-id-1');
-      queueManager.activeRequests.set('request-2', 'horde-id-2');
+      // Add an active request
+      queueManager.activeRequests.set('req-1', 'horde-1');
+
+      // Make the API call slow so we can test concurrency
+      hordeApi.getImageAsyncCheck.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return { done: false, queue_position: 1 };
+      });
 
       // Start multiple concurrent calls
       const call1 = queueManager.checkActiveRequests();
@@ -88,126 +106,193 @@ describe('QueueManager isChecking Flag', () => {
 
       await Promise.all([call1, call2, call3]);
 
-      // Only one call should have actually run (not skipped)
-      const actualCalls = queueManager.checkActiveRequestsCalls.filter(c => !c.skipped);
-      const skippedCalls = queueManager.checkActiveRequestsCalls.filter(c => c.skipped);
-
-      expect(actualCalls.length).toBe(1);
-      expect(skippedCalls.length).toBe(2);
+      // The API should only be called once (from the first call that got the lock)
+      expect(hordeApi.getImageAsyncCheck).toHaveBeenCalledTimes(1);
     });
 
     it('should allow sequential checkActiveRequests calls', async () => {
-      queueManager.activeRequests.set('request-1', 'horde-id-1');
+      queueManager.activeRequests.set('req-1', 'horde-1');
+      queueManager.minPollInterval = 0; // Disable poll interval for this test
 
-      // Sequential calls should all execute
+      hordeApi.getImageAsyncCheck.mockResolvedValue({ done: false, queue_position: 1 });
+
       await queueManager.checkActiveRequests();
       await queueManager.checkActiveRequests();
       await queueManager.checkActiveRequests();
 
-      const actualCalls = queueManager.checkActiveRequestsCalls.filter(c => !c.skipped);
-      expect(actualCalls.length).toBe(3);
+      // Each sequential call should execute
+      expect(hordeApi.getImageAsyncCheck).toHaveBeenCalledTimes(3);
     });
 
     it('should reset isChecking flag even on error', async () => {
-      queueManager.activeRequests.set('request-1', 'horde-id-1');
+      queueManager.activeRequests.set('req-1', 'horde-1');
+      queueManager.minPollInterval = 0;
 
-      // Override to throw error
-      const originalMethod = queueManager.checkActiveRequests.bind(queueManager);
-      queueManager.checkActiveRequests = async function () {
-        if (this.isChecking) {
-          this.checkActiveRequestsCalls.push({ skipped: true, time: Date.now() });
-          return;
-        }
-        this.isChecking = true;
-        try {
-          throw new Error('Simulated error');
-        } finally {
-          this.isChecking = false;
-        }
-      };
+      hordeApi.getImageAsyncCheck.mockRejectedValueOnce(new Error('API Error'));
 
-      // First call throws error
-      await expect(queueManager.checkActiveRequests()).rejects.toThrow('Simulated error');
+      // This should not throw (errors are caught internally)
+      await queueManager.checkActiveRequests();
 
-      // isChecking should be reset
+      // Flag should be reset
       expect(queueManager.isChecking).toBe(false);
 
-      // Subsequent call should work
-      queueManager.checkActiveRequests = originalMethod;
+      // Next call should work
+      hordeApi.getImageAsyncCheck.mockResolvedValue({ done: false });
       await queueManager.checkActiveRequests();
-      const actualCalls = queueManager.checkActiveRequestsCalls.filter(c => !c.skipped);
-      expect(actualCalls.length).toBe(1);
+      expect(hordeApi.getImageAsyncCheck).toHaveBeenCalledTimes(2);
     });
-  });
 
-  describe('Race Condition Prevention for handleCompletedRequest', () => {
-    it('should only call handleCompletedRequest once per request', async () => {
-      queueManager.activeRequests.set('request-1', 'horde-id-1');
-      queueManager.mockRequestDone = true;
+    it('should only call handleCompletedRequest once per request when done', async () => {
+      queueManager.activeRequests.set('req-1', 'horde-1');
+      queueManager.minPollInterval = 0;
 
-      // Simulate race: multiple interval fires
+      // First call returns done=true
+      hordeApi.getImageAsyncCheck.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return { done: true, queue_position: 0 };
+      });
+
+      // Start concurrent calls
       const call1 = queueManager.checkActiveRequests();
       const call2 = queueManager.checkActiveRequests();
 
       await Promise.all([call1, call2]);
 
-      // handleCompletedRequest should only be called once
-      expect(queueManager.handleCompletedRequestCalls.length).toBe(1);
-      expect(queueManager.handleCompletedRequestCalls[0].requestUuid).toBe('request-1');
-    });
-
-    it('should prevent duplicate downloads from concurrent status checks', async () => {
-      // This simulates the original bug:
-      // 1. Two intervals fire while status check is running
-      // 2. Both see the same request as "done"
-      // 3. Without isChecking flag, both would call handleCompletedRequest
-
-      queueManager.activeRequests.set('request-1', 'horde-id-1');
-      queueManager.activeRequests.set('request-2', 'horde-id-2');
-      queueManager.mockRequestDone = true;
-
-      // Fire 5 concurrent "interval" calls (simulating overlapping intervals)
-      const calls = Array(5).fill(null).map(() => queueManager.checkActiveRequests());
-      await Promise.all(calls);
-
-      // Should only have processed requests once
-      // (2 requests, each should only appear once in handleCompletedRequestCalls)
-      const requestIds = queueManager.handleCompletedRequestCalls.map(c => c.requestUuid);
-      const uniqueRequestIds = [...new Set(requestIds)];
-
-      expect(uniqueRequestIds.length).toBe(requestIds.length);
+      // getImageAsyncStatus (called in handleCompletedRequest) should only be called once
+      expect(hordeApi.getImageAsyncStatus).toHaveBeenCalledTimes(1);
     });
   });
-});
 
-describe('QueueManager Download Processing', () => {
-  let queueManager;
+  describe('isSubmitting Flag', () => {
+    it('should prevent concurrent submitPendingRequests calls', async () => {
+      HordeRequest.findPending.mockReturnValue([
+        { uuid: 'req-1', status: 'pending', full_request: '{"prompt":"test"}' },
+      ]);
 
-  beforeEach(() => {
-    queueManager = new MockQueueManager();
+      hordeApi.postImageAsyncGenerate.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return { id: 'horde-123' };
+      });
+
+      const call1 = queueManager.submitPendingRequests();
+      const call2 = queueManager.submitPendingRequests();
+      const call3 = queueManager.submitPendingRequests();
+
+      await Promise.all([call1, call2, call3]);
+
+      // Only one submission should happen
+      expect(hordeApi.postImageAsyncGenerate).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('should prevent concurrent download processing with isDownloading flag', async () => {
-    let processDownloadsCalls = 0;
+  describe('isDownloading Flag', () => {
+    it('should prevent concurrent processDownloads calls', async () => {
+      HordePendingDownload.findAll.mockReturnValue([
+        { uuid: 'dl-1', request_id: 'req-1', uri: 'https://example.com/img.png' },
+      ]);
 
-    queueManager.processDownloads = async function () {
-      if (this.isDownloading) {
-        return;
-      }
-      this.isDownloading = true;
-      try {
-        processDownloadsCalls++;
-        await new Promise(resolve => setTimeout(resolve, 50));
-      } finally {
-        this.isDownloading = false;
-      }
-    };
+      hordeApi.downloadImage.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return Buffer.from('fake-image');
+      });
 
-    // Fire concurrent calls
-    const calls = Array(5).fill(null).map(() => queueManager.processDownloads());
-    await Promise.all(calls);
+      const call1 = queueManager.processDownloads();
+      const call2 = queueManager.processDownloads();
+      const call3 = queueManager.processDownloads();
 
-    // Only one should have executed
-    expect(processDownloadsCalls).toBe(1);
+      await Promise.all([call1, call2, call3]);
+
+      // Only one download batch should process
+      expect(hordeApi.downloadImage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Request Lifecycle', () => {
+    it('should track active requests correctly', async () => {
+      HordeRequest.findPending.mockReturnValue([
+        { uuid: 'req-1', status: 'pending', full_request: '{"prompt":"test"}' },
+      ]);
+
+      hordeApi.postImageAsyncGenerate.mockResolvedValue({ id: 'horde-123' });
+
+      await queueManager.submitPendingRequests();
+
+      // Request should be tracked
+      expect(queueManager.activeRequests.has('req-1')).toBe(true);
+      expect(queueManager.activeRequests.get('req-1')).toBe('horde-123');
+    });
+
+    it('should remove completed requests from active tracking', async () => {
+      queueManager.activeRequests.set('req-1', 'horde-1');
+      queueManager.minPollInterval = 0;
+
+      hordeApi.getImageAsyncCheck.mockResolvedValue({ done: true });
+      hordeApi.getImageAsyncStatus.mockResolvedValue({ generations: [] });
+
+      await queueManager.checkActiveRequests();
+
+      // Request should be removed from tracking
+      expect(queueManager.activeRequests.has('req-1')).toBe(false);
+    });
+  });
+
+  describe('handleCompletedRequest', () => {
+    it('should create pending downloads for each non-censored image', async () => {
+      hordeApi.getImageAsyncStatus.mockResolvedValue({
+        generations: [
+          { img: 'https://example.com/image1.png', censored: false },
+          { img: 'https://example.com/image2.png', censored: false },
+          { img: 'https://example.com/image3.png', censored: true }, // Should be skipped
+        ],
+      });
+
+      await queueManager.handleCompletedRequest('req-1', 'horde-1');
+
+      // Should create 2 downloads (skipping the censored one)
+      expect(HordePendingDownload.create).toHaveBeenCalledTimes(2);
+      expect(HordePendingDownload.create).toHaveBeenCalledWith(
+        expect.objectContaining({ uri: 'https://example.com/image1.png' })
+      );
+      expect(HordePendingDownload.create).toHaveBeenCalledWith(
+        expect.objectContaining({ uri: 'https://example.com/image2.png' })
+      );
+    });
+
+    it('should update request status to downloading', async () => {
+      hordeApi.getImageAsyncStatus.mockResolvedValue({
+        generations: [{ img: 'https://example.com/image1.png', censored: false }],
+      });
+
+      await queueManager.handleCompletedRequest('req-1', 'horde-1');
+
+      expect(HordeRequest.update).toHaveBeenCalledWith(
+        'req-1',
+        expect.objectContaining({ status: 'downloading' })
+      );
+    });
+  });
+
+  describe('Poll Interval Enforcement', () => {
+    it('should respect minPollInterval for individual requests', async () => {
+      queueManager.activeRequests.set('req-1', 'horde-1');
+      queueManager.minPollInterval = 100;
+
+      hordeApi.getImageAsyncCheck.mockResolvedValue({ done: false });
+
+      // First call should poll
+      await queueManager.checkActiveRequests();
+      expect(hordeApi.getImageAsyncCheck).toHaveBeenCalledTimes(1);
+
+      // Immediate second call should skip (within minPollInterval)
+      await queueManager.checkActiveRequests();
+      expect(hordeApi.getImageAsyncCheck).toHaveBeenCalledTimes(1);
+
+      // Wait for interval to pass
+      await new Promise((resolve) => setTimeout(resolve, 110));
+
+      // Now it should poll again
+      await queueManager.checkActiveRequests();
+      expect(hordeApi.getImageAsyncCheck).toHaveBeenCalledTimes(2);
+    });
   });
 });
