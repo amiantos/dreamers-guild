@@ -67,7 +67,9 @@
                 class="btn-hamburger"
                 aria-label="Open menu"
               >
-                <i class="fa-solid fa-bars"></i>
+                <svg class="sidebar-icon" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
+                  <path d="m972 408c0-72.84-59.16-132-132-132h-480c-72.84 0-132 59.16-132 132v384c0 72.84 59.16 132 132 132h480c72.84 0 132-59.16 132-132zm-528 444h-84c-33.121 0-60-26.879-60-60v-384c0-33.121 26.879-60 60-60h84zm456-60c0 33.121-26.879 60-60 60h-324v-504h324c33.121 0 60 26.879 60 60z" fill="currentColor"/>
+                </svg>
               </button>
               <span
                 v-if="requests.length > 0"
@@ -1669,7 +1671,7 @@ export default {
 .library-view {
   padding: 0;
   padding-bottom: 0;
-  --sidebar-width: 320px;
+  --sidebar-width: 352px; /* 320px panel + 16px left margin + 16px right gap */
   --action-bar-height: 70px;
   transition: padding-bottom 0.3s ease-in-out, padding-left 0.3s ease;
   padding-left: var(--sidebar-width);
@@ -1736,9 +1738,6 @@ export default {
 /* Hamburger button (mobile, or desktop when sidebar collapsed) */
 .btn-hamburger {
   display: flex;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--color-text-primary);
@@ -1747,10 +1746,17 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 0;
+  transition: color 0.2s;
 }
 
 .btn-hamburger:hover {
-  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+.btn-hamburger .sidebar-icon {
+  width: 34px;
+  height: 34px;
 }
 
 /* Hamburger button wrapper for status dot overlay */
@@ -1763,7 +1769,7 @@ export default {
 .header-status-dot {
   position: absolute;
   top: 2px;
-  right: 2px;
+  left: 2px;
   width: 10px;
   height: 10px;
   border-radius: 50%;

@@ -9,7 +9,10 @@
           class="btn-collapse"
           :title="isMobileMenuOpen ? 'Close menu' : 'Collapse sidebar'"
         >
-          <i class="fa-solid" :class="isMobileMenuOpen ? 'fa-xmark' : 'fa-chevron-left'"></i>
+          <i v-if="isMobileMenuOpen" class="fa-solid fa-xmark"></i>
+          <svg v-else class="sidebar-icon" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
+            <path d="m972 408c0-72.84-59.16-132-132-132h-480c-72.84 0-132 59.16-132 132v384c0 72.84 59.16 132 132 132h480c72.84 0 132-59.16 132-132zm-528 444h-84c-33.121 0-60-26.879-60-60v-384c0-33.121 26.879-60 60-60h84zm456-60c0 33.121-26.879 60-60 60h-324v-504h324c33.121 0 60 26.879 60 60z" fill="currentColor"/>
+          </svg>
         </button>
       </div>
       <!-- Navigation Section -->
@@ -379,19 +382,51 @@ export default {
 <style scoped>
 .sidebar-container {
   position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
+  top: 16px;
+  left: 16px;
+  height: calc(100vh - 32px);
   width: 320px;
-  background: var(--color-bg-elevated);
+
+  /* Liquid Glass effect */
+  background: rgba(15, 15, 15, 0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+
+  /* Floating panel styling */
+  border-radius: 22px;
+
+  /* Specular highlight border */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
   z-index: var(--z-index-panel);
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease;
+  overflow: hidden;
+}
+
+/* Specular highlight gradient at top edge */
+.sidebar-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%);
+  border-radius: 22px 22px 0 0;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .sidebar-container.collapsed {
-  transform: translateX(-100%);
+  transform: translateX(calc(-100% - 32px)); /* Account for left margin when hiding */
 }
 
 /* Sidebar Header */
@@ -412,22 +447,23 @@ export default {
 }
 
 .btn-collapse {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: 1rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.sidebar-icon {
+  width: 34px;
+  height: 34px;
 }
 
 .btn-collapse:hover {
-  background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
@@ -784,14 +820,16 @@ export default {
   color: var(--color-danger-tailwind);
 }
 
-/* Tablet responsive (768px - 1024px) */
+/* Tablet responsive (768px - 1024px) - floating glass overlay */
 @media (max-width: 1024px) {
   .sidebar-container {
     width: 300px;
   }
 
   .sidebar-container:not(.collapsed) {
-    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
   /* Always show actions on touch devices since no hover */
@@ -819,8 +857,17 @@ export default {
     bottom: 0;
     width: 100%;
     height: 100%;
-    z-index: var(--z-index-modal);
+    border-radius: 0;
     background: var(--color-bg-base);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    z-index: var(--z-index-modal);
+  }
+
+  .sidebar-container::before {
+    display: none;
   }
 
   /* Disable collapsed state on mobile */
