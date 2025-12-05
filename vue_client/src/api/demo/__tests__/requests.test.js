@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as db from '../db.js'
+import { setDelayFn, resetDelayFn, resetThrottleState } from '../rateLimiter.js'
 import { clearDatabase } from './helpers/testDb.js'
 import { createMockFetch, flushPromises } from './helpers/mocks.js'
 import {
@@ -18,35 +19,73 @@ import {
   resetFixtureCounter
 } from './helpers/fixtures.js'
 
-// TODO: These tests need work on timer mocking for polling behavior
-// The combination of fake timers, rate limiting, and async polling creates deadlocks
-// Skip for now - the requests.js module is well-covered by integration testing
-describe.skip('Requests API', () => {
+describe('Requests API', () => {
   let requestsApi
   let resumePolling
+  let setTimerFunctions
+  let resetTimerFunctions
+  let stopAllPolling
+
+  // Mock timer state
+  let intervalCallbacks = []
+  let intervalIdCounter = 0
+
+  // Mock setInterval that captures callbacks instead of using real timers
+  const mockSetInterval = (callback, ms) => {
+    const id = ++intervalIdCounter
+    intervalCallbacks.push({ id, callback, ms })
+    return id
+  }
+
+  // Mock clearInterval
+  const mockClearInterval = (id) => {
+    intervalCallbacks = intervalCallbacks.filter(item => item.id !== id)
+  }
+
+  // Helper to trigger all pending interval callbacks
+  const triggerIntervals = async () => {
+    for (const item of [...intervalCallbacks]) {
+      await item.callback()
+    }
+    await flushPromises()
+  }
 
   beforeEach(async () => {
     resetFixtureCounter()
     localStorage.clear()
     await clearDatabase()
 
-    // Reset module to clear polling state
+    // Reset interval mocks
+    intervalCallbacks = []
+    intervalIdCounter = 0
+
+    // Set up instant-resolving delay for rate limiter
+    setDelayFn(() => Promise.resolve())
+    resetThrottleState()
+
+    // Reset and reimport module to clear state
     vi.resetModules()
 
     // Default mock fetch
     global.fetch = createMockFetch()
 
-    // Import fresh module BEFORE enabling fake timers
+    // Import fresh module
     const module = await import('../requests.js')
     requestsApi = module.requestsApi
     resumePolling = module.resumePolling
+    setTimerFunctions = module.setTimerFunctions
+    resetTimerFunctions = module.resetTimerFunctions
+    stopAllPolling = module.stopAllPolling
 
-    // Enable fake timers AFTER module import
-    vi.useFakeTimers()
+    // Inject mock timer functions
+    setTimerFunctions(mockSetInterval, mockClearInterval)
   })
 
   afterEach(async () => {
-    vi.useRealTimers()
+    stopAllPolling()
+    resetTimerFunctions()
+    resetDelayFn()
+    resetThrottleState()
     await clearDatabase()
   })
 
@@ -63,7 +102,6 @@ describe.skip('Requests API', () => {
       })
 
       await requestsApi.create({ params })
-      await vi.runAllTimersAsync()
 
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/generate/async'),
@@ -84,7 +122,6 @@ describe.skip('Requests API', () => {
       })
 
       const result = await requestsApi.create({ params: validRequestParams() })
-      await vi.runAllTimersAsync()
 
       const stored = await db.get('requests', result.data.uuid)
       expect(stored).toBeDefined()
@@ -117,7 +154,6 @@ describe.skip('Requests API', () => {
       const result = await requestsApi.create({
         params: validRequestParams({ prompt: 'beautiful sunset over ocean' })
       })
-      await vi.runAllTimersAsync()
 
       expect(result.data.prompt).toBe('beautiful sunset over ocean')
     })
@@ -135,7 +171,6 @@ describe.skip('Requests API', () => {
       const result = await requestsApi.create({
         params: validRequestParams({ prompt: 'beautiful sunset###ugly, bad quality' })
       })
-      await vi.runAllTimersAsync()
 
       expect(result.data.prompt).toBe('beautiful sunset')
     })
@@ -206,7 +241,6 @@ describe.skip('Requests API', () => {
       global.fetch = createMockFetch()
 
       await requestsApi.delete('req-to-delete')
-      await vi.runAllTimersAsync()
 
       expect(global.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/generate/status/horde-123'),
@@ -275,7 +309,6 @@ describe.skip('Requests API', () => {
       global.fetch = createMockFetch()
 
       await requestsApi.deleteAll()
-      await vi.runAllTimersAsync()
 
       // Should have called delete for the processing request
       expect(global.fetch).toHaveBeenCalledWith(
@@ -309,7 +342,6 @@ describe.skip('Requests API', () => {
       })
 
       const result = await requestsApi.retry('failed-req')
-      await vi.runAllTimersAsync()
 
       expect(result.data.status).toBe('submitting')
     })
@@ -331,7 +363,6 @@ describe.skip('Requests API', () => {
       })
 
       await requestsApi.retry('failed-req')
-      await vi.runAllTimersAsync()
 
       const oldRequest = await db.get('requests', 'failed-req')
       expect(oldRequest).toBeUndefined()
@@ -367,47 +398,22 @@ describe.skip('Requests API', () => {
   })
 
   describe('Polling behavior', () => {
-    it('should poll every 3 seconds', async () => {
-      let pollCount = 0
-      global.fetch = vi.fn().mockImplementation(async (url) => {
-        if (url.includes('/generate/async')) {
-          return {
+    it('should start polling after create', async () => {
+      global.fetch = createMockFetch({
+        responses: {
+          '/generate/async': {
             ok: true,
             json: async () => sampleHordeResponse({ id: 'horde-poll-test' })
           }
         }
-        if (url.includes('/generate/check')) {
-          pollCount++
-          return {
-            ok: true,
-            json: async () => sampleHordeStatusResponse({ done: pollCount >= 3 })
-          }
-        }
-        if (url.includes('/generate/status')) {
-          return {
-            ok: true,
-            json: async () => sampleHordeStatusResponse({
-              done: true,
-              generations: [sampleGeneration()]
-            })
-          }
-        }
-        return { ok: true, json: async () => ({}) }
       })
 
       await requestsApi.create({ params: validRequestParams() })
-
-      // First poll happens immediately
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      // Advance through polling cycles
-      for (let i = 0; i < 3; i++) {
-        await vi.advanceTimersByTimeAsync(3000)
-        await flushPromises()
-      }
-
-      expect(pollCount).toBeGreaterThanOrEqual(2)
+      // Verify polling was set up
+      expect(intervalCallbacks.length).toBe(1)
+      expect(intervalCallbacks[0].ms).toBe(3000)
     })
 
     it('should update request status from poll', async () => {
@@ -432,10 +438,10 @@ describe.skip('Requests API', () => {
       })
 
       const result = await requestsApi.create({ params: validRequestParams() })
-
-      // Wait for first poll
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
+
+      // Trigger the polling callback
+      await triggerIntervals()
 
       const updated = await db.get('requests', result.data.uuid)
       expect(updated.queue_position).toBe(10)
@@ -443,7 +449,6 @@ describe.skip('Requests API', () => {
     })
 
     it('should stop polling when done', async () => {
-      let checkCount = 0
       global.fetch = vi.fn().mockImplementation(async (url) => {
         if (url.includes('/generate/async')) {
           return {
@@ -452,7 +457,6 @@ describe.skip('Requests API', () => {
           }
         }
         if (url.includes('/generate/check')) {
-          checkCount++
           return {
             ok: true,
             json: async () => sampleHordeStatusResponse({ done: true })
@@ -471,21 +475,19 @@ describe.skip('Requests API', () => {
       })
 
       await requestsApi.create({ params: validRequestParams() })
-
-      // First poll
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      // Additional time shouldn't trigger more checks since it's done
-      await vi.advanceTimersByTimeAsync(10000)
+      const initialCallbacks = intervalCallbacks.length
+
+      // Trigger poll - should complete and stop
+      await triggerIntervals()
       await flushPromises()
 
-      // Should only have checked once or twice (done immediately)
-      expect(checkCount).toBeLessThanOrEqual(2)
+      // Polling should have been cleared
+      expect(intervalCallbacks.length).toBeLessThan(initialCallbacks)
     })
 
     it('should handle poll errors gracefully', async () => {
-      let errorCount = 0
       global.fetch = vi.fn().mockImplementation(async (url) => {
         if (url.includes('/generate/async')) {
           return {
@@ -494,17 +496,16 @@ describe.skip('Requests API', () => {
           }
         }
         if (url.includes('/generate/check')) {
-          errorCount++
           throw new Error('Network error')
         }
         return { ok: true, json: async () => ({}) }
       })
 
       const result = await requestsApi.create({ params: validRequestParams() })
-
-      // Wait for poll to fail
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
+
+      // Trigger the poll which will fail
+      await triggerIntervals()
 
       // Request should be marked as failed
       const request = await db.get('requests', result.data.uuid)
@@ -531,15 +532,10 @@ describe.skip('Requests API', () => {
       })
 
       resumePolling()
-
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      // Should have called check endpoint
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/generate/check/horde-pending'),
-        expect.any(Object)
-      )
+      // Should have set up polling
+      expect(intervalCallbacks.length).toBe(1)
     })
 
     it('should resume polling for processing requests', async () => {
@@ -552,14 +548,9 @@ describe.skip('Requests API', () => {
       global.fetch = createMockFetch()
 
       resumePolling()
-
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/generate/check/horde-processing'),
-        expect.any(Object)
-      )
+      expect(intervalCallbacks.length).toBe(1)
     })
 
     it('should not resume for completed requests', async () => {
@@ -572,14 +563,9 @@ describe.skip('Requests API', () => {
       global.fetch = createMockFetch()
 
       resumePolling()
-
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      expect(global.fetch).not.toHaveBeenCalledWith(
-        expect.stringContaining('horde-completed'),
-        expect.any(Object)
-      )
+      expect(intervalCallbacks.length).toBe(0)
     })
 
     it('should not resume for requests without horde_request_id', async () => {
@@ -592,21 +578,14 @@ describe.skip('Requests API', () => {
       global.fetch = createMockFetch()
 
       resumePolling()
-
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      // No check calls should be made
-      const checkCalls = global.fetch.mock.calls.filter(
-        call => call[0].includes('/generate/check')
-      )
-      expect(checkCalls).toHaveLength(0)
+      expect(intervalCallbacks.length).toBe(0)
     })
   })
 
   describe('Guard against duplicate processing', () => {
     it('should prevent duplicate polling for same request', async () => {
-      let pollCount = 0
       global.fetch = vi.fn().mockImplementation(async (url) => {
         if (url.includes('/generate/async')) {
           return {
@@ -615,7 +594,6 @@ describe.skip('Requests API', () => {
           }
         }
         if (url.includes('/generate/check')) {
-          pollCount++
           return {
             ok: true,
             json: async () => sampleHordeStatusResponse({ done: false })
@@ -624,25 +602,15 @@ describe.skip('Requests API', () => {
         return { ok: true, json: async () => ({}) }
       })
 
-      const result = await requestsApi.create({ params: validRequestParams() })
+      await requestsApi.create({ params: validRequestParams() })
+      await flushPromises()
 
-      // Try to manually resume polling for same request
-      // (simulating race condition)
-      const requestData = await db.get('requests', result.data.uuid)
+      // Try to manually resume polling for same request (simulating race condition)
       resumePolling()
-
-      // Wait for polls
-      await vi.advanceTimersByTimeAsync(100)
       await flushPromises()
 
-      // Should only be one poll cycle active, not duplicated
-      const initialPollCount = pollCount
-
-      await vi.advanceTimersByTimeAsync(3000)
-      await flushPromises()
-
-      // Only one more poll should have happened (not two)
-      expect(pollCount - initialPollCount).toBe(1)
+      // Should still only have one polling interval (no duplicates)
+      expect(intervalCallbacks.length).toBe(1)
     })
   })
 })

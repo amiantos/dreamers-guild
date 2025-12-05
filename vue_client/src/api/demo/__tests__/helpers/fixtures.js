@@ -24,7 +24,7 @@ export function sampleRequest(overrides = {}) {
 
   return {
     uuid,
-    horde_request_id: overrides.hordeRequestId || `horde-${id}`,
+    horde_request_id: 'hordeRequestId' in overrides ? overrides.hordeRequestId : `horde-${id}`,
     full_request: overrides.fullRequest || JSON.stringify({
       prompt: 'a beautiful sunset over the ocean',
       models: ['stable_diffusion'],

@@ -15,6 +15,38 @@ function generateUuid() {
 
 let pollingIntervals = new Map()
 
+// Injectable timer functions for testing
+let setIntervalFn = setInterval
+let clearIntervalFn = clearInterval
+
+/**
+ * Set custom timer functions (useful for testing)
+ * @param {Function} setIntervalFunc - Custom setInterval implementation
+ * @param {Function} clearIntervalFunc - Custom clearInterval implementation
+ */
+export function setTimerFunctions(setIntervalFunc, clearIntervalFunc) {
+  setIntervalFn = setIntervalFunc
+  clearIntervalFn = clearIntervalFunc
+}
+
+/**
+ * Reset to default timer functions
+ */
+export function resetTimerFunctions() {
+  setIntervalFn = setInterval
+  clearIntervalFn = clearInterval
+}
+
+/**
+ * Stop all polling and clear state (useful for testing)
+ */
+export function stopAllPolling() {
+  for (const [uuid, intervalId] of pollingIntervals) {
+    clearIntervalFn(intervalId)
+  }
+  pollingIntervals.clear()
+}
+
 async function startPollingRequest(requestUuid, hordeRequestId) {
   if (pollingIntervals.has(requestUuid)) {
     return
@@ -80,14 +112,14 @@ async function startPollingRequest(requestUuid, hordeRequestId) {
   }
 
   pollFn()
-  const intervalId = setInterval(pollFn, 3000)
+  const intervalId = setIntervalFn(pollFn, 3000)
   pollingIntervals.set(requestUuid, intervalId)
 }
 
 function stopPollingRequest(requestUuid) {
   const intervalId = pollingIntervals.get(requestUuid)
   if (intervalId) {
-    clearInterval(intervalId)
+    clearIntervalFn(intervalId)
     pollingIntervals.delete(requestUuid)
   }
 }
