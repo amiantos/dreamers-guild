@@ -473,7 +473,7 @@ export default {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0 0 0.5rem 0;
+  padding: 0.5rem 0;
 }
 
 /* Navigation Section */
