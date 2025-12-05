@@ -223,12 +223,12 @@ export default {
 
     const editInput = ref(null)
 
-    // Filter albums based on authentication state
+    // Filter albums based on authentication state and sort alphabetically
     const visibleUserAlbums = computed(() => {
-      if (props.isAuthenticated) {
-        return albums.value
-      }
-      return albums.value.filter(album => !album.is_hidden)
+      const filtered = props.isAuthenticated
+        ? albums.value
+        : albums.value.filter(album => !album.is_hidden)
+      return [...filtered].sort((a, b) => a.title.localeCompare(b.title))
     })
 
     const loadAlbums = async () => {
