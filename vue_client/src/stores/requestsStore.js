@@ -156,6 +156,23 @@ export const useRequestsStore = defineStore('requests', () => {
   }
 
   /**
+   * Repeat a completed request (create new request without deleting original)
+   * @param {string} requestId - UUID of request to repeat
+   * @returns {Object} New request data
+   */
+  const repeatRequest = async (requestId) => {
+    try {
+      const response = await requestsApi.repeat(requestId)
+      // Add new request to list, keep original
+      requests.value.unshift(response.data.request)
+      return response.data
+    } catch (error) {
+      console.error('Error repeating request:', error)
+      throw error
+    }
+  }
+
+  /**
    * Start polling for requests and queue status
    * @param {number} interval - Polling interval in milliseconds (default 2000)
    */
@@ -217,6 +234,7 @@ export const useRequestsStore = defineStore('requests', () => {
     confirmDelete,
     confirmDeleteAll,
     retryRequest,
+    repeatRequest,
     startPolling,
     stopPolling,
     clearState

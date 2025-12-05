@@ -444,6 +444,41 @@ export const requestsApi = {
     })
   },
 
+  async repeat(id) {
+    // Get the completed request
+    const request = await db.get('requests', id)
+    if (!request) {
+      throw new Error('Request not found')
+    }
+    if (request.status !== 'completed') {
+      throw new Error('Only completed requests can be repeated')
+    }
+
+    // Parse the stored full_request to get original params
+    let params
+    try {
+      params = JSON.parse(request.full_request)
+    } catch (parseError) {
+      throw new Error('Failed to parse original request data')
+    }
+
+    // Validate the parsed params before repeating
+    if (!validatePrompt(params.prompt)) {
+      throw new ValidationError('prompt is required')
+    }
+
+    const validationErrors = validateRequestParams(params)
+    if (validationErrors.length > 0) {
+      throw new ValidationError('Invalid request parameters', validationErrors)
+    }
+
+    // Create a new request with the same data (DON'T delete original)
+    return this.create({
+      prompt: request.prompt,
+      params
+    })
+  },
+
   async getQueueStatus() {
     const requests = await db.getAll('requests')
     const activeRequests = requests.filter(r =>

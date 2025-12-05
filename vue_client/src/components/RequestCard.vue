@@ -1,13 +1,23 @@
 <template>
   <div class="request-card">
-    <!-- Delete button in bottom-right corner -->
-    <button
-      @click="$emit('delete', request.uuid)"
-      class="delete-btn"
-      title="Delete request"
-    >
-      <i class="fa-solid fa-trash"></i>
-    </button>
+    <!-- Action buttons in bottom-right corner -->
+    <div class="action-buttons">
+      <button
+        v-if="request.status === 'completed' || request.status === 'failed'"
+        @click="handleRetryRepeat"
+        class="action-btn retry-btn"
+        :title="request.status === 'failed' ? 'Retry request' : 'Repeat request'"
+      >
+        <i class="fa-solid fa-arrow-rotate-right"></i>
+      </button>
+      <button
+        @click="$emit('delete', request.uuid)"
+        class="action-btn delete-btn"
+        title="Delete request"
+      >
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
 
     <div class="card-content">
       <div class="card-main">
@@ -70,12 +80,6 @@
               :style="{ width: progressPercent + '%' }"
             ></div>
           </div>
-          <!-- Retry action for failed requests -->
-          <span
-            v-if="request.status === 'failed'"
-            class="progress-action retry"
-            @click="$emit('retry', request.uuid)"
-          >Retry</span>
         </div>
       </div>
     </div>
@@ -102,8 +106,8 @@ export default {
       default: false
     }
   },
-  emits: ['view-images', 'delete', 'retry'],
-  setup(props) {
+  emits: ['view-images', 'delete', 'retry', 'repeat'],
+  setup(props, { emit }) {
     const thumbnailUrl = ref(null)
     const thumbnailHidden = ref(false)
     const actualImageCount = ref(null)
@@ -256,6 +260,14 @@ export default {
       return ''
     })
 
+    const handleRetryRepeat = () => {
+      if (props.request.status === 'failed') {
+        emit('retry', props.request.uuid)
+      } else if (props.request.status === 'completed') {
+        emit('repeat', props.request.uuid)
+      }
+    }
+
     return {
       thumbnailUrl,
       thumbnailHidden,
@@ -265,7 +277,8 @@ export default {
       formattedKudos,
       showKudos,
       progressPercent,
-      progressBarClass
+      progressBarClass,
+      handleRetryRepeat
     }
   }
 }
@@ -296,29 +309,29 @@ export default {
   gap: 0.45rem;
 }
 
-/* Delete button - bottom right corner */
-.delete-btn {
+/* Action buttons - bottom right corner */
+.action-buttons {
   position: absolute;
   bottom: 5px;
   right: 5px;
+  display: flex;
+  gap: 4px;
+}
+
+.action-btn {
   width: 20px;
   height: 20px;
   padding: 0;
   border: none;
+  border-radius: 4px;
   background: transparent;
   color: var(--color-text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.5;
-  transition: opacity 0.2s, color 0.2s;
+  transition: opacity 0.2s, background 0.2s, color 0.2s;
   font-size: 0.75rem;
-}
-
-.delete-btn:hover {
-  opacity: 1;
-  color: var(--color-danger-tailwind);
 }
 
 /* Thumbnail */
@@ -424,6 +437,7 @@ export default {
   color: var(--color-text-tertiary);
   flex-wrap: wrap;
   align-items: center;
+  padding-right: 2rem;
 }
 
 .divider {
@@ -482,23 +496,5 @@ export default {
 @keyframes indeterminate {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
-}
-
-/* Retry action text */
-.progress-action {
-  font-size: 0.65rem;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.2s;
-  position: relative;
-}
-
-.progress-action:hover {
-  opacity: 0.8;
-}
-
-.progress-action.retry {
-  color: var(--color-danger-tailwind);
 }
 </style>

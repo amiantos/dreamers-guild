@@ -154,6 +154,7 @@
             @view-images="handleViewRequestImages"
             @delete="handleDeleteRequest"
             @retry="handleRetryRequest"
+            @repeat="handleRepeatRequest"
           />
         </div>
       </div>
@@ -343,6 +344,14 @@ export default {
       }
     }
 
+    const handleRepeatRequest = async (requestId) => {
+      try {
+        await requestsStore.repeatRequest(requestId)
+      } catch (error) {
+        showToast('Failed to repeat request. Please try again.', 'error')
+      }
+    }
+
     const handleClearAllRequests = () => {
       requestsStore.showDeleteAllModal()
     }
@@ -384,6 +393,7 @@ export default {
       handleViewRequestImages,
       handleDeleteRequest,
       handleRetryRequest,
+      handleRepeatRequest,
       handleClearAllRequests,
       // Demo mode
       isDemoMode,
@@ -817,19 +827,24 @@ export default {
   background: var(--color-surface-hover);
 }
 
-/* Match delete button style to album actions */
-.requests-list .request-card :deep(.delete-btn) {
+/* Hide action buttons until hover */
+.requests-list .request-card :deep(.action-btn) {
   opacity: 0;
   transition: opacity 0.2s, background 0.2s, color 0.2s;
 }
 
-.requests-list .request-card:hover :deep(.delete-btn) {
+.requests-list .request-card:hover :deep(.action-btn) {
   opacity: 1;
 }
 
 .requests-list .request-card :deep(.delete-btn:hover) {
   background: var(--color-surface);
   color: var(--color-error);
+}
+
+.requests-list .request-card :deep(.retry-btn:hover) {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
 }
 
 .btn-clear:hover {
@@ -885,7 +900,7 @@ export default {
     display: flex;
   }
 
-  .requests-list .request-card :deep(.delete-btn) {
+  .requests-list .request-card :deep(.action-btn) {
     opacity: 1;
   }
 
