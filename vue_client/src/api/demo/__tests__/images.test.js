@@ -405,4 +405,62 @@ describe('Images API', () => {
       expect(result.data.kudos).toBe(0)
     }, 15000)
   })
+
+  describe('Batch operation validation', () => {
+    describe('batchUpdate validation', () => {
+      it('should reject undefined imageIds', async () => {
+        await expect(
+          imagesApi.batchUpdate(undefined, { isFavorite: true })
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should reject null imageIds', async () => {
+        await expect(
+          imagesApi.batchUpdate(null, { isFavorite: true })
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should reject empty array', async () => {
+        await expect(
+          imagesApi.batchUpdate([], { isFavorite: true })
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should reject non-array imageIds', async () => {
+        await expect(
+          imagesApi.batchUpdate('img-0', { isFavorite: true })
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should accept valid non-empty array', async () => {
+        const result = await imagesApi.batchUpdate(['img-0'], { isFavorite: true })
+        expect(result.success).toBe(true)
+      })
+    })
+
+    describe('batchDelete validation', () => {
+      it('should reject undefined imageIds', async () => {
+        await expect(
+          imagesApi.batchDelete(undefined)
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should reject empty array', async () => {
+        await expect(
+          imagesApi.batchDelete([])
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should reject non-array imageIds', async () => {
+        await expect(
+          imagesApi.batchDelete('img-0')
+        ).rejects.toThrow('imageIds must be a non-empty array')
+      })
+
+      it('should accept valid non-empty array', async () => {
+        const result = await imagesApi.batchDelete(['img-0'])
+        expect(result.success).toBe(true)
+      })
+    })
+  })
 })

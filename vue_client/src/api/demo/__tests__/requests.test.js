@@ -16,6 +16,7 @@ import {
   sampleHordeStatusResponse,
   sampleGeneration,
   validRequestParams,
+  invalidRequestParams,
   resetFixtureCounter
 } from './helpers/fixtures.js'
 
@@ -545,7 +546,14 @@ describe('Requests API', () => {
         status: 'processing'
       }))
 
-      global.fetch = createMockFetch()
+      global.fetch = createMockFetch({
+        responses: {
+          '/generate/check/': {
+            ok: true,
+            json: async () => sampleHordeStatusResponse()
+          }
+        }
+      })
 
       resumePolling()
       await flushPromises()
@@ -611,6 +619,216 @@ describe('Requests API', () => {
 
       // Should still only have one polling interval (no duplicates)
       expect(intervalCallbacks.length).toBe(1)
+    })
+  })
+
+  describe('Request validation', () => {
+    it('should reject missing prompt', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('missing_prompt') })
+      ).rejects.toThrow('prompt is required')
+    })
+
+    it('should reject empty prompt', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('empty_prompt') })
+      ).rejects.toThrow('prompt is required')
+    })
+
+    it('should reject whitespace-only prompt', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('whitespace_prompt') })
+      ).rejects.toThrow('prompt is required')
+    })
+
+    it('should reject missing models', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('missing_models') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject empty models array', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('empty_models') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject missing params.params', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('missing_params') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject zero width', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('zero_width') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject negative height', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('negative_height') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject zero steps', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('zero_steps') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject negative cfg_scale', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('negative_cfg_scale') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject empty sampler_name', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('empty_sampler') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should reject zero n', async () => {
+      await expect(
+        requestsApi.create({ params: invalidRequestParams('zero_n') })
+      ).rejects.toThrow('Invalid request parameters')
+    })
+
+    it('should include validation details in error', async () => {
+      try {
+        await requestsApi.create({ params: invalidRequestParams('empty_models') })
+        expect.fail('Should have thrown')
+      } catch (error) {
+        expect(error.name).toBe('ValidationError')
+        expect(error.details).toContain('models must be a non-empty array')
+      }
+    })
+  })
+
+  describe('imageAction request_id behavior', () => {
+    beforeEach(async () => {
+      await db.put('requests', sampleRequest({
+        uuid: 'req-action-test',
+        hordeRequestId: 'horde-456',
+        status: 'completed'
+      }))
+      // Non-favorited, non-hidden image
+      await db.put('images', sampleImage({
+        uuid: 'img-normal',
+        requestId: 'req-action-test',
+        isFavorite: false,
+        isHidden: false
+      }))
+      // Favorited image
+      await db.put('images', sampleImage({
+        uuid: 'img-fav',
+        requestId: 'req-action-test',
+        isFavorite: true,
+        isHidden: false
+      }))
+      // Hidden image
+      await db.put('images', sampleImage({
+        uuid: 'img-hidden',
+        requestId: 'req-action-test',
+        isFavorite: false,
+        isHidden: true
+      }))
+      await db.put('imageBlobs', sampleImageBlob({ uuid: 'img-normal' }))
+      await db.put('imageBlobs', sampleImageBlob({ uuid: 'img-fav' }))
+      await db.put('imageBlobs', sampleImageBlob({ uuid: 'img-hidden' }))
+    })
+
+    it('prune should null request_id for kept images', async () => {
+      await requestsApi.delete('req-action-test', 'prune')
+
+      // Normal image should be deleted
+      expect(await db.get('images', 'img-normal')).toBeUndefined()
+
+      // Favorited image should remain with null request_id
+      const favImg = await db.get('images', 'img-fav')
+      expect(favImg).toBeDefined()
+      expect(favImg.request_id).toBeNull()
+
+      // Hidden image should remain with null request_id
+      const hiddenImg = await db.get('images', 'img-hidden')
+      expect(hiddenImg).toBeDefined()
+      expect(hiddenImg.request_id).toBeNull()
+    })
+
+    it('keep should null request_id for all images', async () => {
+      await requestsApi.delete('req-action-test', 'keep')
+
+      const normalImg = await db.get('images', 'img-normal')
+      const favImg = await db.get('images', 'img-fav')
+      const hiddenImg = await db.get('images', 'img-hidden')
+
+      expect(normalImg.request_id).toBeNull()
+      expect(favImg.request_id).toBeNull()
+      expect(hiddenImg.request_id).toBeNull()
+    })
+
+    it('hide should set hidden and null request_id', async () => {
+      await requestsApi.delete('req-action-test', 'hide')
+
+      const normalImg = await db.get('images', 'img-normal')
+      const favImg = await db.get('images', 'img-fav')
+
+      expect(normalImg.is_hidden).toBe(1)
+      expect(normalImg.request_id).toBeNull()
+      expect(favImg.is_hidden).toBe(1)
+      expect(favImg.request_id).toBeNull()
+    })
+  })
+
+  describe('deleteAll imageAction request_id behavior', () => {
+    beforeEach(async () => {
+      await db.put('requests', sampleRequest({ uuid: 'req-1', status: 'completed' }))
+      await db.put('requests', sampleRequest({ uuid: 'req-2', status: 'completed' }))
+      await db.put('images', sampleImage({
+        uuid: 'img-a',
+        requestId: 'req-1',
+        isFavorite: true
+      }))
+      await db.put('images', sampleImage({
+        uuid: 'img-b',
+        requestId: 'req-2',
+        isFavorite: false
+      }))
+    })
+
+    it('prune should null request_id for kept images', async () => {
+      await requestsApi.deleteAll('prune')
+
+      // Normal image should be deleted
+      expect(await db.get('images', 'img-b')).toBeUndefined()
+
+      // Favorited image should remain with null request_id
+      const favImg = await db.get('images', 'img-a')
+      expect(favImg).toBeDefined()
+      expect(favImg.request_id).toBeNull()
+    })
+
+    it('keep should null request_id for all images', async () => {
+      await requestsApi.deleteAll('keep')
+
+      const imgA = await db.get('images', 'img-a')
+      const imgB = await db.get('images', 'img-b')
+
+      expect(imgA.request_id).toBeNull()
+      expect(imgB.request_id).toBeNull()
+    })
+
+    it('hide should set hidden and null request_id', async () => {
+      await requestsApi.deleteAll('hide')
+
+      const imgA = await db.get('images', 'img-a')
+      const imgB = await db.get('images', 'img-b')
+
+      expect(imgA.is_hidden).toBe(1)
+      expect(imgA.request_id).toBeNull()
+      expect(imgB.is_hidden).toBe(1)
+      expect(imgB.request_id).toBeNull()
     })
   })
 })

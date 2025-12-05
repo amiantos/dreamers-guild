@@ -1,5 +1,6 @@
 import * as db from './db.js'
 import { estimateKudos } from './horde.js'
+import { ValidationError } from '../shared/validation.js'
 
 const blobUrlCache = new Map()
 
@@ -206,6 +207,11 @@ export const imagesApi = {
   },
 
   async batchUpdate(imageIds, updates) {
+    // Validate imageIds (matching server behavior)
+    if (!Array.isArray(imageIds) || imageIds.length === 0) {
+      throw new ValidationError('imageIds must be a non-empty array')
+    }
+
     // Normalize key names (component uses camelCase, we store snake_case)
     const normalizedUpdates = { ...updates }
     if (normalizedUpdates.isFavorite !== undefined) {
@@ -227,6 +233,11 @@ export const imagesApi = {
   },
 
   async batchDelete(imageIds) {
+    // Validate imageIds (matching server behavior)
+    if (!Array.isArray(imageIds) || imageIds.length === 0) {
+      throw new ValidationError('imageIds must be a non-empty array')
+    }
+
     for (const id of imageIds) {
       await db.remove('imageBlobs', id)
       await db.remove('images', id)

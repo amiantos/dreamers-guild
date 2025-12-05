@@ -8,6 +8,7 @@ import {
   generateThumbnail,
   downloadImage
 } from './horde.js'
+import { validateRequestParams, validatePrompt, ValidationError } from '../shared/validation.js'
 
 function generateUuid() {
   return crypto.randomUUID()
@@ -235,6 +236,16 @@ export const requestsApi = {
       // We need to use params as the actual request to AI Horde
       const hordeRequestData = data.params || data
 
+      // Validate the request params (matching server behavior)
+      if (!validatePrompt(hordeRequestData.prompt)) {
+        throw new ValidationError('prompt is required')
+      }
+
+      const validationErrors = validateRequestParams(hordeRequestData)
+      if (validationErrors.length > 0) {
+        throw new ValidationError('Invalid request parameters', validationErrors)
+      }
+
       console.log('[Demo] Submitting generation request:', JSON.stringify(hordeRequestData, null, 2))
 
       const hordeResponse = await submitGenerationRequest(hordeRequestData)
@@ -266,6 +277,11 @@ export const requestsApi = {
 
       return { data: request }
     } catch (error) {
+      // Re-throw validation errors - they should not create failed request records
+      if (error instanceof ValidationError) {
+        throw error
+      }
+
       console.error('[Demo] Error creating request:', error)
       // Create a failed request record so user can see the error
       const failedRequest = {
@@ -309,16 +325,19 @@ export const requestsApi = {
 
     if (imageAction === 'prune') {
       // Delete images that are NOT favorited AND NOT hidden
+      // Null request_id for kept images (matching server behavior)
       for (const img of images) {
         if (!img.is_favorite && !img.is_hidden) {
           await db.remove('imageBlobs', img.uuid)
           await db.remove('images', img.uuid)
+        } else {
+          await db.put('images', { ...img, request_id: null })
         }
       }
     } else if (imageAction === 'hide') {
-      // Mark all images as hidden
+      // Mark all images as hidden AND null request_id (matching server behavior)
       for (const img of images) {
-        await db.put('images', { ...img, is_hidden: 1 })
+        await db.put('images', { ...img, is_hidden: 1, request_id: null })
       }
     } else if (imageAction === 'delete') {
       // Delete all images
@@ -326,8 +345,13 @@ export const requestsApi = {
         await db.remove('imageBlobs', img.uuid)
         await db.remove('images', img.uuid)
       }
+    } else if (imageAction === 'keep') {
+      // Keep images but null their request_id (matching server behavior)
+      for (const img of images) {
+        await db.put('images', { ...img, request_id: null })
+      }
     }
-    // 'keep' and 'cancel' don't touch images
+    // 'cancel' doesn't touch images
 
     await db.remove('requests', id)
   },
@@ -350,25 +374,34 @@ export const requestsApi = {
     // Handle image actions
     if (imageAction === 'prune') {
       // Delete images that are NOT favorited AND NOT hidden
+      // Null request_id for kept images (matching server behavior)
       const images = await db.getAll('images')
       for (const img of images) {
         if (!img.is_favorite && !img.is_hidden) {
           await db.remove('imageBlobs', img.uuid)
           await db.remove('images', img.uuid)
+        } else {
+          await db.put('images', { ...img, request_id: null })
         }
       }
     } else if (imageAction === 'hide') {
-      // Mark all images as hidden
+      // Mark all images as hidden AND null request_id (matching server behavior)
       const images = await db.getAll('images')
       for (const img of images) {
-        await db.put('images', { ...img, is_hidden: 1 })
+        await db.put('images', { ...img, is_hidden: 1, request_id: null })
       }
     } else if (imageAction === 'delete') {
       // Delete all images
       await db.clear('imageBlobs')
       await db.clear('images')
+    } else if (imageAction === 'keep') {
+      // Keep images but null their request_id (matching server behavior)
+      const images = await db.getAll('images')
+      for (const img of images) {
+        await db.put('images', { ...img, request_id: null })
+      }
     }
-    // 'keep' and 'cancel' don't touch images
+    // 'cancel' doesn't touch images
 
     await db.clear('requests')
   },
@@ -389,6 +422,16 @@ export const requestsApi = {
       params = JSON.parse(request.full_request)
     } catch (parseError) {
       throw new Error('Failed to parse original request data')
+    }
+
+    // Validate the parsed params before retrying (matching server behavior)
+    if (!validatePrompt(params.prompt)) {
+      throw new ValidationError('prompt is required')
+    }
+
+    const validationErrors = validateRequestParams(params)
+    if (validationErrors.length > 0) {
+      throw new ValidationError('Invalid request parameters', validationErrors)
     }
 
     // Delete the failed request

@@ -229,3 +229,88 @@ export function validRequestParams(overrides = {}) {
     ...overrides
   }
 }
+
+/**
+ * Create invalid request params for testing validation
+ * @param {string} type - The type of invalid params to create
+ */
+export function invalidRequestParams(type) {
+  const valid = validRequestParams()
+
+  switch (type) {
+    case 'missing_prompt':
+      return { ...valid, prompt: undefined }
+
+    case 'empty_prompt':
+      return { ...valid, prompt: '' }
+
+    case 'whitespace_prompt':
+      return { ...valid, prompt: '   ' }
+
+    case 'missing_models':
+      return { ...valid, models: undefined }
+
+    case 'empty_models':
+      return { ...valid, models: [] }
+
+    case 'invalid_models':
+      return { ...valid, models: 'not_an_array' }
+
+    case 'missing_params':
+      return { ...valid, params: undefined }
+
+    case 'invalid_width':
+      return { ...valid, params: { ...valid.params, width: 'not_a_number' } }
+
+    case 'zero_width':
+      return { ...valid, params: { ...valid.params, width: 0 } }
+
+    case 'negative_width':
+      return { ...valid, params: { ...valid.params, width: -512 } }
+
+    case 'invalid_height':
+      return { ...valid, params: { ...valid.params, height: 'not_a_number' } }
+
+    case 'zero_height':
+      return { ...valid, params: { ...valid.params, height: 0 } }
+
+    case 'negative_height':
+      return { ...valid, params: { ...valid.params, height: -512 } }
+
+    case 'invalid_steps':
+      return { ...valid, params: { ...valid.params, steps: 'not_a_number' } }
+
+    case 'zero_steps':
+      return { ...valid, params: { ...valid.params, steps: 0 } }
+
+    case 'negative_steps':
+      return { ...valid, params: { ...valid.params, steps: -20 } }
+
+    case 'invalid_cfg_scale':
+      return { ...valid, params: { ...valid.params, cfg_scale: 'not_a_number' } }
+
+    case 'negative_cfg_scale':
+      return { ...valid, params: { ...valid.params, cfg_scale: -7 } }
+
+    case 'missing_sampler':
+      return { ...valid, params: { ...valid.params, sampler_name: undefined } }
+
+    case 'empty_sampler':
+      return { ...valid, params: { ...valid.params, sampler_name: '' } }
+
+    case 'whitespace_sampler':
+      return { ...valid, params: { ...valid.params, sampler_name: '   ' } }
+
+    case 'invalid_n':
+      return { ...valid, params: { ...valid.params, n: 'not_a_number' } }
+
+    case 'zero_n':
+      return { ...valid, params: { ...valid.params, n: 0 } }
+
+    case 'negative_n':
+      return { ...valid, params: { ...valid.params, n: -1 } }
+
+    default:
+      throw new Error(`Unknown invalid params type: ${type}`)
+  }
+}
