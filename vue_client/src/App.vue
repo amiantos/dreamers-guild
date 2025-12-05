@@ -1,12 +1,5 @@
 <template>
   <div class="app">
-    <!-- Demo Mode Banner -->
-    <div v-if="isDemoMode" class="demo-banner">
-      <span class="demo-icon">🧪</span>
-      <span class="demo-text">Demo Mode (BETA) - Data is stored locally in your browser!</span>
-      <button @click="showStorageInfo = true" class="demo-info-btn">Storage Info</button>
-    </div>
-
     <!-- Storage Info Modal -->
     <BaseModal
       v-if="showStorageInfo"
@@ -454,6 +447,13 @@ export default {
     provide('openRequestModal', openRequestModal)
     provide('shouldOpenRequestsPanel', shouldOpenRequestsPanel)
 
+    // Demo mode - provide to sidebar
+    const openDemoStorageModal = () => {
+      showStorageInfo.value = true
+    }
+    provide('isDemoMode', isDemoMode)
+    provide('openDemoStorageModal', openDemoStorageModal)
+
     return {
       isDemoMode,
       showStorageInfo,
@@ -484,56 +484,6 @@ export default {
 <style>
 .app {
   min-height: 100vh;
-}
-
-/* Demo Mode Banner */
-.demo-banner {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: var(--z-index-sticky);
-  background: linear-gradient(135deg, #ff6b6b, #ffa500);
-  color: white;
-  padding: 0.5rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.demo-icon {
-  font-size: 1.1rem;
-}
-
-.demo-text {
-  flex-shrink: 0;
-}
-
-.demo-info-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: background 0.2s;
-}
-
-.demo-info-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Offset content when demo banner is showing */
-.app:has(.demo-banner) .library-view,
-.app:has(.demo-banner) .settings-view,
-.app:has(.demo-banner) .workers-view,
-.app:has(.demo-banner) .shared-keys-view {
-  padding-top: 3rem;
 }
 
 /* Storage Modal Content */

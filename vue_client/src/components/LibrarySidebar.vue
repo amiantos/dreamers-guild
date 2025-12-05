@@ -158,11 +158,17 @@
         </div>
       </div>
     </div>
+
+    <!-- Demo Mode Footer -->
+    <div v-if="isDemoMode" class="demo-footer">
+      <span class="demo-label">Demo Mode</span>
+      <button @click="openDemoStorageModal" class="demo-info-btn">Info</button>
+    </div>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, inject } from 'vue'
 import { storeToRefs } from 'pinia'
 import { imagesApi } from '@api'
 import AsyncImage from './AsyncImage.vue'
@@ -202,6 +208,10 @@ export default {
     const albumStore = useAlbumStore()
     const uiStore = useUiStore()
     const requestsStore = useRequestsStore()
+
+    // Demo mode
+    const isDemoMode = inject('isDemoMode', false)
+    const openDemoStorageModal = inject('openDemoStorageModal', () => {})
 
     // Get reactive state from stores
     const {
@@ -374,7 +384,10 @@ export default {
       handleViewRequestImages,
       handleDeleteRequest,
       handleRetryRequest,
-      handleClearAllRequests
+      handleClearAllRequests,
+      // Demo mode
+      isDemoMode,
+      openDemoStorageModal
     }
   }
 }
@@ -821,6 +834,38 @@ export default {
 
 .btn-clear:hover {
   color: var(--color-danger-tailwind);
+}
+
+/* Demo Mode Footer */
+.demo-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #ff6b6b, #ffa500);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.demo-label {
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.demo-footer .demo-info-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s;
+}
+
+.demo-footer .demo-info-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Tablet responsive (768px - 1024px) - floating glass overlay */
