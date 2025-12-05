@@ -1,20 +1,21 @@
 <template>
   <div class="sidebar-container" :class="{ collapsed: isCollapsed }">
+    <!-- Sidebar Header (fixed at top) -->
+    <div class="sidebar-header">
+      <h1>Dreamers Guild</h1>
+      <button
+        @click="handleHeaderAction"
+        class="btn-collapse"
+        :title="isMobileMenuOpen ? 'Close menu' : 'Collapse sidebar'"
+      >
+        <i v-if="isMobileMenuOpen" class="fa-solid fa-xmark"></i>
+        <svg v-else class="sidebar-icon" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
+          <path d="m972 408c0-72.84-59.16-132-132-132h-480c-72.84 0-132 59.16-132 132v384c0 72.84 59.16 132 132 132h480c72.84 0 132-59.16 132-132zm-528 444h-84c-33.121 0-60-26.879-60-60v-384c0-33.121 26.879-60 60-60h84zm456-60c0 33.121-26.879 60-60 60h-324v-504h324c33.121 0 60 26.879 60 60z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+    <!-- Scrollable content -->
     <div class="sidebar-content">
-      <!-- Sidebar Header -->
-      <div class="sidebar-header">
-        <h1>Dreamers Guild</h1>
-        <button
-          @click="handleHeaderAction"
-          class="btn-collapse"
-          :title="isMobileMenuOpen ? 'Close menu' : 'Collapse sidebar'"
-        >
-          <i v-if="isMobileMenuOpen" class="fa-solid fa-xmark"></i>
-          <svg v-else class="sidebar-icon" viewBox="0 0 1200 1200" xmlns="http://www.w3.org/2000/svg">
-            <path d="m972 408c0-72.84-59.16-132-132-132h-480c-72.84 0-132 59.16-132 132v384c0 72.84 59.16 132 132 132h480c72.84 0 132-59.16 132-132zm-528 444h-84c-33.121 0-60-26.879-60-60v-384c0-33.121 26.879-60 60-60h84zm456-60c0 33.121-26.879 60-60 60h-324v-504h324c33.121 0 60 26.879 60 60z" fill="currentColor"/>
-          </svg>
-        </button>
-      </div>
       <!-- Navigation Section -->
       <nav class="nav-section">
         <div
@@ -429,14 +430,16 @@ export default {
   transform: translateX(calc(-100% - 32px)); /* Account for left margin when hiding */
 }
 
-/* Sidebar Header */
+/* Sidebar Header - fixed at top */
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1rem 0.5rem 1rem;
+  padding: 1rem;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .sidebar-header h1 {
@@ -470,7 +473,7 @@ export default {
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0.5rem 0;
+  padding: 0 0 0.5rem 0;
 }
 
 /* Navigation Section */
