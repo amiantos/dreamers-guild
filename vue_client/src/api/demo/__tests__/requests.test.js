@@ -556,6 +556,8 @@ describe('Requests API', () => {
       })
 
       resumePolling()
+      // Multiple flushes needed for chained async operations
+      await flushPromises()
       await flushPromises()
 
       expect(intervalCallbacks.length).toBe(1)

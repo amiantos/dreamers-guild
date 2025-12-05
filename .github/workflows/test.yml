@@ -24,13 +24,16 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install server dependencies
         run: npm ci
 
-      - name: Run tests with coverage
+      - name: Install vue_client dependencies
+        run: cd vue_client && npm ci
+
+      - name: Run server tests with coverage
         run: npm run test:coverage
 
-      - name: Upload coverage to Codecov
+      - name: Upload server coverage to Codecov
         uses: codecov/codecov-action@v4
         continue-on-error: true
         with:
@@ -38,6 +41,19 @@ jobs:
           files: ./coverage/coverage-final.json
           flags: server
           name: server-coverage
+          fail_ci_if_error: false
+
+      - name: Run vue_client tests with coverage
+        run: cd vue_client && npx vitest run --coverage
+
+      - name: Upload vue_client coverage to Codecov
+        uses: codecov/codecov-action@v4
+        continue-on-error: true
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./vue_client/coverage/coverage-final.json
+          flags: vue_client
+          name: vue_client-coverage
           fail_ci_if_error: false
 
       - name: Comment on PR
@@ -50,5 +66,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '## Test Results\n\nAll tests passed successfully!'
+              body: '## Test Results\n\nAll tests passed successfully! (server + vue_client)'
             })
