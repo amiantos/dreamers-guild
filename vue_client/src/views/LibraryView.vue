@@ -1704,7 +1704,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  padding: 1.5rem 2rem;
+  padding: 1.5rem 1.5rem;
 }
 
 .header-row-1 {
