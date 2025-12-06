@@ -94,7 +94,7 @@
             <!-- New Dream Button -->
             <button @click="openNewRequest" class="btn-new-dream" title="New Dream">
               <i class="fa-solid fa-plus" aria-hidden="true"></i>
-              <span>New Dream</span>
+              <span class="btn-new-dream-text">New Dream</span>
             </button>
 
             <!-- Settings Button -->
@@ -2373,6 +2373,17 @@ export default {
 
   .show-mobile-only {
     display: flex !important;
+  }
+
+  .btn-new-dream {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .btn-new-dream-text {
+    display: none;
   }
 }
 
