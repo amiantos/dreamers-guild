@@ -83,16 +83,24 @@
 
           <div class="header-controls">
             <!-- Search Bar -->
-            <div class="search-bar">
-              <input
-                type="text"
-                v-model="searchQuery"
-                @keyup.enter="applySearch"
-                placeholder="Search images..."
-                class="search-input"
-              />
-              <button @click="applySearch" class="btn-search">Search</button>
-            </div>
+            <input
+              type="text"
+              v-model="searchQuery"
+              @keyup.enter="applySearch"
+              placeholder="Search images..."
+              class="search-input"
+            />
+
+            <!-- New Dream Button -->
+            <button @click="openNewRequest" class="btn-new-dream" title="New Dream">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i>
+              <span>New Dream</span>
+            </button>
+
+            <!-- Settings Button -->
+            <router-link to="/settings" class="btn-settings" title="Settings" aria-label="Settings">
+              <i class="fa-solid fa-gear" aria-hidden="true"></i>
+            </router-link>
 
             <!-- Overflow Menu -->
             <div class="menu-container" ref="menuContainer">
@@ -211,16 +219,6 @@
       @load-settings="handleLoadSettings"
       @update="handleImageUpdate"
     />
-
-    <!-- Floating Action Button (Settings) -->
-    <router-link v-if="selectedCount === 0" to="/settings" class="fab fab-settings" title="Settings">
-      <i class="fa-solid fa-gear"></i>
-    </router-link>
-
-    <!-- Floating Action Button (New Request) -->
-    <button v-if="selectedCount === 0" @click="openNewRequest" class="fab fab-new" title="New Request">
-      <i class="fa-solid fa-plus"></i>
-    </button>
 
     <!-- Multi-Select Action Bar (show when images are selected OR in dedicated multi-select mode) -->
     <div v-if="selectedCount > 0 || isMultiSelectMode" class="multi-select-action-bar">
@@ -1901,11 +1899,6 @@ export default {
   border-color: #d32f2f;
 }
 
-.search-bar {
-  display: flex;
-  gap: 0.5rem;
-}
-
 .search-input {
   padding: 0.5rem 1rem;
   background: var(--color-surface);
@@ -1926,7 +1919,10 @@ export default {
   color: var(--color-text-disabled);
 }
 
-.btn-search {
+.btn-new-dream {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: var(--color-primary);
   border: none;
@@ -1939,8 +1935,34 @@ export default {
   transition: background 0.2s;
 }
 
-.btn-search:hover {
+.btn-new-dream:hover {
   background: var(--color-primary-hover);
+}
+
+.btn-new-dream i {
+  font-size: 0.85rem;
+}
+
+.btn-settings {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  background: var(--color-surface);
+  border: 1px solid #333;
+  color: var(--color-text-tertiary);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn-settings:hover {
+  background: var(--color-surface);
+  border-color: var(--color-text-disabled);
+  color: var(--color-text-primary);
 }
 
 .menu-container {
@@ -2209,58 +2231,6 @@ export default {
   font-weight: 500;
 }
 
-/* Floating Action Buttons */
-.fab {
-  position: fixed;
-  bottom: 2rem;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  font-size: 2.5rem;
-  font-weight: 300;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: all 0.2s, transform 0.3s ease-out;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-}
-
-.fab-new {
-  right: 2rem;
-}
-
-.fab-settings {
-  left: 2rem;
-  background: var(--color-border-lighter);
-  transition: all 0.2s, transform 0.3s ease-out, left 0.3s ease;
-}
-
-/* Move settings FAB when sidebar is expanded */
-.library-view:not(.sidebar-collapsed) .fab-settings {
-  left: calc(var(--sidebar-width) + 2rem);
-}
-
-.fab:hover {
-  background: var(--color-primary-hover);
-  transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
-}
-
-.fab-settings:hover {
-  background: var(--color-text-quaternary);
-}
-
-.fab:active {
-  transform: scale(0.95);
-}
-
 /* Multi-Select Action Bar */
 .multi-select-action-bar {
   position: fixed;
@@ -2387,10 +2357,6 @@ export default {
     justify-content: center;
   }
 
-  .search-bar {
-    flex: 1;
-  }
-
   .search-input {
     flex: 1;
     width: auto;
@@ -2407,27 +2373,6 @@ export default {
 
   .show-mobile-only {
     display: flex !important;
-  }
-
-  /* Smaller FABs on mobile */
-  .fab {
-    width: 42px;
-    height: 42px;
-    font-size: 1.5rem;
-    bottom: 1rem;
-  }
-
-  .fab-new {
-    right: 1rem;
-  }
-
-  .fab-settings {
-    left: 1rem;
-  }
-
-  /* On mobile, don't move FAB when sidebar opens (sidebar overlays content) */
-  .library-view:not(.sidebar-collapsed) .fab-settings {
-    left: 1rem;
   }
 }
 
