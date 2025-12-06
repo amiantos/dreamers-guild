@@ -95,3 +95,11 @@ const app = createApp(App)
 app.use(pinia)
 app.use(router)
 app.mount('#app')
+
+// Load Simple Analytics only in demo mode
+if (__DEMO_MODE__) {
+  const script = document.createElement('script')
+  script.async = true
+  script.src = 'https://scripts.simpleanalyticscdn.com/latest.js'
+  document.body.appendChild(script)
+}
