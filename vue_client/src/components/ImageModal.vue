@@ -935,6 +935,7 @@ export default {
     }
 
     onMounted(() => {
+      document.body.style.overflow = 'hidden'
       window.addEventListener('keydown', handleKeydown)
       window.addEventListener('resize', handleResize)
       scrollToActiveThumb()
@@ -947,6 +948,7 @@ export default {
     })
 
     onUnmounted(() => {
+      document.body.style.overflow = ''
       window.removeEventListener('keydown', handleKeydown)
       window.removeEventListener('resize', handleResize)
       if (filmstripTrack.value) {
@@ -1032,17 +1034,19 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
+  padding: 0;
 }
 
 .lightbox-container {
   position: relative;
   width: 100%;
-  max-width: 1400px;
-  height: 90vh;
-  max-height: 90vh;
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   background: var(--color-surface);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1051,7 +1055,7 @@ export default {
 .btn-close {
   position: absolute;
   top: 0.75rem;
-  right: 0.75rem;
+  left: 0.75rem;
   width: 36px;
   height: 36px;
   border: none;
@@ -1581,20 +1585,6 @@ export default {
 }
 
 @media (max-width: 640px) {
-  .lightbox-overlay {
-    padding: 0;
-  }
-
-  .lightbox-container {
-    border-radius: 0;
-    /* Fallback for older browsers */
-    height: 100vh;
-    max-height: 100vh;
-    /* Dynamic viewport height for iOS Safari */
-    height: 100dvh;
-    max-height: 100dvh;
-  }
-
   .inspector-sidebar {
     max-height: 50vh;
   }
@@ -1606,7 +1596,7 @@ export default {
 
   .btn-close {
     top: 0.5rem;
-    right: 0.5rem;
+    left: 0.5rem;
   }
 
   .image-display {
