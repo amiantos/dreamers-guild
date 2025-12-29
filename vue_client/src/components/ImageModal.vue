@@ -5,10 +5,153 @@
       <div class="lightbox-content">
         <!-- Left side: Image + Filmstrip -->
         <div class="image-area">
-          <!-- Close button (inside image area to avoid sidebar overlap) -->
-          <button class="btn-close" @click="$emit('close')" title="Close (Esc)">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
+          <!-- Action Toolbar -->
+          <div class="action-toolbar">
+            <!-- Close button (far left) -->
+            <button class="toolbar-btn toolbar-btn-close" @click="$emit('close')" title="Close (Esc)">
+              <i class="fa-solid fa-xmark"></i>
+              <span class="toolbar-btn-text">Close</span>
+            </button>
+
+            <!-- Primary actions (always visible) -->
+            <div v-if="!isProtected" class="toolbar-primary">
+              <button
+                @click="toggleFavorite"
+                :class="['toolbar-btn', { 'active': isFavorite }]"
+                :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+              >
+                <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
+                <span class="toolbar-btn-text">{{ isFavorite ? 'Favorited' : 'Favorite' }}</span>
+              </button>
+              <button
+                @click="toggleHidden"
+                :class="['toolbar-btn', { 'active-hide': isHidden }]"
+                :title="isHidden ? 'Unhide image' : 'Hide image'"
+              >
+                <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
+                <span class="toolbar-btn-text">{{ isHidden ? 'Hidden' : 'Hide' }}</span>
+              </button>
+              <button
+                @click="copyImageToClipboard"
+                class="toolbar-btn"
+                title="Copy image to clipboard"
+              >
+                <i class="fa-solid fa-copy"></i>
+                <span class="toolbar-btn-text">{{ copied ? 'Copied!' : 'Copy' }}</span>
+              </button>
+              <button
+                @click="showDeleteModal = true"
+                class="toolbar-btn toolbar-btn-danger"
+                title="Delete image"
+              >
+                <i class="fa-solid fa-trash"></i>
+                <span class="toolbar-btn-text">Delete</span>
+              </button>
+            </div>
+
+            <!-- Secondary actions (visible on desktop, hidden on mobile) -->
+            <div v-if="!isProtected" class="toolbar-secondary">
+              <button
+                @click="downloadImage"
+                class="toolbar-btn toolbar-btn-primary"
+                title="Download image"
+              >
+                <i class="fa-solid fa-download"></i>
+                <span class="toolbar-btn-text">Download</span>
+              </button>
+              <button
+                @click="showAddToAlbumModal = true"
+                class="toolbar-btn"
+                title="Add to album"
+              >
+                <i class="fa-solid fa-folder-plus"></i>
+                <span class="toolbar-btn-text">Album</span>
+              </button>
+              <button
+                v-if="currentAlbum"
+                @click="setAsAlbumCover"
+                :class="['toolbar-btn', { 'is-cover': isCurrentCover }]"
+                :disabled="isCurrentCover || isSettingCover"
+                :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
+              >
+                <i class="fa-solid" :class="isCurrentCover ? 'fa-check' : 'fa-image'"></i>
+                <span class="toolbar-btn-text">{{ isSettingCover ? 'Setting...' : (isCurrentCover ? 'Cover' : 'Set Cover') }}</span>
+              </button>
+              <button
+                v-if="hasSettings"
+                @click="$emit('load-settings', false)"
+                class="toolbar-btn"
+                title="Load generation settings from this image"
+              >
+                <i class="fa-solid fa-sliders"></i>
+                <span class="toolbar-btn-text">Load</span>
+              </button>
+              <button
+                v-if="hasSettings"
+                @click="$emit('load-settings', true)"
+                class="toolbar-btn"
+                title="Load generation settings including seed"
+              >
+                <i class="fa-solid fa-seedling"></i>
+                <span class="toolbar-btn-text">+ Seed</span>
+              </button>
+              <button
+                v-if="hasSettings"
+                @click="showDetailsView('request')"
+                class="toolbar-btn"
+                title="View full request JSON"
+              >
+                <i class="fa-solid fa-code"></i>
+                <span class="toolbar-btn-text">Request</span>
+              </button>
+              <button
+                v-if="hasResponse"
+                @click="showDetailsView('response')"
+                class="toolbar-btn"
+                title="View full response JSON"
+              >
+                <i class="fa-solid fa-file-code"></i>
+                <span class="toolbar-btn-text">Response</span>
+              </button>
+            </div>
+
+            <!-- Mobile kebab menu (hidden on desktop, visible on mobile) -->
+            <div v-if="!isProtected" class="toolbar-overflow" ref="toolbarMenuContainer">
+              <button @click.stop="toggleToolbarMenu" class="toolbar-btn toolbar-menu-btn" title="More actions">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </button>
+              <div v-if="showToolbarMenu" class="toolbar-dropdown">
+                <div class="toolbar-dropdown-item" @click="handleMenuAction('download')">
+                  <i class="fa-solid fa-download"></i>
+                  <span>Download</span>
+                </div>
+                <div class="toolbar-dropdown-item" @click="handleMenuAction('addToAlbum')">
+                  <i class="fa-solid fa-folder-plus"></i>
+                  <span>Add to Album</span>
+                </div>
+                <div v-if="currentAlbum && !isCurrentCover" class="toolbar-dropdown-item" @click="handleMenuAction('setCover')">
+                  <i class="fa-solid fa-image"></i>
+                  <span>Set as Cover</span>
+                </div>
+                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettings')">
+                  <i class="fa-solid fa-sliders"></i>
+                  <span>Load Settings</span>
+                </div>
+                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettingsWithSeed')">
+                  <i class="fa-solid fa-seedling"></i>
+                  <span>Load Settings + Seed</span>
+                </div>
+                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('showRequest')">
+                  <i class="fa-solid fa-code"></i>
+                  <span>View Request</span>
+                </div>
+                <div v-if="hasResponse" class="toolbar-dropdown-item" @click="handleMenuAction('showResponse')">
+                  <i class="fa-solid fa-file-code"></i>
+                  <span>View Response</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Main image display -->
           <div class="image-display" :class="{ 'protected': isProtected }" @click="enterFullscreen">
@@ -123,118 +266,6 @@
               <InspectorGrid :items="metadataInfo" />
             </AccordionSection>
 
-            <!-- Actions Section -->
-            <AccordionSection title="Actions" icon="fa-gear" :defaultOpen="true" :forceOpen="true">
-              <!-- Action buttons -->
-              <div class="action-buttons">
-                <!-- Favorite / Hide row -->
-                <div class="action-row">
-                  <button
-                    @click="toggleFavorite"
-                    :class="['btn-action btn-secondary', { 'active': isFavorite }]"
-                    :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-                  >
-                    <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
-                    <span>{{ isFavorite ? 'Favorited' : 'Favorite' }}</span>
-                  </button>
-                  <button
-                    @click="toggleHidden"
-                    :class="['btn-action btn-secondary', { 'active-hide': isHidden }]"
-                    :title="isHidden ? 'Unhide image' : 'Hide image'"
-                  >
-                    <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
-                    <span>{{ isHidden ? 'Hidden' : 'Hide' }}</span>
-                  </button>
-                </div>
-                <!-- Add to Album button -->
-                <button
-                  @click="showAddToAlbumModal = true"
-                  class="btn-action btn-secondary"
-                  title="Add to album"
-                >
-                  <i class="fa-solid fa-folder-plus"></i>
-                  <span>Add to Album</span>
-                </button>
-                <!-- Set as Cover button (only when viewing in album context) -->
-                <button
-                  v-if="currentAlbum"
-                  @click="setAsAlbumCover"
-                  class="btn-action btn-secondary"
-                  :class="{ 'is-cover': isCurrentCover }"
-                  :disabled="isCurrentCover || isSettingCover"
-                  :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
-                >
-                  <i class="fa-solid" :class="isCurrentCover ? 'fa-check' : 'fa-image'"></i>
-                  <span>{{ isSettingCover ? 'Setting...' : (isCurrentCover ? 'Album Cover' : 'Set as Cover') }}</span>
-                </button>
-                <!-- Load settings row -->
-                <div v-if="hasSettings" class="action-row">
-                  <button
-                    @click="$emit('load-settings', false)"
-                    class="btn-action btn-secondary"
-                    title="Load generation settings from this image"
-                  >
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Load Settings</span>
-                  </button>
-                  <button
-                    @click="$emit('load-settings', true)"
-                    class="btn-action btn-secondary"
-                    title="Load generation settings including seed"
-                  >
-                    <i class="fa-solid fa-seedling"></i>
-                    <span>+ Seed</span>
-                  </button>
-                </div>
-                <!-- Request / Response row -->
-                <div v-if="hasSettings || hasResponse" class="action-row">
-                  <button
-                    v-if="hasSettings"
-                    @click="showDetailsView('request')"
-                    class="btn-action btn-secondary"
-                    title="View full request JSON"
-                  >
-                    <i class="fa-solid fa-code"></i>
-                    <span>Request</span>
-                  </button>
-                  <button
-                    v-if="hasResponse"
-                    @click="showDetailsView('response')"
-                    class="btn-action btn-secondary"
-                    title="View full response JSON"
-                  >
-                    <i class="fa-solid fa-file-code"></i>
-                    <span>Response</span>
-                  </button>
-                </div>
-                <div class="action-row">
-                  <button
-                    @click="copyImageToClipboard"
-                    class="btn-action"
-                    title="Copy image to clipboard"
-                  >
-                    <i class="fa-solid fa-copy"></i>
-                    <span>{{ copied ? 'Copied!' : 'Copy' }}</span>
-                  </button>
-                  <button
-                    @click="downloadImage"
-                    class="btn-action btn-primary"
-                    title="Download image"
-                  >
-                    <i class="fa-solid fa-download"></i>
-                    <span>Download</span>
-                  </button>
-                </div>
-                <button
-                  @click="showDeleteModal = true"
-                  class="btn-action btn-delete"
-                  title="Delete image"
-                >
-                  <i class="fa-solid fa-trash"></i>
-                  <span>Delete</span>
-                </button>
-              </div>
-            </AccordionSection>
           </div>
         </aside>
       </div>
@@ -377,6 +408,11 @@ export default {
     const isFullscreen = ref(false)
     const showFabs = ref(true)
     let fabTimeout = null
+
+    // Toolbar menu state
+    const showToolbarMenu = ref(false)
+    const toolbarMenuContainer = ref(null)
+
     const touchStartX = ref(0)
     const touchStartY = ref(0)
     const touchCurrentX = ref(0)
@@ -934,10 +970,49 @@ export default {
       }
     }
 
+    // Toolbar menu functions
+    const toggleToolbarMenu = () => {
+      showToolbarMenu.value = !showToolbarMenu.value
+    }
+
+    const handleMenuAction = (action) => {
+      showToolbarMenu.value = false
+      switch (action) {
+        case 'download':
+          downloadImage()
+          break
+        case 'addToAlbum':
+          showAddToAlbumModal.value = true
+          break
+        case 'setCover':
+          setAsAlbumCover()
+          break
+        case 'loadSettings':
+          emit('load-settings', false)
+          break
+        case 'loadSettingsWithSeed':
+          emit('load-settings', true)
+          break
+        case 'showRequest':
+          showDetailsView('request')
+          break
+        case 'showResponse':
+          showDetailsView('response')
+          break
+      }
+    }
+
+    const handleClickOutsideToolbarMenu = (event) => {
+      if (toolbarMenuContainer.value && !toolbarMenuContainer.value.contains(event.target)) {
+        showToolbarMenu.value = false
+      }
+    }
+
     onMounted(() => {
       document.body.style.overflow = 'hidden'
       window.addEventListener('keydown', handleKeydown)
       window.addEventListener('resize', handleResize)
+      document.addEventListener('click', handleClickOutsideToolbarMenu)
       scrollToActiveThumb()
 
       // Set up scroll listener for filmstrip
@@ -951,6 +1026,7 @@ export default {
       document.body.style.overflow = ''
       window.removeEventListener('keydown', handleKeydown)
       window.removeEventListener('resize', handleResize)
+      document.removeEventListener('click', handleClickOutsideToolbarMenu)
       if (filmstripTrack.value) {
         filmstripTrack.value.removeEventListener('scroll', updateScrollButtons)
       }
@@ -1016,7 +1092,12 @@ export default {
       toggleFabs,
       handleTouchStart,
       handleTouchMove,
-      handleTouchEnd
+      handleTouchEnd,
+      // Toolbar menu
+      showToolbarMenu,
+      toolbarMenuContainer,
+      toggleToolbarMenu,
+      handleMenuAction
     }
   }
 }
@@ -1052,27 +1133,10 @@ export default {
   flex-direction: column;
 }
 
-.btn-close {
-  position: absolute;
-  top: 0.75rem;
-  left: 0.75rem;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: var(--overlay-darker);
-  color: white;
-  font-size: 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  z-index: 10;
-  transition: background 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-close:hover {
+/* Close button in toolbar */
+.toolbar-btn-close:hover {
   background: var(--color-danger);
+  color: white;
 }
 
 /* Main content layout */
@@ -1113,6 +1177,149 @@ export default {
 
 .image-display.protected img {
   filter: blur(50px);
+}
+
+/* Action Toolbar */
+.action-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.toolbar-primary,
+.toolbar-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+  background: var(--color-border);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toolbar-btn i {
+  font-size: 0.875rem;
+}
+
+.toolbar-btn-text {
+  display: inline;
+}
+
+/* Active states */
+.toolbar-btn.active {
+  background: var(--color-warning);
+  color: var(--color-bg-base);
+}
+
+.toolbar-btn.active:hover {
+  background: var(--color-warning-hover);
+}
+
+.toolbar-btn.active-hide {
+  background: var(--color-text-disabled);
+  color: var(--color-text-primary);
+}
+
+/* Primary button style */
+.toolbar-btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.toolbar-btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+/* Danger button style */
+.toolbar-btn-danger {
+  background: var(--color-danger);
+  color: white;
+}
+
+.toolbar-btn-danger:hover {
+  background: var(--color-danger-hover);
+}
+
+/* Cover button when already set */
+.toolbar-btn.is-cover {
+  background: var(--color-success);
+  color: white;
+  cursor: default;
+}
+
+/* Overflow menu container (hidden on desktop) */
+.toolbar-overflow {
+  display: none;
+  position: relative;
+}
+
+.toolbar-menu-btn {
+  padding: 0.5rem;
+  width: 36px;
+  height: 36px;
+}
+
+/* Dropdown menu */
+.toolbar-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.toolbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.875rem;
+}
+
+.toolbar-dropdown-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.toolbar-dropdown-item i {
+  width: 18px;
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
 }
 
 /* Protection overlay */
@@ -1565,6 +1772,20 @@ export default {
 }
 
 /* Responsive */
+
+/* Toolbar: icon-only earlier to prevent overlap with sidebar */
+@media (max-width: 1280px) {
+  .toolbar-btn-text {
+    display: none;
+  }
+
+  .toolbar-btn {
+    padding: 0.5rem;
+    width: 36px;
+    height: 36px;
+  }
+}
+
 @media (max-width: 1024px) {
   .lightbox-content {
     flex-direction: column;
@@ -1594,13 +1815,21 @@ export default {
     height: 44px;
   }
 
-  .btn-close {
-    top: 0.5rem;
-    left: 0.5rem;
-  }
-
   .image-display {
     cursor: pointer;
+  }
+
+  /* Toolbar: hide secondary, show kebab menu */
+  .toolbar-secondary {
+    display: none;
+  }
+
+  .toolbar-overflow {
+    display: block;
+  }
+
+  .action-toolbar {
+    padding: 0.5rem;
   }
 }
 
