@@ -1117,9 +1117,9 @@ export default {
     }
 
     const handleAlbumCoverSet = (imageUuid) => {
-      // Update local album state so UI reflects the change
+      // Update album thumbnail in store so sidebar reflects the change
       if (currentAlbum.value) {
-        currentAlbum.value.cover_image_uuid = imageUuid
+        albumStore.setAlbumThumbnail(currentAlbum.value.id, imageUuid)
       }
     }
 
