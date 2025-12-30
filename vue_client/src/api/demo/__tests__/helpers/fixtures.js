@@ -28,7 +28,7 @@ export function sampleRequest(overrides = {}) {
     full_request: overrides.fullRequest || JSON.stringify({
       prompt: 'a beautiful sunset over the ocean',
       models: ['stable_diffusion'],
-      params: { n: 1, width: 512, height: 512 }
+      params: { n: 1, width: 512, height: 512, steps: 20, sampler_name: 'k_euler', cfg_scale: 7 }
     }),
     prompt: overrides.prompt || 'a beautiful sunset over the ocean',
     n: overrides.n || 1,

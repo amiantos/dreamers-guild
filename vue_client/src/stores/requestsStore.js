@@ -146,9 +146,11 @@ export const useRequestsStore = defineStore('requests', () => {
     try {
       const response = await requestsApi.retry(requestId)
       // The failed request is deleted and a new one created
+      // Server returns request directly, demo API returns { data: { request } }
+      const newRequest = response.data?.request || response.data
       requests.value = requests.value.filter(r => r.uuid !== requestId)
-      requests.value.unshift(response.data.request)
-      return response.data
+      requests.value.unshift(newRequest)
+      return newRequest
     } catch (error) {
       console.error('Error retrying request:', error)
       throw error
@@ -164,8 +166,10 @@ export const useRequestsStore = defineStore('requests', () => {
     try {
       const response = await requestsApi.repeat(requestId)
       // Add new request to list, keep original
-      requests.value.unshift(response.data.request)
-      return response.data
+      // Server returns request directly, demo API returns { data: { request } }
+      const newRequest = response.data?.request || response.data
+      requests.value.unshift(newRequest)
+      return newRequest
     } catch (error) {
       console.error('Error repeating request:', error)
       throw error

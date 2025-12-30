@@ -39,6 +39,10 @@ export const requestsApi = {
 
   retry(id) {
     return apiClient.post(`/requests/${id}/retry`)
+  },
+
+  repeat(id) {
+    return apiClient.post(`/requests/${id}/repeat`)
   }
 }
 
