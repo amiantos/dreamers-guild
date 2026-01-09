@@ -2181,7 +2181,7 @@ export default {
 
 .inline-styles-section {
   flex: 1;
-  min-height: 0;
+  min-height: 500px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
