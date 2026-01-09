@@ -261,7 +261,7 @@ export const requestsApi = {
       const request = {
         uuid,
         horde_request_id: hordeResponse.id,
-        full_request: JSON.stringify(hordeRequestData),
+        full_request: JSON.stringify({ ...hordeRequestData, id: uuid }),
         prompt: promptSimple,
         n: imageCount,
         status: 'submitting',
@@ -289,7 +289,7 @@ export const requestsApi = {
       // Create a failed request record so user can see the error
       const failedRequest = {
         uuid,
-        full_request: JSON.stringify(data.params || data),
+        full_request: JSON.stringify({ ...(data.params || data), id: uuid }),
         prompt: data.params?.prompt?.split('###')[0]?.trim() || data.prompt || 'Unknown',
         n: data.params?.params?.n || 1,
         status: 'failed',

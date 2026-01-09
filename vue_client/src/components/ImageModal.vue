@@ -551,7 +551,6 @@ export default {
       if (parsedResponse.value?.worker_name) {
         items.push({ label: 'Worker', value: parsedResponse.value.worker_name })
       }
-      items.push({ label: 'UUID', value: props.image.uuid?.slice(0, 8) + '...', class: 'muted' })
       return items
     })
 

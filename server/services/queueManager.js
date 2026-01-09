@@ -535,9 +535,13 @@ class QueueManager {
    * Add a new request to the queue
    */
   addRequest(requestData) {
+    const uuid = uuidv4();
+    // Add request UUID to params for tracking
+    const paramsWithId = { ...requestData.params, id: uuid };
     return HordeRequest.create({
+      uuid,
       prompt: requestData.prompt,
-      fullRequest: JSON.stringify(requestData.params),
+      fullRequest: JSON.stringify(paramsWithId),
       status: 'pending',
       n: requestData.params.params?.n || 1,
       albumId: requestData.albumId || null
