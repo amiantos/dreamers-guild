@@ -5,10 +5,110 @@
       <div class="lightbox-content">
         <!-- Left side: Image + Filmstrip -->
         <div class="image-area">
-          <!-- Close button (inside image area to avoid sidebar overlap) -->
-          <button class="btn-close" @click="$emit('close')" title="Close (Esc)">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
+          <!-- Action Toolbar -->
+          <div class="action-toolbar">
+            <!-- Close button (far left) -->
+            <button class="toolbar-btn toolbar-btn-close" @click="$emit('close')" title="Close (Esc)">
+              <i class="fa-solid fa-xmark"></i>
+              <span class="toolbar-btn-text">Close</span>
+            </button>
+
+            <!-- Primary actions (always visible) -->
+            <div v-if="!isProtected" class="toolbar-primary">
+              <button
+                @click="toggleFavorite"
+                class="toolbar-btn"
+                :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
+              >
+                <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
+                <span class="toolbar-btn-text">{{ isFavorite ? 'Favorited' : 'Favorite' }}</span>
+              </button>
+              <button
+                @click="toggleHidden"
+                class="toolbar-btn"
+                :title="isHidden ? 'Unhide image' : 'Hide image'"
+              >
+                <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
+                <span class="toolbar-btn-text">{{ isHidden ? 'Hidden' : 'Hide' }}</span>
+              </button>
+              <button
+                @click="copyImageToClipboard"
+                class="toolbar-btn"
+                title="Copy image to clipboard"
+              >
+                <i class="fa-solid fa-copy"></i>
+                <span class="toolbar-btn-text">{{ copied ? 'Copied!' : 'Copy' }}</span>
+              </button>
+              <button
+                @click="downloadImage"
+                class="toolbar-btn"
+                title="Download image"
+              >
+                <i class="fa-solid fa-download"></i>
+                <span class="toolbar-btn-text">Download</span>
+              </button>
+              <button
+                @click="showDeleteModal = true"
+                class="toolbar-btn"
+                title="Delete image"
+              >
+                <i class="fa-solid fa-trash"></i>
+                <span class="toolbar-btn-text">Delete</span>
+              </button>
+            </div>
+
+            <!-- Secondary actions (visible on desktop, hidden on mobile) -->
+            <div v-if="!isProtected" class="toolbar-secondary">
+              <button
+                @click="showAddToAlbumModal = true"
+                class="toolbar-btn"
+                title="Add to album"
+              >
+                <i class="fa-solid fa-folder-plus"></i>
+                <span class="toolbar-btn-text">Album</span>
+              </button>
+              <button
+                v-if="currentAlbum"
+                @click="setAsAlbumCover"
+                :class="['toolbar-btn', { 'is-cover': isCurrentCover }]"
+                :disabled="isCurrentCover || isSettingCover"
+                :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
+              >
+                <i class="fa-solid" :class="isCurrentCover ? 'fa-check' : 'fa-image'"></i>
+                <span class="toolbar-btn-text">{{ isSettingCover ? 'Setting...' : (isCurrentCover ? 'Cover' : 'Set Cover') }}</span>
+              </button>
+              <button
+                v-if="hasSettings"
+                @click="$emit('load-settings', false)"
+                class="toolbar-btn"
+                title="Repeat this generation with a new seed"
+              >
+                <i class="fa-solid fa-rotate"></i>
+                <span class="toolbar-btn-text">Repeat</span>
+              </button>
+            </div>
+
+            <!-- Mobile kebab menu (hidden on desktop, visible on mobile) -->
+            <div v-if="!isProtected" class="toolbar-overflow" ref="toolbarMenuContainer">
+              <button @click.stop="toggleToolbarMenu" class="toolbar-btn toolbar-menu-btn" title="More actions">
+                <i class="fa-solid fa-ellipsis-vertical"></i>
+              </button>
+              <div v-if="showToolbarMenu" class="toolbar-dropdown">
+                <div class="toolbar-dropdown-item" @click="handleMenuAction('addToAlbum')">
+                  <i class="fa-solid fa-folder-plus"></i>
+                  <span>Add to Album</span>
+                </div>
+                <div v-if="currentAlbum && !isCurrentCover" class="toolbar-dropdown-item" @click="handleMenuAction('setCover')">
+                  <i class="fa-solid fa-image"></i>
+                  <span>Set as Cover</span>
+                </div>
+                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettings')">
+                  <i class="fa-solid fa-rotate"></i>
+                  <span>Repeat</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Main image display -->
           <div class="image-display" :class="{ 'protected': isProtected }" @click="enterFullscreen">
@@ -74,9 +174,10 @@
               v-if="negativePrompt"
               title="Negative Prompt"
               icon="fa-ban"
-              :defaultOpen="false"
+              :defaultOpen="true"
+              :forceOpen="isDesktop"
             >
-              <div class="prompt-display negative">
+              <div class="prompt-display">
                 <p>{{ negativePrompt }}</p>
               </div>
             </AccordionSection>
@@ -123,118 +224,30 @@
               <InspectorGrid :items="metadataInfo" />
             </AccordionSection>
 
-            <!-- Actions Section -->
-            <AccordionSection title="Actions" icon="fa-gear" :defaultOpen="true" :forceOpen="true">
-              <!-- Action buttons -->
-              <div class="action-buttons">
-                <!-- Favorite / Hide row -->
-                <div class="action-row">
-                  <button
-                    @click="toggleFavorite"
-                    :class="['btn-action btn-secondary', { 'active': isFavorite }]"
-                    :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
-                  >
-                    <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
-                    <span>{{ isFavorite ? 'Favorited' : 'Favorite' }}</span>
-                  </button>
-                  <button
-                    @click="toggleHidden"
-                    :class="['btn-action btn-secondary', { 'active-hide': isHidden }]"
-                    :title="isHidden ? 'Unhide image' : 'Hide image'"
-                  >
-                    <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
-                    <span>{{ isHidden ? 'Hidden' : 'Hide' }}</span>
-                  </button>
-                </div>
-                <!-- Add to Album button -->
-                <button
-                  @click="showAddToAlbumModal = true"
-                  class="btn-action btn-secondary"
-                  title="Add to album"
-                >
-                  <i class="fa-solid fa-folder-plus"></i>
-                  <span>Add to Album</span>
-                </button>
-                <!-- Set as Cover button (only when viewing in album context) -->
-                <button
-                  v-if="currentAlbum"
-                  @click="setAsAlbumCover"
-                  class="btn-action btn-secondary"
-                  :class="{ 'is-cover': isCurrentCover }"
-                  :disabled="isCurrentCover || isSettingCover"
-                  :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
-                >
-                  <i class="fa-solid" :class="isCurrentCover ? 'fa-check' : 'fa-image'"></i>
-                  <span>{{ isSettingCover ? 'Setting...' : (isCurrentCover ? 'Album Cover' : 'Set as Cover') }}</span>
-                </button>
-                <!-- Load settings row -->
-                <div v-if="hasSettings" class="action-row">
-                  <button
-                    @click="$emit('load-settings', false)"
-                    class="btn-action btn-secondary"
-                    title="Load generation settings from this image"
-                  >
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Load Settings</span>
-                  </button>
-                  <button
-                    @click="$emit('load-settings', true)"
-                    class="btn-action btn-secondary"
-                    title="Load generation settings including seed"
-                  >
-                    <i class="fa-solid fa-seedling"></i>
-                    <span>+ Seed</span>
-                  </button>
-                </div>
-                <!-- Request / Response row -->
-                <div v-if="hasSettings || hasResponse" class="action-row">
-                  <button
-                    v-if="hasSettings"
-                    @click="showDetailsView('request')"
-                    class="btn-action btn-secondary"
-                    title="View full request JSON"
-                  >
-                    <i class="fa-solid fa-code"></i>
-                    <span>Request</span>
-                  </button>
-                  <button
-                    v-if="hasResponse"
-                    @click="showDetailsView('response')"
-                    class="btn-action btn-secondary"
-                    title="View full response JSON"
-                  >
-                    <i class="fa-solid fa-file-code"></i>
-                    <span>Response</span>
-                  </button>
-                </div>
-                <div class="action-row">
-                  <button
-                    @click="copyImageToClipboard"
-                    class="btn-action"
-                    title="Copy image to clipboard"
-                  >
-                    <i class="fa-solid fa-copy"></i>
-                    <span>{{ copied ? 'Copied!' : 'Copy' }}</span>
-                  </button>
-                  <button
-                    @click="downloadImage"
-                    class="btn-action btn-primary"
-                    title="Download image"
-                  >
-                    <i class="fa-solid fa-download"></i>
-                    <span>Download</span>
-                  </button>
-                </div>
-                <button
-                  @click="showDeleteModal = true"
-                  class="btn-action btn-delete"
-                  title="Delete image"
-                >
-                  <i class="fa-solid fa-trash"></i>
-                  <span>Delete</span>
-                </button>
+            <!-- Request Section -->
+            <AccordionSection
+              v-if="hasSettings"
+              title="Request"
+              icon="fa-code"
+              :defaultOpen="false"
+            >
+              <div class="json-display">
+                <pre>{{ formattedRequest }}</pre>
               </div>
             </AccordionSection>
+
+            <!-- Response Section -->
+            <AccordionSection
+              v-if="hasResponse"
+              title="Response"
+              icon="fa-file-code"
+              :defaultOpen="false"
+            >
+              <div class="json-display">
+                <pre>{{ formattedResponse }}</pre>
+              </div>
+            </AccordionSection>
+
           </div>
         </aside>
       </div>
@@ -255,24 +268,6 @@
         @added="handleAddedToAlbum"
       />
 
-      <!-- Details Overlay -->
-      <div v-if="showDetails" class="request-details-overlay">
-        <div class="request-details-header">
-          <h3>{{ detailsTitle }}</h3>
-          <div class="header-actions">
-            <button class="btn-copy" @click="copyToClipboard" :title="copyButtonText">
-              <i :class="copied ? 'fa-solid fa-check' : 'fa-solid fa-copy'"></i>
-              {{ copyButtonText }}
-            </button>
-            <button class="btn-close-details" @click="closeDetails">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        </div>
-        <div class="request-details-body">
-          <pre>{{ currentDetailsContent }}</pre>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -362,8 +357,6 @@ export default {
     const checkHiddenAuth = () => authStore.checkHiddenAuth()
     const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
     const isHiddenAuthenticated = computed(() => isAuthenticated.value)
-    const showDetails = ref(false)
-    const detailsType = ref('request')
     const copied = ref(false)
     const showDeleteModal = ref(false)
     const showAddToAlbumModal = ref(false)
@@ -377,6 +370,11 @@ export default {
     const isFullscreen = ref(false)
     const showFabs = ref(true)
     let fabTimeout = null
+
+    // Toolbar menu state
+    const showToolbarMenu = ref(false)
+    const toolbarMenuContainer = ref(null)
+
     const touchStartX = ref(0)
     const touchStartY = ref(0)
     const touchCurrentX = ref(0)
@@ -583,42 +581,6 @@ export default {
       }
     })
 
-    const detailsTitle = computed(() => {
-      return detailsType.value === 'request' ? 'Request Details' : 'Response Details'
-    })
-
-    const currentDetailsContent = computed(() => {
-      return detailsType.value === 'request' ? formattedRequest.value : formattedResponse.value
-    })
-
-    const copyButtonText = computed(() => {
-      return copied.value ? 'Copied!' : 'Copy'
-    })
-
-    const showDetailsView = (type) => {
-      detailsType.value = type
-      showDetails.value = true
-      copied.value = false
-    }
-
-    const closeDetails = () => {
-      showDetails.value = false
-      copied.value = false
-    }
-
-    const copyToClipboard = async () => {
-      try {
-        await navigator.clipboard.writeText(currentDetailsContent.value)
-        copied.value = true
-        setTimeout(() => {
-          copied.value = false
-        }, 2000)
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error)
-        alert('Failed to copy to clipboard')
-      }
-    }
-
     const formatDate = (timestamp) => {
       const date = new Date(timestamp)
       return date.toLocaleString()
@@ -708,11 +670,7 @@ export default {
       }
 
       if (e.key === 'Escape') {
-        if (showDetails.value) {
-          closeDetails()
-        } else {
-          emit('close')
-        }
+        emit('close')
       } else if (e.key === 'ArrowLeft') {
         if (showNavigation.value && props.canNavigatePrev) {
           emit('navigate', -1)
@@ -934,9 +892,37 @@ export default {
       }
     }
 
+    // Toolbar menu functions
+    const toggleToolbarMenu = () => {
+      showToolbarMenu.value = !showToolbarMenu.value
+    }
+
+    const handleMenuAction = (action) => {
+      showToolbarMenu.value = false
+      switch (action) {
+        case 'addToAlbum':
+          showAddToAlbumModal.value = true
+          break
+        case 'setCover':
+          setAsAlbumCover()
+          break
+        case 'loadSettings':
+          emit('load-settings', false)
+          break
+      }
+    }
+
+    const handleClickOutsideToolbarMenu = (event) => {
+      if (toolbarMenuContainer.value && !toolbarMenuContainer.value.contains(event.target)) {
+        showToolbarMenu.value = false
+      }
+    }
+
     onMounted(() => {
+      document.body.style.overflow = 'hidden'
       window.addEventListener('keydown', handleKeydown)
       window.addEventListener('resize', handleResize)
+      document.addEventListener('click', handleClickOutsideToolbarMenu)
       scrollToActiveThumb()
 
       // Set up scroll listener for filmstrip
@@ -947,8 +933,10 @@ export default {
     })
 
     onUnmounted(() => {
+      document.body.style.overflow = ''
       window.removeEventListener('keydown', handleKeydown)
       window.removeEventListener('resize', handleResize)
+      document.removeEventListener('click', handleClickOutsideToolbarMenu)
       if (filmstripTrack.value) {
         filmstripTrack.value.removeEventListener('scroll', updateScrollButtons)
       }
@@ -963,6 +951,8 @@ export default {
       showFilmstrip,
       hasSettings,
       hasResponse,
+      formattedRequest,
+      formattedResponse,
       formatDate,
       isFavorite,
       isHidden,
@@ -970,17 +960,9 @@ export default {
       toggleHidden,
       isProtected,
       handleUnlock,
-      showDetails,
-      detailsType,
-      detailsTitle,
-      currentDetailsContent,
-      showDetailsView,
-      closeDetails,
-      copyToClipboard,
       copyImageToClipboard,
       downloadImage,
       copied,
-      copyButtonText,
       showDeleteModal,
       confirmDelete,
       showAddToAlbumModal,
@@ -1014,7 +996,12 @@ export default {
       toggleFabs,
       handleTouchStart,
       handleTouchMove,
-      handleTouchEnd
+      handleTouchEnd,
+      // Toolbar menu
+      showToolbarMenu,
+      toolbarMenuContainer,
+      toggleToolbarMenu,
+      handleMenuAction
     }
   }
 }
@@ -1032,43 +1019,28 @@ export default {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1rem;
+  padding: 0;
 }
 
 .lightbox-container {
   position: relative;
   width: 100%;
-  max-width: 1400px;
-  height: 90vh;
-  max-height: 90vh;
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   background: var(--color-surface);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.btn-close {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: var(--overlay-darker);
-  color: white;
-  font-size: 1rem;
-  border-radius: 8px;
-  cursor: pointer;
-  z-index: 10;
-  transition: background 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-close:hover {
+/* Close button in toolbar */
+.toolbar-btn-close:hover {
   background: var(--color-danger);
+  color: white;
 }
 
 /* Main content layout */
@@ -1109,6 +1081,114 @@ export default {
 
 .image-display.protected img {
   filter: blur(50px);
+}
+
+/* Action Toolbar */
+.action-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.toolbar-primary,
+.toolbar-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.toolbar-btn:hover {
+  background: var(--color-border);
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toolbar-btn i {
+  font-size: 0.875rem;
+}
+
+.toolbar-btn-text {
+  display: inline;
+}
+
+/* Cover button when already set */
+.toolbar-btn.is-cover {
+  background: var(--color-success);
+  color: white;
+  cursor: default;
+}
+
+/* Overflow menu container (hidden on desktop) */
+.toolbar-overflow {
+  display: none;
+  position: relative;
+}
+
+.toolbar-menu-btn {
+  padding: 0.5rem;
+  width: 36px;
+  height: 36px;
+}
+
+/* Dropdown menu */
+.toolbar-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.toolbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.875rem;
+}
+
+.toolbar-dropdown-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.toolbar-dropdown-item i {
+  width: 18px;
+  color: var(--color-text-tertiary);
+  font-size: 0.875rem;
 }
 
 /* Protection overlay */
@@ -1299,6 +1379,20 @@ export default {
   color: var(--color-text-tertiary);
 }
 
+/* JSON display for Request/Response */
+.json-display {
+}
+
+.json-display pre {
+  margin: 0;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .no-data {
   color: var(--color-text-tertiary);
   font-size: 0.8125rem;
@@ -1464,103 +1558,21 @@ export default {
   border-color: var(--color-danger-hover);
 }
 
-/* Details overlay */
-.request-details-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-surface);
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem;
-}
-
-.request-details-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.request-details-header h3 {
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.btn-copy {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 0.5rem 0.875rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.btn-copy:hover {
-  background: var(--color-primary-hover);
-}
-
-.btn-copy i.fa-check {
-  color: var(--color-success);
-}
-
-.btn-close-details {
-  width: 32px;
-  height: 32px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-close-details:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-
-.request-details-body {
-  flex: 1;
-  overflow: auto;
-  background: var(--color-bg-base);
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.request-details-body pre {
-  margin: 0;
-  color: var(--color-success);
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 0.8125rem;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
 /* Responsive */
+
+/* Toolbar: icon-only earlier to prevent overlap with sidebar */
+@media (max-width: 1280px) {
+  .toolbar-btn-text {
+    display: none;
+  }
+
+  .toolbar-btn {
+    padding: 0.5rem;
+    width: 36px;
+    height: 36px;
+  }
+}
+
 @media (max-width: 1024px) {
   .lightbox-content {
     flex-direction: column;
@@ -1581,20 +1593,6 @@ export default {
 }
 
 @media (max-width: 640px) {
-  .lightbox-overlay {
-    padding: 0;
-  }
-
-  .lightbox-container {
-    border-radius: 0;
-    /* Fallback for older browsers */
-    height: 100vh;
-    max-height: 100vh;
-    /* Dynamic viewport height for iOS Safari */
-    height: 100dvh;
-    max-height: 100dvh;
-  }
-
   .inspector-sidebar {
     max-height: 50vh;
   }
@@ -1604,13 +1602,21 @@ export default {
     height: 44px;
   }
 
-  .btn-close {
-    top: 0.5rem;
-    right: 0.5rem;
-  }
-
   .image-display {
     cursor: pointer;
+  }
+
+  /* Toolbar: hide secondary, show kebab menu */
+  .toolbar-secondary {
+    display: none;
+  }
+
+  .toolbar-overflow {
+    display: block;
+  }
+
+  .action-toolbar {
+    padding: 0.5rem;
   }
 }
 

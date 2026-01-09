@@ -424,6 +424,17 @@ export const requestsApi = {
       throw new Error('Failed to parse original request data')
     }
 
+    // Ensure required fields have defaults for older requests that may be missing them
+    if (params.params) {
+      params.params = {
+        steps: 20,
+        sampler_name: 'k_euler',
+        cfg_scale: 7,
+        n: 1,
+        ...params.params
+      }
+    }
+
     // Validate the parsed params before retrying (matching server behavior)
     if (!validatePrompt(params.prompt)) {
       throw new ValidationError('prompt is required')
@@ -460,6 +471,17 @@ export const requestsApi = {
       params = JSON.parse(request.full_request)
     } catch (parseError) {
       throw new Error('Failed to parse original request data')
+    }
+
+    // Ensure required fields have defaults for older requests that may be missing them
+    if (params.params) {
+      params.params = {
+        steps: 20,
+        sampler_name: 'k_euler',
+        cfg_scale: 7,
+        n: 1,
+        ...params.params
+      }
     }
 
     // Validate the parsed params before repeating

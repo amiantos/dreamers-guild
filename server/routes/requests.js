@@ -255,6 +255,17 @@ router.post('/:id/retry', (req, res) => {
       return res.status(500).json({ error: 'Failed to parse original request data' });
     }
 
+    // Ensure required fields have defaults for older requests that may be missing them
+    if (params.params) {
+      params.params = {
+        steps: 20,
+        sampler_name: 'k_euler',
+        cfg_scale: 7,
+        n: 1,
+        ...params.params
+      };
+    }
+
     // Validate params structure
     const validationErrors = validateRequestParams(params);
     if (validationErrors.length > 0) {
@@ -275,6 +286,62 @@ router.post('/:id/retry', (req, res) => {
   } catch (error) {
     console.error('Error retrying request:', error);
     res.status(500).json({ error: 'Failed to retry request' });
+  }
+});
+
+// Repeat a completed request (create new without deleting original)
+router.post('/:id/repeat', (req, res) => {
+  try {
+    const requestId = req.params.id;
+
+    // Fetch the original request
+    const originalRequest = HordeRequest.findById(requestId);
+    if (!originalRequest) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    // Only allow repeating completed requests
+    if (originalRequest.status !== 'completed') {
+      return res.status(400).json({ error: 'Only completed requests can be repeated' });
+    }
+
+    // Parse the stored full_request to get original params
+    let params;
+    try {
+      params = JSON.parse(originalRequest.full_request);
+    } catch (parseError) {
+      return res.status(500).json({ error: 'Failed to parse original request data' });
+    }
+
+    // Ensure required fields have defaults for older requests that may be missing them
+    if (params.params) {
+      params.params = {
+        steps: 20,
+        sampler_name: 'k_euler',
+        cfg_scale: 7,
+        n: 1,
+        ...params.params
+      };
+    }
+
+    // Validate params structure
+    const validationErrors = validateRequestParams(params);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({ error: 'Invalid stored params', details: validationErrors });
+    }
+
+    // Create a new request with the same data (preserve album association)
+    // Note: DON'T delete the original - this is repeat, not retry
+    const newRequest = queueManager.addRequest({
+      prompt: originalRequest.prompt,
+      params,
+      albumId: originalRequest.album_id
+    });
+
+    res.status(201).json(newRequest);
+  } catch (error) {
+    console.error('Error repeating request:', error);
+    res.status(500).json({ error: 'Failed to repeat request' });
   }
 });
 

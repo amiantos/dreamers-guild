@@ -213,11 +213,13 @@
       :currentIndex="currentImageIndex"
       :canNavigatePrev="canNavigatePrev"
       :canNavigateNext="canNavigateNext"
+      :currentAlbum="currentAlbum"
       @close="closeImage"
       @delete="deleteImage"
       @navigate="navigateImage"
       @load-settings="handleLoadSettings"
       @update="handleImageUpdate"
+      @album-cover-set="handleAlbumCoverSet"
     />
 
     <!-- Multi-Select Action Bar (show when images are selected OR in dedicated multi-select mode) -->
@@ -1114,6 +1116,13 @@ export default {
       }
     }
 
+    const handleAlbumCoverSet = (imageUuid) => {
+      // Update album thumbnail in store so sidebar reflects the change
+      if (currentAlbum.value) {
+        albumStore.setAlbumThumbnail(currentAlbum.value.id, imageUuid)
+      }
+    }
+
     // Load image from URL if imageId prop is present
     const loadImageFromUrl = async () => {
       if (props.imageId && images.value.length > 0) {
@@ -1595,6 +1604,7 @@ export default {
       deleteImage,
       handleLoadSettings,
       handleImageUpdate,
+      handleAlbumCoverSet,
       applySearch,
       clearFilter,
       clearAllFilters,
