@@ -95,24 +95,6 @@
                 <i class="fa-solid fa-seedling"></i>
                 <span class="toolbar-btn-text">+ Seed</span>
               </button>
-              <button
-                v-if="hasSettings"
-                @click="showDetailsView('request')"
-                class="toolbar-btn"
-                title="View full request JSON"
-              >
-                <i class="fa-solid fa-code"></i>
-                <span class="toolbar-btn-text">Request</span>
-              </button>
-              <button
-                v-if="hasResponse"
-                @click="showDetailsView('response')"
-                class="toolbar-btn"
-                title="View full response JSON"
-              >
-                <i class="fa-solid fa-file-code"></i>
-                <span class="toolbar-btn-text">Response</span>
-              </button>
             </div>
 
             <!-- Mobile kebab menu (hidden on desktop, visible on mobile) -->
@@ -140,14 +122,6 @@
                 <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettingsWithSeed')">
                   <i class="fa-solid fa-seedling"></i>
                   <span>Load Settings + Seed</span>
-                </div>
-                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('showRequest')">
-                  <i class="fa-solid fa-code"></i>
-                  <span>View Request</span>
-                </div>
-                <div v-if="hasResponse" class="toolbar-dropdown-item" @click="handleMenuAction('showResponse')">
-                  <i class="fa-solid fa-file-code"></i>
-                  <span>View Response</span>
                 </div>
               </div>
             </div>
@@ -266,6 +240,30 @@
               <InspectorGrid :items="metadataInfo" />
             </AccordionSection>
 
+            <!-- Request Section -->
+            <AccordionSection
+              v-if="hasSettings"
+              title="Request"
+              icon="fa-code"
+              :defaultOpen="false"
+            >
+              <div class="json-display">
+                <pre>{{ formattedRequest }}</pre>
+              </div>
+            </AccordionSection>
+
+            <!-- Response Section -->
+            <AccordionSection
+              v-if="hasResponse"
+              title="Response"
+              icon="fa-file-code"
+              :defaultOpen="false"
+            >
+              <div class="json-display">
+                <pre>{{ formattedResponse }}</pre>
+              </div>
+            </AccordionSection>
+
           </div>
         </aside>
       </div>
@@ -286,24 +284,6 @@
         @added="handleAddedToAlbum"
       />
 
-      <!-- Details Overlay -->
-      <div v-if="showDetails" class="request-details-overlay">
-        <div class="request-details-header">
-          <h3>{{ detailsTitle }}</h3>
-          <div class="header-actions">
-            <button class="btn-copy" @click="copyToClipboard" :title="copyButtonText">
-              <i :class="copied ? 'fa-solid fa-check' : 'fa-solid fa-copy'"></i>
-              {{ copyButtonText }}
-            </button>
-            <button class="btn-close-details" @click="closeDetails">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        </div>
-        <div class="request-details-body">
-          <pre>{{ currentDetailsContent }}</pre>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -393,8 +373,6 @@ export default {
     const checkHiddenAuth = () => authStore.checkHiddenAuth()
     const requestHiddenAccess = (callback) => authStore.requestHiddenAccess(callback)
     const isHiddenAuthenticated = computed(() => isAuthenticated.value)
-    const showDetails = ref(false)
-    const detailsType = ref('request')
     const copied = ref(false)
     const showDeleteModal = ref(false)
     const showAddToAlbumModal = ref(false)
@@ -619,42 +597,6 @@ export default {
       }
     })
 
-    const detailsTitle = computed(() => {
-      return detailsType.value === 'request' ? 'Request Details' : 'Response Details'
-    })
-
-    const currentDetailsContent = computed(() => {
-      return detailsType.value === 'request' ? formattedRequest.value : formattedResponse.value
-    })
-
-    const copyButtonText = computed(() => {
-      return copied.value ? 'Copied!' : 'Copy'
-    })
-
-    const showDetailsView = (type) => {
-      detailsType.value = type
-      showDetails.value = true
-      copied.value = false
-    }
-
-    const closeDetails = () => {
-      showDetails.value = false
-      copied.value = false
-    }
-
-    const copyToClipboard = async () => {
-      try {
-        await navigator.clipboard.writeText(currentDetailsContent.value)
-        copied.value = true
-        setTimeout(() => {
-          copied.value = false
-        }, 2000)
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error)
-        alert('Failed to copy to clipboard')
-      }
-    }
-
     const formatDate = (timestamp) => {
       const date = new Date(timestamp)
       return date.toLocaleString()
@@ -744,11 +686,7 @@ export default {
       }
 
       if (e.key === 'Escape') {
-        if (showDetails.value) {
-          closeDetails()
-        } else {
-          emit('close')
-        }
+        emit('close')
       } else if (e.key === 'ArrowLeft') {
         if (showNavigation.value && props.canNavigatePrev) {
           emit('navigate', -1)
@@ -993,12 +931,6 @@ export default {
         case 'loadSettingsWithSeed':
           emit('load-settings', true)
           break
-        case 'showRequest':
-          showDetailsView('request')
-          break
-        case 'showResponse':
-          showDetailsView('response')
-          break
       }
     }
 
@@ -1041,6 +973,8 @@ export default {
       showFilmstrip,
       hasSettings,
       hasResponse,
+      formattedRequest,
+      formattedResponse,
       formatDate,
       isFavorite,
       isHidden,
@@ -1048,17 +982,9 @@ export default {
       toggleHidden,
       isProtected,
       handleUnlock,
-      showDetails,
-      detailsType,
-      detailsTitle,
-      currentDetailsContent,
-      showDetailsView,
-      closeDetails,
-      copyToClipboard,
       copyImageToClipboard,
       downloadImage,
       copied,
-      copyButtonText,
       showDeleteModal,
       confirmDelete,
       showAddToAlbumModal,
@@ -1510,6 +1436,20 @@ export default {
   color: var(--color-text-tertiary);
 }
 
+/* JSON display for Request/Response */
+.json-display {
+}
+
+.json-display pre {
+  margin: 0;
+  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .no-data {
   color: var(--color-text-tertiary);
   font-size: 0.8125rem;
@@ -1673,102 +1613,6 @@ export default {
 .btn-delete:hover {
   background: var(--color-danger-hover);
   border-color: var(--color-danger-hover);
-}
-
-/* Details overlay */
-.request-details-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-surface);
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-  padding: 1.25rem;
-}
-
-.request-details-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.request-details-header h3 {
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.btn-copy {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 0.5rem 0.875rem;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.btn-copy:hover {
-  background: var(--color-primary-hover);
-}
-
-.btn-copy i.fa-check {
-  color: var(--color-success);
-}
-
-.btn-close-details {
-  width: 32px;
-  height: 32px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-close-details:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-
-.request-details-body {
-  flex: 1;
-  overflow: auto;
-  background: var(--color-bg-base);
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-}
-
-.request-details-body pre {
-  margin: 0;
-  color: var(--color-success);
-  font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 0.8125rem;
-  white-space: pre-wrap;
-  word-break: break-all;
 }
 
 /* Responsive */
