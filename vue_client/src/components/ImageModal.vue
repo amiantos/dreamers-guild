@@ -17,7 +17,7 @@
             <div v-if="!isProtected" class="toolbar-primary">
               <button
                 @click="toggleFavorite"
-                :class="['toolbar-btn', { 'active': isFavorite }]"
+                class="toolbar-btn"
                 :title="isFavorite ? 'Remove from favorites' : 'Add to favorites'"
               >
                 <i class="fa-star" :class="isFavorite ? 'fa-solid' : 'fa-regular'"></i>
@@ -25,7 +25,7 @@
               </button>
               <button
                 @click="toggleHidden"
-                :class="['toolbar-btn', { 'active-hide': isHidden }]"
+                class="toolbar-btn"
                 :title="isHidden ? 'Unhide image' : 'Hide image'"
               >
                 <i :class="isHidden ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash'"></i>
@@ -40,8 +40,16 @@
                 <span class="toolbar-btn-text">{{ copied ? 'Copied!' : 'Copy' }}</span>
               </button>
               <button
+                @click="downloadImage"
+                class="toolbar-btn"
+                title="Download image"
+              >
+                <i class="fa-solid fa-download"></i>
+                <span class="toolbar-btn-text">Download</span>
+              </button>
+              <button
                 @click="showDeleteModal = true"
-                class="toolbar-btn toolbar-btn-danger"
+                class="toolbar-btn"
                 title="Delete image"
               >
                 <i class="fa-solid fa-trash"></i>
@@ -51,14 +59,6 @@
 
             <!-- Secondary actions (visible on desktop, hidden on mobile) -->
             <div v-if="!isProtected" class="toolbar-secondary">
-              <button
-                @click="downloadImage"
-                class="toolbar-btn toolbar-btn-primary"
-                title="Download image"
-              >
-                <i class="fa-solid fa-download"></i>
-                <span class="toolbar-btn-text">Download</span>
-              </button>
               <button
                 @click="showAddToAlbumModal = true"
                 class="toolbar-btn"
@@ -81,19 +81,10 @@
                 v-if="hasSettings"
                 @click="$emit('load-settings', false)"
                 class="toolbar-btn"
-                title="Load generation settings from this image"
+                title="Repeat this generation with a new seed"
               >
-                <i class="fa-solid fa-sliders"></i>
-                <span class="toolbar-btn-text">Load</span>
-              </button>
-              <button
-                v-if="hasSettings"
-                @click="$emit('load-settings', true)"
-                class="toolbar-btn"
-                title="Load generation settings including seed"
-              >
-                <i class="fa-solid fa-seedling"></i>
-                <span class="toolbar-btn-text">+ Seed</span>
+                <i class="fa-solid fa-rotate"></i>
+                <span class="toolbar-btn-text">Repeat</span>
               </button>
             </div>
 
@@ -103,10 +94,6 @@
                 <i class="fa-solid fa-ellipsis-vertical"></i>
               </button>
               <div v-if="showToolbarMenu" class="toolbar-dropdown">
-                <div class="toolbar-dropdown-item" @click="handleMenuAction('download')">
-                  <i class="fa-solid fa-download"></i>
-                  <span>Download</span>
-                </div>
                 <div class="toolbar-dropdown-item" @click="handleMenuAction('addToAlbum')">
                   <i class="fa-solid fa-folder-plus"></i>
                   <span>Add to Album</span>
@@ -116,12 +103,8 @@
                   <span>Set as Cover</span>
                 </div>
                 <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettings')">
-                  <i class="fa-solid fa-sliders"></i>
-                  <span>Load Settings</span>
-                </div>
-                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettingsWithSeed')">
-                  <i class="fa-solid fa-seedling"></i>
-                  <span>Load Settings + Seed</span>
+                  <i class="fa-solid fa-rotate"></i>
+                  <span>Repeat</span>
                 </div>
               </div>
             </div>
@@ -917,9 +900,6 @@ export default {
     const handleMenuAction = (action) => {
       showToolbarMenu.value = false
       switch (action) {
-        case 'download':
-          downloadImage()
-          break
         case 'addToAlbum':
           showAddToAlbumModal.value = true
           break
@@ -928,9 +908,6 @@ export default {
           break
         case 'loadSettings':
           emit('load-settings', false)
-          break
-        case 'loadSettingsWithSeed':
-          emit('load-settings', true)
           break
       }
     }
@@ -1158,41 +1135,6 @@ export default {
 
 .toolbar-btn-text {
   display: inline;
-}
-
-/* Active states */
-.toolbar-btn.active {
-  background: var(--color-warning);
-  color: var(--color-bg-base);
-}
-
-.toolbar-btn.active:hover {
-  background: var(--color-warning-hover);
-}
-
-.toolbar-btn.active-hide {
-  background: var(--color-text-disabled);
-  color: var(--color-text-primary);
-}
-
-/* Primary button style */
-.toolbar-btn-primary {
-  background: var(--color-primary);
-  color: white;
-}
-
-.toolbar-btn-primary:hover {
-  background: var(--color-primary-hover);
-}
-
-/* Danger button style */
-.toolbar-btn-danger {
-  background: var(--color-danger);
-  color: white;
-}
-
-.toolbar-btn-danger:hover {
-  background: var(--color-danger-hover);
 }
 
 /* Cover button when already set */
