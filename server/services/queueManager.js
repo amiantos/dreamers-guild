@@ -345,13 +345,15 @@ class QueueManager {
           continue;
         }
 
+        // Remove img from response since the image is stored separately
+        const { img, ...responseWithoutImg } = generation;
         const download = HordePendingDownload.create({
           requestId: requestUuid,
-          uri: generation.img,
-          fullResponse: JSON.stringify(generation)
+          uri: img,
+          fullResponse: JSON.stringify(responseWithoutImg)
         });
         downloadCount++;
-        console.log(`[Complete]   - Created download ${download.uuid.substring(0, 8)}... for image: ${generation.img}`);
+        console.log(`[Complete]   - Created download ${download.uuid.substring(0, 8)}... for image: ${img}`);
       }
 
       if (censoredCount > 0) {

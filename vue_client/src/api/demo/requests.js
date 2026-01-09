@@ -175,12 +175,15 @@ async function processGenerationResult(requestUuid, result) {
         const fullRequest = JSON.parse(request.full_request || '{}')
         const promptSimple = fullRequest.prompt?.split('###')[0]?.trim() || ''
 
+        // Remove img from response since the image is stored separately
+        const { img: _img, ...responseWithoutImg } = gen
+
         const imageRecord = {
           uuid: imageUuid,
           request_id: requestUuid,
           prompt_simple: promptSimple,
           full_request: request.full_request,
-          full_response: JSON.stringify(gen),
+          full_response: JSON.stringify(responseWithoutImg),
           seed: gen.seed || '',
           model: gen.model || '',
           worker_id: gen.worker_id || '',
