@@ -191,9 +191,10 @@
               v-if="negativePrompt"
               title="Negative Prompt"
               icon="fa-ban"
-              :defaultOpen="false"
+              :defaultOpen="true"
+              :forceOpen="isDesktop"
             >
-              <div class="prompt-display negative">
+              <div class="prompt-display">
                 <p>{{ negativePrompt }}</p>
               </div>
             </AccordionSection>
