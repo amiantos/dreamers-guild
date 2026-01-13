@@ -831,6 +831,7 @@ export default {
 .requests-list .request-card :deep(.action-btn) {
   opacity: 0;
   transition: opacity 0.2s, background 0.2s, color 0.2s;
+  transform: translateZ(0); /* Force GPU compositing to prevent position snap on first hover */
 }
 
 .requests-list .request-card:hover :deep(.action-btn) {
