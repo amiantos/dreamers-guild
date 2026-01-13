@@ -7,14 +7,8 @@
         <div class="image-area">
           <!-- Action Toolbar -->
           <div class="action-toolbar">
-            <!-- Close button (far left) -->
-            <button class="toolbar-btn toolbar-btn-close" @click="$emit('close')" title="Close (Esc)">
-              <i class="fa-solid fa-xmark"></i>
-              <span class="toolbar-btn-text">Close</span>
-            </button>
-
-            <!-- Primary actions (always visible) -->
-            <div v-if="!isProtected" class="toolbar-primary">
+            <!-- All action buttons together -->
+            <div v-if="!isProtected" class="toolbar-actions">
               <button
                 @click="toggleFavorite"
                 class="toolbar-btn"
@@ -55,13 +49,10 @@
                 <i class="fa-solid fa-trash"></i>
                 <span class="toolbar-btn-text">Delete</span>
               </button>
-            </div>
-
-            <!-- Secondary actions (visible on desktop, hidden on mobile) -->
-            <div v-if="!isProtected" class="toolbar-secondary">
+              <!-- Secondary actions (visible on desktop, hidden on mobile) -->
               <button
                 @click="showAddToAlbumModal = true"
-                class="toolbar-btn"
+                class="toolbar-btn toolbar-btn-secondary"
                 title="Add to album"
               >
                 <i class="fa-solid fa-folder-plus"></i>
@@ -70,7 +61,7 @@
               <button
                 v-if="currentAlbum"
                 @click="setAsAlbumCover"
-                :class="['toolbar-btn', { 'is-cover': isCurrentCover }]"
+                :class="['toolbar-btn', 'toolbar-btn-secondary', { 'is-cover': isCurrentCover }]"
                 :disabled="isCurrentCover || isSettingCover"
                 :title="isCurrentCover ? 'This is the album cover' : 'Set as album cover'"
               >
@@ -80,34 +71,39 @@
               <button
                 v-if="hasSettings"
                 @click="$emit('load-settings', false)"
-                class="toolbar-btn"
+                class="toolbar-btn toolbar-btn-secondary"
                 title="Repeat this generation with a new seed"
               >
                 <i class="fa-solid fa-rotate"></i>
                 <span class="toolbar-btn-text">Repeat</span>
               </button>
-            </div>
-
-            <!-- Mobile kebab menu (hidden on desktop, visible on mobile) -->
-            <div v-if="!isProtected" class="toolbar-overflow" ref="toolbarMenuContainer">
-              <button @click.stop="toggleToolbarMenu" class="toolbar-btn toolbar-menu-btn" title="More actions">
-                <i class="fa-solid fa-ellipsis-vertical"></i>
-              </button>
-              <div v-if="showToolbarMenu" class="toolbar-dropdown">
-                <div class="toolbar-dropdown-item" @click="handleMenuAction('addToAlbum')">
-                  <i class="fa-solid fa-folder-plus"></i>
-                  <span>Add to Album</span>
-                </div>
-                <div v-if="currentAlbum && !isCurrentCover" class="toolbar-dropdown-item" @click="handleMenuAction('setCover')">
-                  <i class="fa-solid fa-image"></i>
-                  <span>Set as Cover</span>
-                </div>
-                <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettings')">
-                  <i class="fa-solid fa-rotate"></i>
-                  <span>Repeat</span>
+              <!-- Mobile kebab menu (hidden on desktop, visible on mobile) -->
+              <div class="toolbar-overflow" ref="toolbarMenuContainer">
+                <button @click.stop="toggleToolbarMenu" class="toolbar-btn toolbar-menu-btn" title="More actions">
+                  <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
+                <div v-if="showToolbarMenu" class="toolbar-dropdown">
+                  <div class="toolbar-dropdown-item" @click="handleMenuAction('addToAlbum')">
+                    <i class="fa-solid fa-folder-plus"></i>
+                    <span>Add to Album</span>
+                  </div>
+                  <div v-if="currentAlbum && !isCurrentCover" class="toolbar-dropdown-item" @click="handleMenuAction('setCover')">
+                    <i class="fa-solid fa-image"></i>
+                    <span>Set as Cover</span>
+                  </div>
+                  <div v-if="hasSettings" class="toolbar-dropdown-item" @click="handleMenuAction('loadSettings')">
+                    <i class="fa-solid fa-rotate"></i>
+                    <span>Repeat</span>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <!-- Close button (far right) -->
+            <button class="toolbar-btn toolbar-btn-close" @click="$emit('close')" title="Close (Esc)">
+              <i class="fa-solid fa-xmark"></i>
+              <span class="toolbar-btn-text">Close</span>
+            </button>
           </div>
 
           <!-- Main image display -->
@@ -1095,8 +1091,7 @@ export default {
   z-index: 5;
 }
 
-.toolbar-primary,
-.toolbar-secondary {
+.toolbar-actions {
   display: flex;
   align-items: center;
   gap: 0.375rem;
@@ -1605,8 +1600,8 @@ export default {
     cursor: pointer;
   }
 
-  /* Toolbar: hide secondary, show kebab menu */
-  .toolbar-secondary {
+  /* Toolbar: hide secondary buttons, show kebab menu */
+  .toolbar-btn-secondary {
     display: none;
   }
 

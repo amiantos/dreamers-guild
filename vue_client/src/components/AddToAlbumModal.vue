@@ -58,14 +58,18 @@
               v-for="album in albums"
               :key="album.id"
               class="album-item"
-              :class="{ selected: selectedAlbumId === album.id }"
+              :class="{ selected: selectedAlbumId === album.id, 'in-album': isInAlbum(album.id) }"
               @click="selectAlbum(album.id)"
             >
               <div class="album-info">
                 <span class="album-title">{{ album.title }}</span>
-                <span class="album-count">{{ album.count }} images</span>
+                <span class="album-count">
+                  {{ album.count }} images
+                  <span v-if="isInAlbum(album.id)" class="already-added-text">- Already added</span>
+                </span>
               </div>
               <i v-if="album.is_hidden" class="fa-solid fa-eye-slash hidden-badge"></i>
+              <i v-if="isInAlbum(album.id)" class="fa-solid fa-check in-album-badge"></i>
               <div class="radio-indicator">
                 <div v-if="selectedAlbumId === album.id" class="radio-dot"></div>
               </div>
@@ -126,6 +130,10 @@ export default {
     // Get reactive state from store
     const { albums: storeAlbums, loading } = storeToRefs(albumStore)
 
+    // Track which albums the image(s) are already in
+    const existingAlbumIds = ref(new Set())
+    const loadingExisting = ref(false)
+
     // Filter albums based on includeHidden prop
     const albums = computed(() => {
       if (props.includeHidden) {
@@ -133,6 +141,9 @@ export default {
       }
       return storeAlbums.value.filter(album => !album.is_hidden)
     })
+
+    // Check if an album already contains the image
+    const isInAlbum = (albumId) => existingAlbumIds.value.has(albumId)
 
     const selectedAlbumId = ref(null)
     const isAdding = ref(false)
@@ -215,10 +226,34 @@ export default {
       }
     }
 
+    // Load which albums the image(s) are already in
+    const loadExistingAlbums = async () => {
+      if (props.imageIds.length === 0) return
+
+      loadingExisting.value = true
+      existingAlbumIds.value = new Set()
+
+      try {
+        // For single image, fetch its albums directly
+        // For multiple images, we only show "in album" for albums that contain ALL selected images
+        if (props.imageIds.length === 1) {
+          const response = await albumsApi.getAlbumsForImage(props.imageIds[0], props.includeHidden)
+          const albumIds = response.data.map(album => album.id)
+          existingAlbumIds.value = new Set(albumIds)
+        }
+        // For multiple images, skip showing existing (too complex to show partial membership)
+      } catch (error) {
+        console.error('Error loading existing album memberships:', error)
+      } finally {
+        loadingExisting.value = false
+      }
+    }
+
     // Refresh albums when modal opens (in case they changed elsewhere)
     watch(() => props.isOpen, (isOpen) => {
       if (isOpen) {
         albumStore.loadAlbums(props.includeHidden)
+        loadExistingAlbums()
         selectedAlbumId.value = null
       }
     })
@@ -226,6 +261,8 @@ export default {
     return {
       albums,
       loading,
+      loadingExisting,
+      isInAlbum,
       selectedAlbumId,
       isAdding,
       isCreating,
@@ -438,6 +475,25 @@ export default {
 
 .album-item.selected .hidden-badge {
   color: rgba(255, 255, 255, 0.7);
+}
+
+/* Already in album indicator */
+.in-album-badge {
+  font-size: 0.875rem;
+  color: var(--color-success);
+}
+
+.album-item.selected .in-album-badge {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.already-added-text {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.album-item.selected .already-added-text {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .radio-indicator {
