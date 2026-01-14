@@ -160,7 +160,7 @@
             <!-- Prompt Section -->
             <AccordionSection title="Prompt" icon="fa-font" :defaultOpen="true" :forceOpen="isDesktop">
               <div class="prompt-display">
-                <p v-if="image.prompt_simple">{{ image.prompt_simple }}</p>
+                <p v-if="positivePrompt">{{ positivePrompt }}</p>
                 <p v-else class="no-data">No prompt available</p>
               </div>
             </AccordionSection>
@@ -443,6 +443,14 @@ export default {
     // Full prompt from parsed request
     const fullPrompt = computed(() => {
       return parsedRequest.value?.prompt || props.image.prompt_simple || ''
+    })
+
+    // Positive prompt (part before ###)
+    const positivePrompt = computed(() => {
+      const full = fullPrompt.value
+      if (!full) return ''
+      const parts = full.split('###')
+      return parts[0].trim()
     })
 
     // Negative prompt (part after ###)
@@ -968,6 +976,7 @@ export default {
       isCurrentCover,
       setAsAlbumCover,
       // Parsed data
+      positivePrompt,
       negativePrompt,
       modelName,
       parsedLoras,
