@@ -37,7 +37,7 @@
 
     <router-view />
 
-    <RequestGeneratorModal
+    <GeneratorModal
       v-if="showRequestModal"
       ref="requestModalRef"
       :initialSettings="modalInitialSettings"
@@ -75,7 +75,7 @@
 import { ref, provide, nextTick, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
-import RequestGeneratorModal from './components/RequestGeneratorModal.vue'
+import GeneratorModal from './components/generator/GeneratorModal.vue'
 import PinSetupModal from './components/PinSetupModal.vue'
 import PinEntryModal from './components/PinEntryModal.vue'
 import BaseModal from './components/BaseModal.vue'
@@ -91,7 +91,7 @@ const APP_NAME = 'Dreamers Guild'
 export default {
   name: 'App',
   components: {
-    RequestGeneratorModal,
+    GeneratorModal,
     PinSetupModal,
     PinEntryModal,
     BaseModal,
