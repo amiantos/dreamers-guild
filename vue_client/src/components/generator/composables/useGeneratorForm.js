@@ -66,7 +66,10 @@ export function useGeneratorForm() {
     upscaler: 'none',
     stripBackground: false,
     loras: [],
-    tis: []
+    tis: [],
+    qrCodeEnabled: false,
+    qrCodeText: '',
+    qrCodePosition: 'center'
   })
 
   // === Computed Properties ===

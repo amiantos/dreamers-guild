@@ -91,5 +91,8 @@ export const baseDefaults = {
   upscaler: 'none',
   stripBackground: false,
   loras: [],
-  tis: []
+  tis: [],
+  qrCodeEnabled: false,
+  qrCodeText: '',
+  qrCodePosition: 'center'
 }

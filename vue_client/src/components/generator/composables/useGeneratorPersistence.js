@@ -5,6 +5,31 @@ import { useAuthStore } from '../../../stores/authStore.js'
 import { splitPrompt } from '../../../utils/promptUtils.js'
 
 /**
+ * Determine QR code position from x/y offsets and dimensions.
+ */
+const determineQRCodePosition = (x, y, width, height) => {
+  const EDGE_OFFSET = 32
+  const TOLERANCE = 10
+
+  // Check center first (x=0, y=0 or no offsets)
+  if (x === 0 && y === 0) return 'center'
+
+  // Check corners
+  const isLeft = Math.abs(x - EDGE_OFFSET) < TOLERANCE
+  const isRight = Math.abs(x - (width - EDGE_OFFSET)) < TOLERANCE
+  const isTop = Math.abs(y - EDGE_OFFSET) < TOLERANCE
+  const isBottom = Math.abs(y - (height - EDGE_OFFSET)) < TOLERANCE
+
+  if (isTop && isLeft) return 'top_left'
+  if (isTop && isRight) return 'top_right'
+  if (isBottom && isLeft) return 'bottom_left'
+  if (isBottom && isRight) return 'bottom_right'
+
+  // Default to center if no match
+  return 'center'
+}
+
+/**
  * Composable for handling generator form persistence.
  * Manages localStorage and server-side persistence for settings, styles, and albums.
  */
@@ -121,6 +146,43 @@ export function useGeneratorPersistence(generatorForm) {
 
     // Load root-level settings
     form.transparent = settings.transparent !== undefined ? settings.transparent : false
+
+    // Load QR Code settings
+    if (settings.params?.workflow === 'qr_code') {
+      form.qrCodeEnabled = true
+
+      // Check for our save format first (root-level settings)
+      if (settings.qrCodeText) {
+        form.qrCodeText = settings.qrCodeText
+        form.qrCodePosition = settings.qrCodePosition || 'center'
+      } else if (settings.params.extra_texts && Array.isArray(settings.params.extra_texts)) {
+        // Parse from Horde API format (extra_texts array)
+        const qrCodeEntry = settings.params.extra_texts.find(et => et.reference === 'qr_code')
+        if (qrCodeEntry) {
+          form.qrCodeText = qrCodeEntry.text || ''
+        }
+
+        // Parse position from x_offset and y_offset
+        const xOffsetEntry = settings.params.extra_texts.find(et => et.reference === 'x_offset')
+        const yOffsetEntry = settings.params.extra_texts.find(et => et.reference === 'y_offset')
+
+        if (xOffsetEntry && yOffsetEntry) {
+          const x = parseInt(xOffsetEntry.text, 10) || 0
+          const y = parseInt(yOffsetEntry.text, 10) || 0
+          const width = settings.params.width || 512
+          const height = settings.params.height || 512
+          form.qrCodePosition = determineQRCodePosition(x, y, width, height)
+        } else {
+          // No offsets means center
+          form.qrCodePosition = 'center'
+        }
+      }
+    } else {
+      // Reset QR code settings
+      form.qrCodeEnabled = false
+      form.qrCodeText = ''
+      form.qrCodePosition = 'center'
+    }
 
     // Clear any selected style
     selectedStyleName.value = ''

@@ -7,6 +7,27 @@ import { useLoraRecent } from '../../../composables/useLoraCache'
 import { useTextualInversionRecent } from '../../../composables/useTextualInversionCache'
 
 /**
+ * Calculate QR code x/y offsets based on position and image dimensions.
+ * Offset of 32px from edges for corner positions.
+ */
+const calculateQRCodeOffsets = (position, width, height) => {
+  const EDGE_OFFSET = 32
+  switch (position) {
+    case 'top_left':
+      return { x: EDGE_OFFSET, y: EDGE_OFFSET }
+    case 'top_right':
+      return { x: width - EDGE_OFFSET, y: EDGE_OFFSET }
+    case 'bottom_left':
+      return { x: EDGE_OFFSET, y: height - EDGE_OFFSET }
+    case 'bottom_right':
+      return { x: width - EDGE_OFFSET, y: height - EDGE_OFFSET }
+    case 'center':
+    default:
+      return null // Center means no offsets
+  }
+}
+
+/**
  * Composable for handling generator form submission and kudos estimation.
  */
 export function useGeneratorSubmit(generatorForm, persistence) {
@@ -154,6 +175,13 @@ export function useGeneratorSubmit(generatorForm, persistence) {
       settings.params.post_processing = postProcessing
     }
 
+    // Save QR Code settings
+    if (form.qrCodeEnabled && form.qrCodeText) {
+      settings.params.workflow = 'qr_code'
+      settings.qrCodeText = form.qrCodeText
+      settings.qrCodePosition = form.qrCodePosition
+    }
+
     return settings
   }
 
@@ -272,6 +300,30 @@ export function useGeneratorSubmit(generatorForm, persistence) {
       params.params.negative_prompt = finalNegativePrompt
     }
 
+    // Add QR Code settings if enabled
+    if (form.qrCodeEnabled && form.qrCodeText) {
+      params.params.workflow = 'qr_code'
+
+      // Build extra_texts array
+      const extraTexts = [
+        { text: form.qrCodeText, reference: 'qr_code' }
+      ]
+
+      // Calculate position offsets (only add if not center)
+      const offsets = calculateQRCodeOffsets(
+        form.qrCodePosition,
+        params.params.width,
+        params.params.height
+      )
+
+      if (offsets) {
+        extraTexts.push({ text: String(offsets.x), reference: 'x_offset' })
+        extraTexts.push({ text: String(offsets.y), reference: 'y_offset' })
+      }
+
+      params.params.extra_texts = extraTexts
+    }
+
     return params
   }
 
@@ -372,7 +424,10 @@ export function useGeneratorSubmit(generatorForm, persistence) {
         form.faceFix,
         form.faceFixStrength,
         form.upscaler,
-        form.stripBackground
+        form.stripBackground,
+        form.qrCodeEnabled,
+        form.qrCodeText,
+        form.qrCodePosition
       ],
       () => {
         if (form.model) {

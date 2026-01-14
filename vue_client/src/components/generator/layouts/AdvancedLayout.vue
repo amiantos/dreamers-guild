@@ -44,6 +44,12 @@
     <div class="section-box advanced-options-section">
       <AdvancedOptionsSection />
     </div>
+
+    <!-- QR Code Section -->
+    <h4 class="section-title">QR Code</h4>
+    <div class="section-box qr-code-section">
+      <QRCodeSection />
+    </div>
   </div>
 </template>
 
@@ -58,6 +64,7 @@ import LorasSection from '../sections/LorasSection.vue'
 // import TextualInversionsSection from '../sections/TextualInversionsSection.vue'
 import PostProcessingSection from '../sections/PostProcessingSection.vue'
 import AdvancedOptionsSection from '../sections/AdvancedOptionsSection.vue'
+import QRCodeSection from '../sections/QRCodeSection.vue'
 </script>
 
 <style scoped>
@@ -102,7 +109,8 @@ import AdvancedOptionsSection from '../sections/AdvancedOptionsSection.vue'
 .section-box :deep(.loras-section),
 .section-box :deep(.tis-section),
 .section-box :deep(.post-processing-section),
-.section-box :deep(.advanced-options-section) {
+.section-box :deep(.advanced-options-section),
+.section-box :deep(.qr-code-section) {
   margin-bottom: 0;
 }
 
