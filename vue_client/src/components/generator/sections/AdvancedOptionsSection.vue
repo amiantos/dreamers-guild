@@ -22,6 +22,42 @@
           <span class="toggle-slider"></span>
         </label>
       </div>
+      <div class="toggle-control">
+        <span>QR Code</span>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="form.qrCodeEnabled" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div v-if="form.qrCodeEnabled" class="qr-code-controls">
+      <div class="form-group">
+        <label for="qr_code_text">QR Code Content</label>
+        <input
+          type="text"
+          id="qr_code_text"
+          v-model="form.qrCodeText"
+          placeholder="Enter URL or text for QR code..."
+          class="text-input"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="qr_code_position">Position</label>
+        <select id="qr_code_position" v-model="form.qrCodePosition">
+          <option value="center">Center</option>
+          <option value="top_left">Top Left</option>
+          <option value="top_right">Top Right</option>
+          <option value="bottom_left">Bottom Left</option>
+          <option value="bottom_right">Bottom Right</option>
+        </select>
+      </div>
+
+      <p class="info-text">
+        QR codes are 512x512 pixels, so positioning only works if your image is larger than that.<br/>
+        QR codes only work with SD 1.5 and SDXL models.
+      </p>
     </div>
   </div>
 </template>
@@ -107,5 +143,76 @@ const { form } = inject(GeneratorFormKey)
 
 .toggle-switch input:checked + .toggle-slider:before {
   transform: translateX(20px);
+}
+
+.qr-code-controls {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-tertiary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.text-input {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--color-border);
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.text-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--color-border);
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.info-text {
+  margin: 0.5rem 0 0 0;
+  padding: 0 1rem;
+  color: var(--color-text-tertiary);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: center;
 }
 </style>
