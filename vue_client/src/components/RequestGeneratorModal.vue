@@ -822,9 +822,30 @@ export default {
     // Handler for when inline style picker loads styles
     const onStylesLoaded = (styles) => {
       allStyles.value = styles
-      // If in Simple mode and no style selected, select the default
-      if (editorMode.value === 'simple' && !selectedStyleName.value) {
-        selectDefaultStyle()
+      // If in Simple mode and no style selected, try to restore saved style first
+      if (editorMode.value === 'simple' && !selectedStyleName.value && !props.initialSettings) {
+        const savedStyle = localStorage.getItem('selectedStyle')
+        if (savedStyle) {
+          try {
+            const style = JSON.parse(savedStyle)
+            // Find the matching style in the loaded styles to ensure it still exists
+            const matchingStyle = styles.find(s => s.name === style.name)
+            if (matchingStyle) {
+              selectedStyleName.value = matchingStyle.name
+              selectedStyleData.value = matchingStyle
+            } else {
+              // Saved style no longer exists, clear it and use default
+              localStorage.removeItem('selectedStyle')
+              selectDefaultStyle()
+            }
+          } catch (e) {
+            console.error('Error parsing saved style:', e)
+            localStorage.removeItem('selectedStyle')
+            selectDefaultStyle()
+          }
+        } else {
+          selectDefaultStyle()
+        }
       }
     }
 
