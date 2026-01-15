@@ -188,14 +188,21 @@ export function useGeneratorPersistence(generatorForm) {
     }
 
     // Load img2img settings
-    if (settings.source_image_id) {
+    if (settings.source_image) {
+      // Direct base64 string from full_request (e.g., from "Repeat" button)
+      const preview = base64ToPreviewUrl(settings.source_image)
+      const newImageId = crypto.randomUUID()
+      setSourceImageFromData(settings.source_image, preview, newImageId)
+      console.log('[Persistence] Restored source image from base64')
+    } else if (settings.source_image_id) {
+      // Reference to IndexedDB (e.g., from lastUsedSettings)
       try {
         const blob = await getSourceImage(settings.source_image_id)
         if (blob) {
           const base64 = await blobToBase64(blob)
           const preview = base64ToPreviewUrl(base64)
           setSourceImageFromData(base64, preview, settings.source_image_id)
-          console.log('[Persistence] Restored source image:', settings.source_image_id)
+          console.log('[Persistence] Restored source image from IndexedDB:', settings.source_image_id)
         } else {
           console.warn('[Persistence] Source image not found in IndexedDB:', settings.source_image_id)
           // Reset img2img fields since image is missing
