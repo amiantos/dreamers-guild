@@ -36,20 +36,33 @@ export function openDatabase() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
-    request.onerror = () => {
+    request.onerror = (event) => {
+      console.error('[DB] Failed to open database:', event.target.error)
       reject(new Error('Failed to open database'))
     }
 
     request.onsuccess = (event) => {
       dbInstance = event.target.result
+      // Handle database connection closing unexpectedly
+      dbInstance.onversionchange = () => {
+        dbInstance.close()
+        dbInstance = null
+        console.log('[DB] Database version changed, connection closed')
+      }
       resolve(dbInstance)
     }
 
+    request.onblocked = () => {
+      console.warn('[DB] Database upgrade blocked - please close other tabs')
+    }
+
     request.onupgradeneeded = (event) => {
+      console.log('[DB] Upgrading database from version', event.oldVersion, 'to', event.newVersion)
       const db = event.target.result
 
       for (const [storeName, config] of Object.entries(DB_SCHEMA)) {
         if (!db.objectStoreNames.contains(storeName)) {
+          console.log('[DB] Creating object store:', storeName)
           const store = db.createObjectStore(storeName, { keyPath: config.keyPath })
 
           if (config.indexes) {
