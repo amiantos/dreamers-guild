@@ -569,7 +569,12 @@ export default {
     const formattedRequest = computed(() => {
       if (!props.image.full_request) return ''
       try {
-        return JSON.stringify(JSON.parse(props.image.full_request), null, 2)
+        const parsed = JSON.parse(props.image.full_request)
+        // Truncate source_image since it's a large base64 string
+        if (parsed.source_image) {
+          parsed.source_image = '[truncated]'
+        }
+        return JSON.stringify(parsed, null, 2)
       } catch (e) {
         return props.image.full_request
       }
