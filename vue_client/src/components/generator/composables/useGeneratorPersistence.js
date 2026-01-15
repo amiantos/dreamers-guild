@@ -3,6 +3,8 @@ import { storeToRefs } from 'pinia'
 import { settingsApi, albumsApi } from '@api'
 import { useAuthStore } from '../../../stores/authStore.js'
 import { splitPrompt } from '../../../utils/promptUtils.js'
+import { getSourceImage } from '../../../api/demo/db.js'
+import { blobToBase64, base64ToPreviewUrl } from '../../../utils/imageProcessing.js'
 
 /**
  * Determine QR code position from x/y offsets and dimensions.
@@ -42,7 +44,8 @@ export function useGeneratorPersistence(generatorForm) {
     selectedAlbumId,
     albums,
     enrichLoras,
-    enrichTis
+    enrichTis,
+    setSourceImageFromData
   } = generatorForm
 
   // Auth store for album loading
@@ -182,6 +185,53 @@ export function useGeneratorPersistence(generatorForm) {
       form.qrCodeEnabled = false
       form.qrCodeText = ''
       form.qrCodePosition = 'center'
+    }
+
+    // Load img2img settings
+    if (settings.source_image_id) {
+      try {
+        const blob = await getSourceImage(settings.source_image_id)
+        if (blob) {
+          const base64 = await blobToBase64(blob)
+          const preview = base64ToPreviewUrl(base64)
+          setSourceImageFromData(base64, preview, settings.source_image_id)
+          console.log('[Persistence] Restored source image:', settings.source_image_id)
+        } else {
+          console.warn('[Persistence] Source image not found in IndexedDB:', settings.source_image_id)
+          // Reset img2img fields since image is missing
+          form.sourceImage = null
+          form.sourceImagePreview = null
+          form.sourceImageId = null
+        }
+      } catch (error) {
+        console.warn('[Persistence] Could not restore source image:', error)
+        // Reset img2img fields on error
+        form.sourceImage = null
+        form.sourceImagePreview = null
+        form.sourceImageId = null
+      }
+    } else {
+      // No source image - reset img2img fields
+      form.sourceImage = null
+      form.sourceImagePreview = null
+      form.sourceImageId = null
+    }
+
+    // Restore img2img params (these are stored even if image couldn't be restored)
+    if (settings.params?.denoising_strength !== undefined) {
+      form.denoisingStrength = settings.params.denoising_strength
+    } else {
+      form.denoisingStrength = 0.75
+    }
+
+    if (settings.params?.control_type) {
+      form.controlType = settings.params.control_type
+      form.imageIsControl = settings.params.image_is_control || false
+      form.returnControlMap = settings.params.return_control_map || false
+    } else {
+      form.controlType = null
+      form.imageIsControl = false
+      form.returnControlMap = false
     }
 
     // Clear any selected style

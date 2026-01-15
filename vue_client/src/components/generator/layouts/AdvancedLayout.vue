@@ -39,6 +39,12 @@
       <PostProcessingSection />
     </div>
 
+    <!-- Image-to-Image Section -->
+    <h4 class="section-title">Image-to-Image</h4>
+    <div class="section-box img2img-section-box">
+      <ImageToImageSection />
+    </div>
+
     <!-- Advanced Options Section -->
     <h4 class="section-title">Advanced Options</h4>
     <div class="section-box advanced-options-section">
@@ -52,6 +58,7 @@ import PromptSection from '../sections/PromptSection.vue'
 import ImageCountSection from '../sections/ImageCountSection.vue'
 import AlbumSection from '../sections/AlbumSection.vue'
 import DimensionsSection from '../sections/DimensionsSection.vue'
+import ImageToImageSection from '../sections/ImageToImageSection.vue'
 import ModelSection from '../sections/ModelSection.vue'
 import GenerationSection from '../sections/GenerationSection.vue'
 import LorasSection from '../sections/LorasSection.vue'

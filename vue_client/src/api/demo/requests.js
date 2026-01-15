@@ -1,4 +1,5 @@
 import * as db from './db.js'
+import { saveSourceImage } from './db.js'
 import {
   submitGenerationRequest,
   checkGenerationStatus,
@@ -9,6 +10,7 @@ import {
   downloadImage
 } from './horde.js'
 import { validateRequestParams, validatePrompt, ValidationError } from '../shared/validation.js'
+import { base64ToBlob as convertBase64ToBlob } from '../../utils/imageProcessing.js'
 
 function generateUuid() {
   return crypto.randomUUID()
@@ -247,6 +249,20 @@ export const requestsApi = {
       const validationErrors = validateRequestParams(hordeRequestData)
       if (validationErrors.length > 0) {
         throw new ValidationError('Invalid request parameters', validationErrors)
+      }
+
+      // Store source image in IndexedDB if present (for img2img restoration)
+      // The source_image_id comes from the saved settings, not from hordeRequestData
+      const sourceImageId = data.source_image_id
+      if (sourceImageId && hordeRequestData.source_image) {
+        try {
+          const sourceBlob = convertBase64ToBlob(hordeRequestData.source_image)
+          await saveSourceImage(sourceImageId, sourceBlob)
+          console.log('[Demo] Saved source image with ID:', sourceImageId)
+        } catch (err) {
+          console.warn('[Demo] Failed to save source image:', err)
+          // Continue anyway - the request can still proceed
+        }
       }
 
       console.log('[Demo] Submitting generation request:', JSON.stringify(hordeRequestData, null, 2))

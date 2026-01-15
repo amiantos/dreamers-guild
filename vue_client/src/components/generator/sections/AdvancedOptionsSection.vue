@@ -63,10 +63,17 @@
 </template>
 
 <script setup>
-import { inject } from 'vue'
+import { inject, watch } from 'vue'
 import { GeneratorFormKey } from '../composables/useGeneratorForm.js'
 
-const { form } = inject(GeneratorFormKey)
+const { form, removeSourceImage } = inject(GeneratorFormKey)
+
+// When QR code is enabled, remove any source image (mutually exclusive)
+watch(() => form.qrCodeEnabled, (enabled) => {
+  if (enabled && form.sourceImage) {
+    removeSourceImage()
+  }
+})
 </script>
 
 <style scoped>

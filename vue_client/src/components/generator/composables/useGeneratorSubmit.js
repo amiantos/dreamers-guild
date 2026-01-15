@@ -5,6 +5,8 @@ import { useKudosEstimation } from '../../../composables/useKudosEstimation.js'
 import { useSettingsStore } from '../../../stores/settingsStore.js'
 import { useLoraRecent } from '../../../composables/useLoraCache'
 import { useTextualInversionRecent } from '../../../composables/useTextualInversionCache'
+import { saveSourceImage } from '../../../api/demo/db.js'
+import { base64ToBlob } from '../../../utils/imageProcessing.js'
 
 /**
  * Calculate QR code x/y offsets based on position and image dimensions.
@@ -182,6 +184,17 @@ export function useGeneratorSubmit(generatorForm, persistence) {
       settings.qrCodePosition = form.qrCodePosition
     }
 
+    // Save img2img settings (but NOT the base64 image - that's stored separately in IndexedDB)
+    if (form.sourceImage && form.sourceImageId) {
+      settings.source_image_id = form.sourceImageId
+      settings.params.denoising_strength = form.denoisingStrength
+      if (form.controlType) {
+        settings.params.control_type = form.controlType
+        settings.params.image_is_control = form.imageIsControl
+        settings.params.return_control_map = form.returnControlMap
+      }
+    }
+
     return settings
   }
 
@@ -324,6 +337,20 @@ export function useGeneratorSubmit(generatorForm, persistence) {
       params.params.extra_texts = extraTexts
     }
 
+    // Add img2img parameters if source image is present
+    if (form.sourceImage) {
+      params.source_image = form.sourceImage
+      params.source_processing = 'img2img'
+      params.params.denoising_strength = form.denoisingStrength
+
+      // Add ControlNet parameters if selected
+      if (form.controlType) {
+        params.params.control_type = form.controlType
+        params.params.image_is_control = form.imageIsControl
+        params.params.return_control_map = form.returnControlMap
+      }
+    }
+
     return params
   }
 
@@ -364,8 +391,19 @@ export function useGeneratorSubmit(generatorForm, persistence) {
       await requestsApi.create({
         prompt: form.prompt,
         params,
-        albumId: selectedAlbumId.value || null
+        albumId: selectedAlbumId.value || null,
+        source_image_id: form.sourceImageId || null
       })
+
+      // Save source image to IndexedDB for restoration (if present)
+      if (form.sourceImage && form.sourceImageId) {
+        try {
+          const sourceBlob = base64ToBlob(form.sourceImage)
+          await saveSourceImage(form.sourceImageId, sourceBlob)
+        } catch (err) {
+          console.warn('Failed to save source image for restoration:', err)
+        }
+      }
 
       // Save raw form settings for next time
       await saveLastUsedSettings(rawSettingsToSave)
@@ -427,7 +465,13 @@ export function useGeneratorSubmit(generatorForm, persistence) {
         form.stripBackground,
         form.qrCodeEnabled,
         form.qrCodeText,
-        form.qrCodePosition
+        form.qrCodePosition,
+        // Image-to-Image fields
+        form.sourceImage,
+        form.denoisingStrength,
+        form.controlType,
+        form.imageIsControl,
+        form.returnControlMap
       ],
       () => {
         if (form.model) {
