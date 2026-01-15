@@ -1,5 +1,5 @@
 const DB_NAME = 'dreamers-guild-demo'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 let dbInstance = null
 
@@ -22,6 +22,9 @@ const DB_SCHEMA = {
   },
   imageBlobs: {
     keyPath: 'uuid'
+  },
+  sourceImages: {
+    keyPath: 'id'
   }
 }
 
@@ -236,4 +239,35 @@ export async function getStorageEstimate() {
     }
   }
   return { usage: 0, quota: 0, usagePercent: 0 }
+}
+
+// Source image storage helpers for img2img
+
+/**
+ * Save a source image blob to IndexedDB.
+ * @param {string} id - Unique identifier for the source image
+ * @param {Blob} blob - The image blob to store
+ * @returns {Promise<void>}
+ */
+export async function saveSourceImage(id, blob) {
+  await put('sourceImages', { id, blob, date_created: new Date().toISOString() })
+}
+
+/**
+ * Retrieve a source image blob from IndexedDB.
+ * @param {string} id - Unique identifier for the source image
+ * @returns {Promise<Blob|null>} - The stored blob or null if not found
+ */
+export async function getSourceImage(id) {
+  const record = await get('sourceImages', id)
+  return record ? record.blob : null
+}
+
+/**
+ * Delete a source image from IndexedDB.
+ * @param {string} id - Unique identifier for the source image
+ * @returns {Promise<void>}
+ */
+export async function deleteSourceImage(id) {
+  await remove('sourceImages', id)
 }

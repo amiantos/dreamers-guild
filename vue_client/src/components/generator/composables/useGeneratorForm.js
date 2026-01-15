@@ -4,6 +4,7 @@ import { splitPrompt, replaceNegativePlaceholder } from '../../../utils/promptUt
 import { getLoraByVersionId, getTiById, getTiByVersionId } from '../../../api/civitai'
 import { SavedLora } from '../../../models/Lora'
 import { SavedTextualInversion } from '../../../models/TextualInversion'
+import { processImageForUpload, isValidImageType, isValidImageSize } from '../../../utils/imageProcessing.js'
 
 // Injection key for child components to access form state
 export const GeneratorFormKey = Symbol('GeneratorForm')
@@ -69,7 +70,15 @@ export function useGeneratorForm() {
     tis: [],
     qrCodeEnabled: false,
     qrCodeText: '',
-    qrCodePosition: 'center'
+    qrCodePosition: 'center',
+    // Image-to-Image fields
+    sourceImage: null,
+    sourceImagePreview: null,
+    sourceImageId: null,
+    denoisingStrength: 0.75,
+    controlType: null,
+    imageIsControl: false,
+    returnControlMap: false
   })
 
   // === Computed Properties ===
@@ -452,6 +461,73 @@ export function useGeneratorForm() {
     Object.assign(form, { ...baseDefaults })
     form.loras = []
     form.tis = []
+    // Reset img2img fields
+    form.sourceImage = null
+    form.sourceImagePreview = null
+    form.sourceImageId = null
+    form.denoisingStrength = 0.75
+    form.controlType = null
+    form.imageIsControl = false
+    form.returnControlMap = false
+  }
+
+  // === Image-to-Image Methods ===
+
+  /**
+   * Process and set the source image for img2img.
+   * @param {File} file - Image file to process
+   * @returns {Promise<boolean>} - True if successful, false if validation failed
+   */
+  const processAndSetSourceImage = async (file) => {
+    // Validate file type
+    if (!isValidImageType(file)) {
+      console.error('Invalid image type')
+      return false
+    }
+
+    // Validate file size
+    if (!isValidImageSize(file)) {
+      console.error('Image too large (max 10MB)')
+      return false
+    }
+
+    try {
+      // Process image - resize to current generation width
+      const { base64, preview } = await processImageForUpload(file, form.width)
+      form.sourceImage = base64
+      form.sourceImagePreview = preview
+      // Generate a new UUID for this source image
+      form.sourceImageId = crypto.randomUUID()
+      return true
+    } catch (error) {
+      console.error('Error processing image:', error)
+      return false
+    }
+  }
+
+  /**
+   * Remove the source image and reset img2img settings.
+   */
+  const removeSourceImage = () => {
+    form.sourceImage = null
+    form.sourceImagePreview = null
+    form.sourceImageId = null
+    form.controlType = null
+    form.imageIsControl = false
+    form.returnControlMap = false
+    // Keep denoisingStrength at current value for next upload
+  }
+
+  /**
+   * Set source image directly from base64 and preview (used for restoration).
+   * @param {string} base64 - Base64 encoded image string
+   * @param {string} preview - Data URL for preview display
+   * @param {string} imageId - The source image ID from IndexedDB
+   */
+  const setSourceImageFromData = (base64, preview, imageId) => {
+    form.sourceImage = base64
+    form.sourceImagePreview = preview
+    form.sourceImageId = imageId
   }
 
   // === UI Helpers ===
@@ -547,6 +623,11 @@ export function useGeneratorForm() {
 
     // Form methods
     resetFormToDefaults,
+
+    // Image-to-Image methods
+    processAndSetSourceImage,
+    removeSourceImage,
+    setSourceImageFromData,
 
     // UI helpers
     getSliderBackground,

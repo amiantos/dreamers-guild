@@ -94,5 +94,13 @@ export const baseDefaults = {
   tis: [],
   qrCodeEnabled: false,
   qrCodeText: '',
-  qrCodePosition: 'center'
+  qrCodePosition: 'center',
+  // Image-to-Image defaults
+  sourceImage: null,
+  sourceImagePreview: null,
+  sourceImageId: null,
+  denoisingStrength: 0.75,
+  controlType: null,
+  imageIsControl: false,
+  returnControlMap: false
 }
