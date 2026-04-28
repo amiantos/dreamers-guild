@@ -11,9 +11,9 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8005
-      # Optional: Uncomment to enable HTTP Basic Authentication
-      # - BASIC_AUTH_USERNAME=admin
-      # - BASIC_AUTH_PASSWORD=changeme
+      # HTTP Basic Auth credentials (set in .env, gitignored)
+      - BASIC_AUTH_USERNAME=${BASIC_AUTH_USERNAME}
+      - BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
     restart: unless-stopped
     networks:
       - proxy-network
