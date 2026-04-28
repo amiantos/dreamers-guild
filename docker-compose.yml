@@ -3,6 +3,7 @@ version: '3.8'
 services:
   dreamers-guild:
     build: .
+    container_name: dreamers-guild-server
     ports:
       - "8005:8005"
     volumes:
@@ -10,4 +11,13 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8005
+      # Optional: Uncomment to enable HTTP Basic Authentication
+      # - BASIC_AUTH_USERNAME=admin
+      # - BASIC_AUTH_PASSWORD=changeme
     restart: unless-stopped
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    external: true
